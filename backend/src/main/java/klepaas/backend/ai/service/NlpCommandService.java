@@ -98,15 +98,15 @@ public class NlpCommandService {
         commandLogRepository.save(commandLog);
 
         // LOW 리스크는 즉시 실행
-        String result = null;
+        Object result = null;
         if (!requiresConfirmation) {
             try {
                 result = actionDispatcher.dispatch(parsedIntent, userId);
-                commandLog.markExecuted(result);
+                commandLog.markExecuted(toJsonString(result));
             } catch (Exception e) {
                 log.error("명령 실행 실패: intent={}", parsedIntent.intent(), e);
                 commandLog.markFailed(e.getMessage());
-                result = "명령 실행 중 오류가 발생했습니다: " + e.getMessage();
+                result = null;
             }
         }
 
@@ -144,14 +144,14 @@ public class NlpCommandService {
 
         // 저장된 Intent 정보로 실행
         ParsedIntent parsedIntent = deserializeParsedIntent(commandLog);
-        String result;
+        Object result;
         try {
             result = actionDispatcher.dispatch(parsedIntent, userId);
-            commandLog.markExecuted(result);
+            commandLog.markExecuted(toJsonString(result));
         } catch (Exception e) {
             log.error("확인 명령 실행 실패: intent={}", commandLog.getInterpretedIntent(), e);
             commandLog.markFailed(e.getMessage());
-            result = "명령 실행 중 오류가 발생했습니다: " + e.getMessage();
+            result = null;
         }
 
         return new NlpCommandResponse(
@@ -184,6 +184,17 @@ public class NlpCommandService {
         } catch (JsonProcessingException e) {
             log.warn("Intent 인자 직렬화 실패", e);
             return "{}";
+        }
+    }
+
+    private String toJsonString(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof String s) return s;
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            log.warn("결과 직렬화 실패", e);
+            return obj.toString();
         }
     }
 

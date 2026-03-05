@@ -43,4 +43,10 @@ public class AuthController {
         String refreshToken = request.get("refresh_token");
         return ApiResponse.success(authService.refresh(refreshToken));
     }
+
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        authService.logout(userDetails.getUserId());
+        return ApiResponse.success(null);
+    }
 }

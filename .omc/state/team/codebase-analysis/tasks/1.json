@@ -1,0 +1,9 @@
+{
+  "id": "1",
+  "subject": "Backend AI 모듈 분석",
+  "description": "klepaas_v2 백엔드의 AI 관련 코드를 분석하라. 다음 파일들을 중점적으로 살펴봐라:\n- backend/src/main/java/klepaas/backend/ai/service/ (ActionDispatcher, IntentParser, NlpCommandService, KubectlService)\n- backend/src/main/java/klepaas/backend/ai/entity/ (CommandLog, Intent)\n- backend/src/main/java/klepaas/backend/ai/dto/ (NlpCommandResponse, FormattedResponseDto)\n- backend/src/main/resources/application.yaml\n- backend/src/main/resources/prompts/system-prompt.txt\n\n분석 결과를 다음 형식으로 출력하라:\n1. 현재 구현된 기능 요약\n2. 미완성이거나 TODO 항목\n3. 잠재적 버그 또는 개선 필요 사항\n4. 우선순위 높은 다음 작업 3가지",
+  "status": "pending",
+  "owner": null,
+  "result": null,
+  "createdAt": "2026-03-03T16:45:21.254Z"
+}

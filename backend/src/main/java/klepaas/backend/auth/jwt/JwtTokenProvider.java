@@ -5,7 +5,10 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import klepaas.backend.auth.dto.TokenResponse;
+import klepaas.backend.global.exception.ErrorCode;
+import klepaas.backend.global.exception.InvalidRequestException;
 import klepaas.backend.user.entity.Role;
+import klepaas.backend.user.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -73,6 +76,13 @@ public class JwtTokenProvider {
 
     public Role getRole(String token) {
         return Role.valueOf(getClaims(token).get("role", String.class));
+    }
+
+    public void validateRefreshToken(String token, User user) {
+        if (user.getRefreshToken() == null || !token.equals(user.getRefreshToken())) {
+            log.warn("Refresh token mismatch for userId={}", user.getId());
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "리프레시 토큰이 일치하지 않습니다");
+        }
     }
 
     private Claims getClaims(String token) {

@@ -426,12 +426,24 @@ class ApiClient {
           result: null,
         })
         if (cmd.execution_result || cmd.error_message) {
+          let parsedResult: any = null
+          let displayText = cmd.error_message || ''
+
+          if (cmd.execution_result) {
+            try {
+              parsedResult = JSON.parse(cmd.execution_result)
+              displayText = parsedResult?.message || ''
+            } catch {
+              displayText = cmd.execution_result
+            }
+          }
+
           messages.push({
             id: `${cmd.id}_response`,
             tool: 'assistant_message',
-            command_text: cmd.execution_result || cmd.error_message || '',
+            command_text: displayText,
             created_at: cmd.created_at,
-            result: null,
+            result: parsedResult,
           })
         }
       }

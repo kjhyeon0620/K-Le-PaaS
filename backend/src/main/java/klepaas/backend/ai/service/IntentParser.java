@@ -64,6 +64,15 @@ public class IntentParser {
             return trimmed;
         }
 
+        // 코드블록 닫힘 없이 잘린 경우: { ... } 범위 직접 추출
+        int jsonStart = text.indexOf('{');
+        if (jsonStart >= 0) {
+            int jsonEnd = text.lastIndexOf('}');
+            if (jsonEnd > jsonStart) {
+                return text.substring(jsonStart, jsonEnd + 1).trim();
+            }
+        }
+
         throw new AiProcessingException(ErrorCode.AI_PARSE_ERROR,
                 "AI 응답에서 JSON을 추출할 수 없습니다: " + text.substring(0, Math.min(text.length(), 100)));
     }

@@ -1,0 +1,9 @@
+{
+  "id": "2",
+  "subject": "Frontend Next.js 코드베이스 상세 분석",
+  "description": "K-Le-PaaS v2 프론트엔드 Next.js 앱의 실제 구현 상태를 분석해줘.\n\n분석 범위:\n1. frontend/app/ 하위 페이지 라우팅 구조\n2. frontend/components/ 하위 모든 컴포넌트 파일 목록과 역할\n3. frontend/lib/api.ts - 백엔드 API 클라이언트 함수들 전체 목록과 각 함수가 호출하는 엔드포인트\n4. frontend/lib/types/ - TypeScript 타입 정의 현황\n5. frontend/contexts/ - Context 상태 관리 현황\n6. frontend/hooks/ - 커스텀 훅 현황\n7. frontend/lib/api.ts에서 수정된 내용 (git status에서 modified)\n8. NLP 응답 렌더러 (nlp-response-renderers/) 구현 현황\n9. 설정 페이지 (settings/) 컴포넌트 구현 현황\n10. package.json 의존성 분석\n11. 백엔드 Java API와의 호환성 확인 (snake_case, 엔드포인트 경로 등)\n\n출력 형식: 마크다운으로 구조화해서 분석 결과를 정리해줘. 한국어로 작성해줘.",
+  "status": "pending",
+  "owner": null,
+  "result": null,
+  "createdAt": "2026-03-05T09:28:07.642Z"
+}

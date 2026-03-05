@@ -7,7 +7,7 @@ public record NlpCommandResponse(
         Long commandLogId,
         Intent intent,
         String message,
-        String result,
+        Object result,
         RiskLevel riskLevel,
         boolean requiresConfirmation,
         String sessionId
