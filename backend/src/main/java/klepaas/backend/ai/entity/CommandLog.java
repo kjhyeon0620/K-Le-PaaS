@@ -26,6 +26,7 @@ public class CommandLog extends BaseTimeEntity {
     private String rawCommand;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(50)")
     private Intent interpretedIntent;
 
     @Column(columnDefinition = "TEXT")

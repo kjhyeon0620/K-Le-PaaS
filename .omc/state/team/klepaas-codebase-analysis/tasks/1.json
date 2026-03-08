@@ -1,0 +1,9 @@
+{
+  "id": "1",
+  "subject": "Backend Java 코드베이스 상세 분석",
+  "description": "K-Le-PaaS v2 Java Spring Boot 백엔드의 실제 구현 상태를 분석해줘.\n\n분석 범위:\n1. backend/src/main/java/klepaas/backend/ 하위 전체 패키지 구조와 파일 목록\n2. 각 패키지별 구현된 클래스들의 역할과 완성도\n3. Entity, Repository, Service, Controller, DTO 각 레이어별 구현 현황\n4. AI/NLP 모듈 (ai/ 패키지) 구현 상태 - 특히 git status에서 수정 중인 파일들: NlpCommandResponse.java, CommandLog.java, Intent.java, ActionDispatcher.java, IntentParser.java, NlpCommandService.java, application.yaml, system-prompt.txt\n5. 미구현이거나 스텁 상태인 클래스들 식별\n6. 신규 추가된 파일들: FormattedResponseDto.java, KubectlService.java\n7. build.gradle 의존성 분석\n8. application.yaml 설정 분석\n9. 테스트 코드 현황\n\n출력 형식: 마크다운으로 구조화해서 분석 결과를 정리해줘. 한국어로 작성해줘.",
+  "status": "pending",
+  "owner": null,
+  "result": null,
+  "createdAt": "2026-03-05T09:28:07.641Z"
+}

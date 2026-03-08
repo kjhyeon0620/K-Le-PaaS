@@ -1,0 +1,288 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1772702744663,
+  "projectRoot": "/home/kjh0620/klepaas_v2",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "backend": {
+      "path": "backend",
+      "purpose": null,
+      "fileCount": 11,
+      "lastAccessed": 1772702744656,
+      "keyFiles": [
+        "CONTRIBUTING.md",
+        "HELP.md",
+        "README.md",
+        "build.gradle",
+        "gradlew"
+      ]
+    },
+    "build": {
+      "path": "build",
+      "purpose": "Build output",
+      "fileCount": 0,
+      "lastAccessed": 1772702744658,
+      "keyFiles": []
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 2,
+      "lastAccessed": 1772702744659,
+      "keyFiles": [
+        "klepaas.mv.db",
+        "klepaas.trace.db"
+      ]
+    },
+    "frontend": {
+      "path": "frontend",
+      "purpose": null,
+      "fileCount": 15,
+      "lastAccessed": 1772702744660,
+      "keyFiles": [
+        "CONTRIBUTING.md",
+        "Dockerfile",
+        "README.md",
+        "components.json",
+        "next-env.d.ts"
+      ]
+    },
+    "gradle": {
+      "path": "gradle",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1772702744660,
+      "keyFiles": []
+    },
+    "frontend/app": {
+      "path": "frontend/app",
+      "purpose": "Application code",
+      "fileCount": 3,
+      "lastAccessed": 1772702744661,
+      "keyFiles": [
+        "globals.css",
+        "layout.tsx",
+        "page.tsx"
+      ]
+    },
+    "frontend/components": {
+      "path": "frontend/components",
+      "purpose": "UI components",
+      "fileCount": 19,
+      "lastAccessed": 1772702744662,
+      "keyFiles": [
+        "admin-login-form.tsx",
+        "command-detail-dialog.tsx",
+        "dashboard-overview.tsx"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "",
+      "accessCount": 6,
+      "lastAccessed": 1772720418891,
+      "type": "directory"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/deployment/service/DeploymentPipelineService.java",
+      "accessCount": 6,
+      "lastAccessed": 1772722253892,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/auth/jwt/JwtTokenProvider.java",
+      "accessCount": 4,
+      "lastAccessed": 1772722254694,
+      "type": "file"
+    },
+    {
+      "path": "backend/README.md",
+      "accessCount": 3,
+      "lastAccessed": 1772721302596,
+      "type": "file"
+    },
+    {
+      "path": "backend/claudedocs/project-direction.md",
+      "accessCount": 3,
+      "lastAccessed": 1772721322314,
+      "type": "file"
+    },
+    {
+      "path": "backend/claudedocs/codebase-analysis.md",
+      "accessCount": 2,
+      "lastAccessed": 1772720656835,
+      "type": "file"
+    },
+    {
+      "path": "backend/plan.md",
+      "accessCount": 2,
+      "lastAccessed": 1772720656933,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/auth/service/AuthService.java",
+      "accessCount": 2,
+      "lastAccessed": 1772722111629,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/global/service/NotificationService.java",
+      "accessCount": 2,
+      "lastAccessed": 1772722116053,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/resources/application.yaml",
+      "accessCount": 2,
+      "lastAccessed": 1772722116853,
+      "type": "file"
+    },
+    {
+      "path": "frontend/README.md",
+      "accessCount": 1,
+      "lastAccessed": 1772702855213,
+      "type": "file"
+    },
+    {
+      "path": "backend/.serena/memories/project-overview.md",
+      "accessCount": 1,
+      "lastAccessed": 1772702857132,
+      "type": "file"
+    },
+    {
+      "path": "settings.gradle",
+      "accessCount": 1,
+      "lastAccessed": 1772702857470,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/ai/service/NlpCommandService.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720458630,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/ai/service/ActionDispatcher.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720459158,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/ai/service/IntentParser.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720459481,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/ai/entity/Intent.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720465474,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/ai/service/KubectlService.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720466257,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/resources/prompts/system-prompt.txt",
+      "accessCount": 1,
+      "lastAccessed": 1772720466730,
+      "type": "file"
+    },
+    {
+      "path": "frontend/lib/api.ts",
+      "accessCount": 1,
+      "lastAccessed": 1772720506804,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/infra/service/NcpInfraService.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720513798,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/infra/kubernetes/KubernetesManifestGenerator.java",
+      "accessCount": 1,
+      "lastAccessed": 1772720515609,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1772721038016,
+      "type": "file"
+    },
+    {
+      "path": "docs/PROJECT_STATUS.md",
+      "accessCount": 1,
+      "lastAccessed": 1772721119460,
+      "type": "file"
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "accessCount": 1,
+      "lastAccessed": 1772721223146,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/global/service/SlackNotificationService.java",
+      "accessCount": 1,
+      "lastAccessed": 1772722107590,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/user/entity/User.java",
+      "accessCount": 1,
+      "lastAccessed": 1772722107978,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/auth/controller/AuthController.java",
+      "accessCount": 1,
+      "lastAccessed": 1772722112073,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/auth/config/SecurityConfig.java",
+      "accessCount": 1,
+      "lastAccessed": 1772722116477,
+      "type": "file"
+    },
+    {
+      "path": "backend/src/main/java/klepaas/backend/global/exception/InvalidRequestException.java",
+      "accessCount": 1,
+      "lastAccessed": 1772722197432,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

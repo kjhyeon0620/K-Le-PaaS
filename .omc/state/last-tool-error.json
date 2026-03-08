@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls /home/kjh0620/klepaas_v2/ && ls /home/kjh0620/klepaas_v2/frontend/docs/ 2>/dev/null && ls /home/kjh0620/klepaas_v2/backend/ 2>/dev/null\",\"description\":\"Check root and docs directory str...",
+  "error": "Exit code 2\nbackend\nbuild\ndata\nfrontend\ngradle\ngradlew\ngradlew.bat\nsettings.gradle\n\nbackend\nbuild\ndata\nfrontend\ngradle\ngradlew\ngradlew.bat\nsettings.gradle",
+  "timestamp": "2026-03-05T14:24:11.521Z",
+  "retry_count": 1
+}

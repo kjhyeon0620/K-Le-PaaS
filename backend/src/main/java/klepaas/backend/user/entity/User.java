@@ -30,6 +30,9 @@ public class User extends BaseTimeEntity {
     @Deprecated
     private String githubAccessToken;
 
+    @Column(length = 512)
+    private String refreshToken;
+
     @Builder
     public User(String email, String name, Role role, String providerId) {
         this.email = email;
@@ -41,5 +44,13 @@ public class User extends BaseTimeEntity {
     @Deprecated
     public void updateGithubAccessToken(String githubAccessToken) {
         this.githubAccessToken = githubAccessToken;
+    }
+
+    public void updateRefreshToken(String token) {
+        this.refreshToken = token;
+    }
+
+    public void revokeRefreshToken() {
+        this.refreshToken = null;
     }
 }

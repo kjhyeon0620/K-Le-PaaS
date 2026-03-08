@@ -54,9 +54,13 @@ public class AuthService {
                     return userRepository.save(newUser);
                 });
 
-        return jwtTokenProvider.createTokens(user.getId(), user.getEmail(), user.getRole());
+        TokenResponse jwtTokens = jwtTokenProvider.createTokens(user.getId(), user.getEmail(), user.getRole());
+        user.updateRefreshToken(jwtTokens.refreshToken());
+        userRepository.save(user);
+        return jwtTokens;
     }
 
+    @Transactional
     public TokenResponse refresh(String refreshToken) {
         if (!jwtTokenProvider.validateToken(refreshToken)) {
             throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "유효하지 않은 리프레시 토큰입니다");
@@ -66,7 +70,19 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
-        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole());
-        return new TokenResponse(newAccessToken, refreshToken);
+        jwtTokenProvider.validateRefreshToken(refreshToken, user);
+
+        TokenResponse jwtTokens = jwtTokenProvider.createTokens(user.getId(), user.getEmail(), user.getRole());
+        user.updateRefreshToken(jwtTokens.refreshToken());
+        userRepository.save(user);
+        return jwtTokens;
+    }
+
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+        user.revokeRefreshToken();
+        userRepository.save(user);
     }
 }
