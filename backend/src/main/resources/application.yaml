@@ -49,6 +49,8 @@ github:
     app-id: ${GITHUB_APP_ID}
     private-key: ${GITHUB_APP_PRIVATE_KEY}
     app-slug: ${GITHUB_APP_SLUG}
+  webhook:
+    secret: ${GITHUB_WEBHOOK_SECRET:}
 
 cloud:
   ncp:
