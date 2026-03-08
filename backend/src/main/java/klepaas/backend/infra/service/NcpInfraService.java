@@ -135,7 +135,9 @@ public class NcpInfraService implements CloudInfraProvider {
     public BuildResult triggerBuild(String storageKey, Deployment deployment) {
         SourceRepository repo = deployment.getSourceRepository();
         String imageName = repo.getOwner() + "-" + repo.getRepoName();
-        String imageUri = registryEndpoint + "/" + imageName + ":latest";
+        String commitHash = deployment.getCommitHash();
+        String shortSha = commitHash.length() >= 7 ? commitHash.substring(0, 7) : commitHash;
+        String imageUri = registryEndpoint + "/" + imageName + ":" + shortSha;
         String jobName = "klepaas-build-" + deployment.getId();
 
         try {

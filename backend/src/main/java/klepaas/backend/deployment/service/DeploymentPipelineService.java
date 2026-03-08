@@ -55,10 +55,10 @@ public class DeploymentPipelineService {
 
         try {
             // 1. 소스 업로드
-            String storageKey = executeUpload(deploymentId);
+            String storageKey = stepService.executeUpload(deploymentId);
 
             // 2. 빌드 트리거
-            BuildResult buildResult = executeBuildTrigger(deploymentId, storageKey);
+            BuildResult buildResult = stepService.executeBuildTrigger(deploymentId, storageKey);
 
             // 3. 빌드 폴링
             BuildStatusResult statusResult = pollBuildStatus(deploymentId, buildResult);

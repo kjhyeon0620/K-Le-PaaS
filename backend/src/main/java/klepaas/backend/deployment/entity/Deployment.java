@@ -34,6 +34,7 @@ public class Deployment extends BaseTimeEntity {
     private String storageObjectKey;
 
     private String externalBuildId;
+    private String imageUri;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -76,6 +77,10 @@ public class Deployment extends BaseTimeEntity {
     public void markAsBuilding(String externalBuildId) {
         this.externalBuildId = externalBuildId;
         // 상태는 이미 BUILDING이거나 유지
+    }
+
+    public void setImageUri(String imageUri) {
+        this.imageUri = imageUri;
     }
 
     // 배포 성공

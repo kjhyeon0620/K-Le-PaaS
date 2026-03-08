@@ -2,8 +2,12 @@ package klepaas.backend.deployment.service;
 
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.Deployment;
+import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.ScalingHistory;
 import klepaas.backend.deployment.entity.SourceRepository;
+import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
+import klepaas.backend.deployment.repository.ScalingHistoryRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.global.exception.ErrorCode;
@@ -28,6 +32,8 @@ public class DeploymentService {
 
     private final DeploymentRepository deploymentRepository;
     private final SourceRepositoryRepository sourceRepositoryRepository;
+    private final DeploymentConfigRepository deploymentConfigRepository;
+    private final ScalingHistoryRepository scalingHistoryRepository;
     private final DeploymentPipelineService pipelineService;
     private final CloudInfraProviderFactory infraProviderFactory;
     private final KubernetesManifestGenerator k8sGenerator;
@@ -90,14 +96,39 @@ public class DeploymentService {
 
     @Transactional
     public void scaleDeployment(Long deploymentId, ScaleRequest request) {
+        scaleDeployment(deploymentId, request, "USER");
+    }
+
+    @Transactional
+    public void scaleDeployment(Long deploymentId, ScaleRequest request, String triggeredBy) {
         Deployment deployment = deploymentRepository.findById(deploymentId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+        DeploymentConfig deploymentConfig = deploymentConfigRepository
+                .findBySourceRepositoryId(deployment.getSourceRepository().getId())
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
         SourceRepository repo = deployment.getSourceRepository();
         String appName = repo.getOwner() + "-" + repo.getRepoName();
+        int previousReplicas = deploymentConfig.getMinReplicas();
+
         k8sGenerator.scale(appName, request.replicas());
 
-        log.info("Scale completed: deploymentId={}, replicas={}", deploymentId, request.replicas());
+        scalingHistoryRepository.save(
+                ScalingHistory.builder()
+                        .deployment(deployment)
+                        .previousReplicas(previousReplicas)
+                        .newReplicas(request.replicas())
+                        .triggeredBy(triggeredBy)
+                        .build()
+        );
+
+        log.info("Scale completed: deploymentId={}, previousReplicas={}, newReplicas={}, triggeredBy={}",
+                deploymentId, previousReplicas, request.replicas(), triggeredBy);
+    }
+
+    public Page<ScalingHistoryResponse> getScalingHistory(Long repositoryId, Pageable pageable) {
+        return scalingHistoryRepository.findByDeploymentSourceRepositoryIdOrderByCreatedAtDesc(repositoryId, pageable)
+                .map(ScalingHistoryResponse::from);
     }
 
     @Transactional
