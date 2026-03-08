@@ -1,26 +1,18 @@
 package klepaas.backend.deployment.service;
 
-import klepaas.backend.auth.service.GitHubInstallationTokenService;
 import klepaas.backend.deployment.entity.Deployment;
-import klepaas.backend.deployment.entity.DeploymentConfig;
-import klepaas.backend.deployment.entity.SourceRepository;
-import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
-import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.infra.CloudInfraProvider;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.dto.BuildResult;
 import klepaas.backend.infra.dto.BuildStatusResult;
-import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -28,11 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeploymentPipelineService {
 
     private final DeploymentRepository deploymentRepository;
-    private final SourceRepositoryRepository sourceRepositoryRepository;
-    private final DeploymentConfigRepository deploymentConfigRepository;
     private final CloudInfraProviderFactory infraProviderFactory;
-    private final KubernetesManifestGenerator k8sGenerator;
-    private final GitHubInstallationTokenService installationTokenService;
+    private final DeploymentPipelineStepService stepService;
 
     @Value("${deployment.pipeline.poll-initial-interval:10000}")
     private long pollInitialInterval;
@@ -53,67 +42,30 @@ public class DeploymentPipelineService {
 
         try {
             // 1. 소스 업로드
-            String storageKey = executeUpload(deploymentId);
+            String storageKey = stepService.executeUpload(deploymentId);
 
             // 2. 빌드 트리거
-            BuildResult buildResult = executeBuildTrigger(deploymentId, storageKey);
+            BuildResult buildResult = stepService.executeBuildTrigger(deploymentId, storageKey);
 
             // 3. 빌드 폴링
             BuildStatusResult statusResult = pollBuildStatus(deploymentId, buildResult);
 
             // 4. K8s 배포
-            executeK8sDeploy(deploymentId, statusResult.imageUri());
+            stepService.executeK8sDeploy(deploymentId, statusResult.imageUri());
 
             // 5. 성공 처리
-            markSuccess(deploymentId);
+            stepService.markSuccess(deploymentId);
             log.info("Pipeline completed successfully: deploymentId={}", deploymentId);
 
         } catch (Exception e) {
             log.error("Pipeline failed: deploymentId={}, error={}", deploymentId, e.getMessage(), e);
-            markFailed(deploymentId, e.getMessage());
+            stepService.markFailed(deploymentId, e.getMessage());
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected String executeUpload(Long deploymentId) {
-        Deployment deployment = getDeployment(deploymentId);
-        deployment.startUpload();
-        deploymentRepository.save(deployment);
-
-        SourceRepository repo = deployment.getSourceRepository();
-        String installationToken = installationTokenService.getInstallationToken(
-                repo.getOwner(), repo.getRepoName());
-
-        CloudInfraProvider provider = infraProviderFactory.getProvider(
-                repo.getCloudVendor());
-
-        String storageKey = provider.uploadSourceToStorage(installationToken, deployment);
-        deployment.markAsUploaded(storageKey);
-        deploymentRepository.save(deployment);
-
-        log.info("Upload completed: deploymentId={}, storageKey={}", deploymentId, storageKey);
-        return storageKey;
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected BuildResult executeBuildTrigger(Long deploymentId, String storageKey) {
-        Deployment deployment = getDeployment(deploymentId);
-        CloudInfraProvider provider = infraProviderFactory.getProvider(
-                deployment.getSourceRepository().getCloudVendor());
-
-        BuildResult buildResult = provider.triggerBuild(storageKey, deployment);
-        deployment.markAsBuilding(buildResult.externalBuildId());
-        deploymentRepository.save(deployment);
-
-        // SourceRepository에 projectId 캐싱 (triggerBuild에서 설정됨)
-        sourceRepositoryRepository.save(deployment.getSourceRepository());
-
-        log.info("Build triggered: deploymentId={}, buildId={}", deploymentId, buildResult.externalBuildId());
-        return buildResult;
-    }
-
     private BuildStatusResult pollBuildStatus(Long deploymentId, BuildResult buildResult) {
-        Deployment deployment = getDeployment(deploymentId);
+        Deployment deployment = deploymentRepository.findById(deploymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_NOT_FOUND));
         CloudInfraProvider provider = infraProviderFactory.getProvider(
                 deployment.getSourceRepository().getCloudVendor());
 
@@ -147,44 +99,5 @@ public class DeploymentPipelineService {
         }
 
         throw new BusinessException(ErrorCode.BUILD_TIMEOUT, "빌드 타임아웃: " + buildTimeout + "ms 초과");
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void executeK8sDeploy(Long deploymentId, String imageUri) {
-        Deployment deployment = getDeployment(deploymentId);
-        deployment.startDeploying();
-        deploymentRepository.save(deployment);
-
-        SourceRepository repo = deployment.getSourceRepository();
-        String appName = repo.getOwner() + "-" + repo.getRepoName();
-
-        DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repo.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
-
-        k8sGenerator.deploy(appName, imageUri, config, repo.getId());
-        log.info("K8s deploy completed: deploymentId={}, app={}", deploymentId, appName);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void markSuccess(Long deploymentId) {
-        Deployment deployment = getDeployment(deploymentId);
-        deployment.completeSuccess();
-        deploymentRepository.save(deployment);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void markFailed(Long deploymentId, String reason) {
-        try {
-            Deployment deployment = getDeployment(deploymentId);
-            deployment.fail(reason);
-            deploymentRepository.save(deployment);
-        } catch (Exception e) {
-            log.error("Failed to mark deployment as failed: deploymentId={}", deploymentId, e);
-        }
-    }
-
-    private Deployment getDeployment(Long deploymentId) {
-        return deploymentRepository.findById(deploymentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_NOT_FOUND));
     }
 }
