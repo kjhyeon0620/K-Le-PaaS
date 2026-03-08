@@ -92,8 +92,18 @@ class ApiClient {
   }
 
   async logout() {
-    // No logout endpoint in Java backend — just clear local storage client-side
-    return Promise.resolve({})
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      try {
+        await this.request('/api/v1/auth/logout', {
+          method: 'POST',
+        })
+      } catch (error) {
+        // 서버 로그아웃 실패해도 클라이언트 정리는 진행
+        console.warn('Server logout failed:', error)
+      }
+    }
+    return {}
   }
 
   async getCurrentUser() {
@@ -567,12 +577,38 @@ class ApiClient {
   }
 
   async getScalingHistory(owner: string, repo: string, limit: number = 20): Promise<ScalingHistoryResponse> {
-    return {
-      owner,
-      repo,
-      current_replicas: 1,
-      history: [],
-      total_count: 0,
+    try {
+      const repos = await this.request<any[]>('/api/v1/repositories')
+      const targetRepo = (repos || []).find(
+        (r: any) => r.owner === owner && r.repo_name === repo
+      )
+      if (!targetRepo) {
+        return { owner, repo, current_replicas: 1, history: [], total_count: 0 }
+      }
+
+      const page = await this.request<any>(
+        `/api/v1/repositories/${targetRepo.id}/scaling-history?size=${limit}`
+      )
+      const content: any[] = page?.content || []
+
+      const history = content.map((h: any) => ({
+        deployment_id: h.deployment_id,
+        replica_count: h.new_replicas,
+        deployed_at: h.created_at,
+        commit_sha_short: null,
+        commit_message: null,
+        status: 'completed',
+      }))
+
+      return {
+        owner,
+        repo,
+        current_replicas: content[0]?.new_replicas ?? 1,
+        history,
+        total_count: page?.total_elements ?? content.length,
+      }
+    } catch {
+      return { owner, repo, current_replicas: 1, history: [], total_count: 0 }
     }
   }
 

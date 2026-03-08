@@ -64,7 +64,10 @@ class GlobalWebSocketManager {
     }
 
     this._isConnecting = true
-    const wsUrl = `${config.api.wsUrl}/api/v1/ws/deployments`
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+    const wsUrl = token
+      ? `${config.api.wsUrl}/api/v1/ws/deployments?token=${encodeURIComponent(token)}`
+      : `${config.api.wsUrl}/api/v1/ws/deployments`
 
     try {
       this.ws = new WebSocket(wsUrl)
