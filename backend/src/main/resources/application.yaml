@@ -13,11 +13,22 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
     defer-datasource-initialization: true
   h2:
     console:
       enabled: false  # dev 프로파일에서만 활성화
+
+logging:
+  level:
+    root: INFO
+    klepaas.backend: DEBUG
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql: WARN
+    org.springframework.web: INFO
 
 app:
   version: 0.0.1-SNAPSHOT

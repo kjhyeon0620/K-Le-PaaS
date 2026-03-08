@@ -9,6 +9,7 @@ import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
+import klepaas.backend.global.service.NotificationService;
 import klepaas.backend.infra.CloudInfraProvider;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.dto.BuildResult;
@@ -33,6 +34,7 @@ public class DeploymentPipelineService {
     private final CloudInfraProviderFactory infraProviderFactory;
     private final KubernetesManifestGenerator k8sGenerator;
     private final GitHubInstallationTokenService installationTokenService;
+    private final NotificationService notificationService;
 
     @Value("${deployment.pipeline.poll-initial-interval:10000}")
     private long pollInitialInterval;
@@ -77,6 +79,7 @@ public class DeploymentPipelineService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     protected String executeUpload(Long deploymentId) {
         Deployment deployment = getDeployment(deploymentId);
+        notificationService.notifyDeploymentStarted(deployment);
         deployment.startUpload();
         deploymentRepository.save(deployment);
 
@@ -168,6 +171,7 @@ public class DeploymentPipelineService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     protected void markSuccess(Long deploymentId) {
         Deployment deployment = getDeployment(deploymentId);
+        notificationService.notifyDeploymentSuccess(deployment);
         deployment.completeSuccess();
         deploymentRepository.save(deployment);
     }
@@ -176,6 +180,7 @@ public class DeploymentPipelineService {
     protected void markFailed(Long deploymentId, String reason) {
         try {
             Deployment deployment = getDeployment(deploymentId);
+            notificationService.notifyDeploymentFailed(deployment, reason);
             deployment.fail(reason);
             deploymentRepository.save(deployment);
         } catch (Exception e) {

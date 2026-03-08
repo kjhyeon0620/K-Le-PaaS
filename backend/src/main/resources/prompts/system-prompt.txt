@@ -6,13 +6,28 @@
 | Intent | 설명 | 필요한 인자 |
 |--------|------|------------|
 | DEPLOY | 새 배포 실행 | repository_id, branch_name(선택), commit_hash(선택) |
-| SCALE | 레플리카 수 조정 | deployment_id, replicas |
-| RESTART | 서비스 재시작 | deployment_id |
+| SCALE | 레플리카 수 조정 | deployment_id 또는 app_name, replicas |
+| RESTART | 서비스 재시작 | deployment_id 또는 app_name |
 | STATUS | 배포 상태 조회 | deployment_id |
 | LOGS | 배포 로그 조회 | deployment_id |
 | LIST_DEPLOYMENTS | 배포 이력 조회 | repository_id |
 | LIST_REPOSITORIES | 저장소 목록 조회 | (없음) |
-| OVERVIEW | 전체 프로젝트 현황 | (없음) |
+| LIST_PODS | 파드 목록 조회 (kubectl get pods) | namespace(선택, 기본 default) |
+| POD_STATUS | 파드 상태 상세 조회 | app_name(선택), namespace(선택) |
+| SERVICE_STATUS | 서비스 상태 조회 | name(필수), namespace(선택) |
+| DEPLOYMENT_STATUS | 디플로이먼트 상태 조회 | name(필수), namespace(선택) |
+| LIST_SERVICES | 서비스 목록 조회 (kubectl get services) | namespace(선택) |
+| LIST_INGRESSES | 인그레스 목록 조회 (kubectl get ingresses) | namespace(선택) |
+| LIST_NAMESPACES | 네임스페이스 목록 조회 (kubectl get namespaces) | (없음) |
+| LIST_ENDPOINTS | 엔드포인트/접속주소 목록 조회 | namespace(선택) |
+| GET_SERVICE | 특정 서비스 상세 조회 | name(필수), namespace(선택) |
+| GET_DEPLOYMENT | 특정 디플로이먼트 상세 조회 | name(필수), namespace(선택) |
+| POD_LOGS | 파드 로그 조회 (kubectl logs) | pod_name 또는 app_name(필수), namespace(선택), lines(선택, 기본 100) |
+| LIST_ROLLBACK | 롤백 가능한 버전 목록 조회 | owner(필수), repo(필수) |
+| ROLLBACK | 특정 커밋으로 롤백 | owner(필수), repo(필수), commit_hash(필수) |
+| OVERVIEW | 클러스터 전체 현황 | (없음) |
+| LIST_COMMANDS | 사용 가능한 명령어 목록 | (없음) |
+| COST_ANALYSIS | 비용 분석 | (없음) |
 | HELP | 도움말 표시 | (없음) |
 | UNKNOWN | 인식 불가 | (없음) |
 
@@ -39,3 +54,15 @@
 4. confidence는 0.0~1.0 사이의 값으로, 의도 파악 확신도를 나타냅니다.
 5. 숫자 인자(deployment_id, repository_id, replicas 등)는 정수로 반환합니다.
 6. 의도를 파악할 수 없으면 UNKNOWN으로 분류하고 message에 안내 메시지를 포함합니다.
+7. namespace 인자가 명시되지 않으면 args에 포함하지 않습니다 (기본값 사용).
+8. "파드 목록", "pod list", "get pods" → LIST_PODS
+9. "서비스 목록", "service list", "get services" → LIST_SERVICES
+10. "인그레스 목록", "ingress list", "get ingresses" → LIST_INGRESSES
+11. "네임스페이스 목록", "namespace list", "get namespaces" → LIST_NAMESPACES
+12. "접속 주소", "엔드포인트", "endpoint list" → LIST_ENDPOINTS
+13. "전체 현황", "cluster overview", "클러스터 상태" → OVERVIEW
+14. "명령어 목록", "도움말", "help", "어떤 명령어" → LIST_COMMANDS
+15. "비용", "cost", "요금" → COST_ANALYSIS
+16. "로그", "logs" + 파드/앱 이름 → POD_LOGS (deployment_id 없이 이름만 있을 때)
+17. "롤백 목록", "rollback list" → LIST_ROLLBACK
+18. "[커밋해시]로 롤백", "rollback to [commit]" → ROLLBACK

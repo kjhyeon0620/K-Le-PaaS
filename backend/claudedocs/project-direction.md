@@ -1,9 +1,13 @@
 # K-Le-PaaS v2 Java Backend - 프로젝트 방향 정의서
 
 > 작성일: 2026-02-10
-> 최종 수정: 2026-02-20 (feat/#15-ncp-infra 완료, 전 Phase 구현 완료)
-> 브랜치: feat/#15-ncp-infra
+> 최종 수정: 2026-03-05 (Phase 1~5 완료, 문서 정비)
+> 브랜치: main
 > 기반: 기존 Python(FastAPI) 코드베이스 분석 + 현재 Java 구현 상태
+
+> **관련 문서**
+> - [프로젝트 진행 현황 (구현 완료/미완성)](../../docs/PROJECT_STATUS.md)
+> - [Phase 6+ 로드맵](../../docs/ROADMAP.md)
 
 ---
 
