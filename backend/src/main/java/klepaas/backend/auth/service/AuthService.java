@@ -25,16 +25,16 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
 
-    public String getOAuthUrl(String provider) {
+    public String getOAuthUrl(String provider, String redirectUri) {
         if (!"github".equalsIgnoreCase(provider)) {
             throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 프로바이더: " + provider);
         }
-        return gitHubOAuthClient.getAuthorizationUrl();
+        return gitHubOAuthClient.getAuthorizationUrl(redirectUri);
     }
 
     @Transactional
-    public TokenResponse login(String code) {
-        GitHubTokenResponse tokenResponse = gitHubOAuthClient.exchangeCode(code);
+    public TokenResponse login(String code, String redirectUri) {
+        GitHubTokenResponse tokenResponse = gitHubOAuthClient.exchangeCode(code, redirectUri);
         if (tokenResponse == null || tokenResponse.accessToken() == null) {
             throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "GitHub 인증 코드가 유효하지 않습니다");
         }

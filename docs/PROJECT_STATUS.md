@@ -102,3 +102,15 @@ GitOps/Webhook  ░░░░░░░░░░   0%
 | Pull Request 목록 | `api.ts:getPullRequests()` | stub |
 | MCP 커넥터 | `MCPConnectorsSection.tsx` | stub |
 | 배포 로그 다이얼로그 | `api.ts:getDeploymentLogs()` | stub |
+
+---
+
+## 신규 기획 메모
+
+### CLI 제어면 도입 검토
+
+- 상태: 방향 확정, 구현 전
+- 문서: [`docs/CLI_STRATEGY.md`](CLI_STRATEGY.md)
+- 정의: 웹 콘솔을 대체하지 않고, 운영/자동화/비용 가드레일을 담당하는 보조 인터페이스
+- 우선 범위: `auth`, `ask`, `confirm`, `history`, `deployments`, `cost plan/check`
+- 비용 방향: billing 조회형보다 배포 전 추정형 FinOps 우선

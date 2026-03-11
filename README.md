@@ -178,6 +178,8 @@ npm run dev
 |------|------|
 | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | 현재 구현 완성도, 미구현 사항 목록 |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase 6+ 로드맵 및 개선 아이디어 |
+| [`docs/CLI_STRATEGY.md`](docs/CLI_STRATEGY.md) | CLI 도입 목적, 우선순위, 비용 기능 방향, 문서 작업 체크리스트 |
+| [`docs/CLI_REFERENCE.md`](docs/CLI_REFERENCE.md) | CLI 실행 방법, 명령어, 비용 spec 예시, 종료 코드 |
 | [`backend/claudedocs/project-direction.md`](backend/claudedocs/project-direction.md) | 아키텍처 결정 사항 상세 문서 |
 | [`frontend/README.md`](frontend/README.md) | 프론트엔드 구조 및 개발 가이드 |
 

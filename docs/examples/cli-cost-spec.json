@@ -1,0 +1,23 @@
+{
+  "planned": {
+    "cloudVendor": "NCP",
+    "environment": "dev",
+    "replicas": 2,
+    "cpuMillicores": 1000,
+    "memoryMb": 2048,
+    "storageGb": 20,
+    "loadBalancer": true,
+    "outboundTrafficGb": 120
+  },
+  "current": {
+    "cloudVendor": "NCP",
+    "environment": "dev",
+    "replicas": 1,
+    "cpuMillicores": 500,
+    "memoryMb": 1024,
+    "storageGb": 10,
+    "loadBalancer": false,
+    "outboundTrafficGb": 40
+  },
+  "monthlyBudgetLimit": 120000
+}

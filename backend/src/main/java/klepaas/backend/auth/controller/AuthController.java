@@ -23,14 +23,16 @@ public class AuthController {
     private final UserService userService;
 
     @GetMapping("/oauth2/url/{provider}")
-    public ApiResponse<Map<String, String>> getOAuthUrl(@PathVariable String provider) {
-        String url = authService.getOAuthUrl(provider);
+    public ApiResponse<Map<String, String>> getOAuthUrl(
+            @PathVariable String provider,
+            @RequestParam(required = false) String redirectUri) {
+        String url = authService.getOAuthUrl(provider, redirectUri);
         return ApiResponse.success(Map.of("url", url));
     }
 
     @PostMapping("/oauth2/login")
     public ApiResponse<TokenResponse> login(@Valid @RequestBody OAuthLoginRequest request) {
-        return ApiResponse.success(authService.login(request.code()));
+        return ApiResponse.success(authService.login(request.code(), request.redirectUri()));
     }
 
     @GetMapping("/me")

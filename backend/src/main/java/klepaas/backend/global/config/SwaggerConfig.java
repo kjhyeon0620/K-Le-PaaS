@@ -15,10 +15,14 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerConfig {
 
     @Bean
-    public ModelResolver modelResolver() {
+    public ObjectMapper objectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
-        // Swagger 문서의 DTO 필드명을 snake_case로 표시하도록 설정
         objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        return objectMapper;
+    }
+
+    @Bean
+    public ModelResolver modelResolver(ObjectMapper objectMapper) {
         return new ModelResolver(objectMapper);
     }
 
