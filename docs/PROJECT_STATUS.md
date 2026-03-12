@@ -74,6 +74,7 @@ CLI 제어면      ████████░░  80%
 ### CLI / 인증 확장
 - [x] `frontend/cli/` 기반 Node CLI 런타임 추가
 - [x] `auth`, `ask`, `confirm`, `history`, `deployments`, `cost` 명령 구현
+- [x] `doctor`, 환경변수 인증, `deployments wait`, `deployments export` 추가
 - [x] `--json`, `--quiet`, 종료 코드 표준화
 - [x] 비용 추정 API (`/api/v1/cost/*`) 추가
 - [x] 웹 설정 페이지에서 `CLI Tokens` 발급/조회/폐기 UI 추가
@@ -122,6 +123,7 @@ CLI 제어면      ████████░░  80%
 - 상태: 1차 MVP 구현 완료
 - 문서: [`docs/CLI_STRATEGY.md`](CLI_STRATEGY.md)
 - 정의: 웹 콘솔을 대체하지 않고, 운영/자동화/비용 가드레일을 담당하는 보조 인터페이스
-- 구현 범위: `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`
+- 구현 범위: `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor`
 - 인증 방식: 사람용 `auth login --web`, 머신용 `auth login --token`
+- 자동화 편의: `KLEPAAS_BASE_URL`, `KLEPAAS_TOKEN`, `KLEPAAS_REFRESH_TOKEN`
 - 비용 방향: billing 조회형보다 배포 전 추정형 FinOps 우선

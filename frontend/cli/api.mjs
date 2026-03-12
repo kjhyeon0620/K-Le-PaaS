@@ -1,4 +1,11 @@
-import { DEFAULT_BASE_URL, getProfile, loadConfig, saveConfig, upsertProfile } from "./config.mjs";
+import {
+  DEFAULT_BASE_URL,
+  getEnvironmentProfile,
+  getProfile,
+  loadConfig,
+  saveConfig,
+  upsertProfile,
+} from "./config.mjs";
 
 export class CliError extends Error {
   constructor(message, exitCode = 1, details = null) {
@@ -35,6 +42,14 @@ export class ApiClient {
     return this.request("/api/v1/auth/me");
   }
 
+  async getSystemHealth() {
+    return this.request("/api/v1/system/health", { auth: false });
+  }
+
+  async getSystemVersion() {
+    return this.request("/api/v1/system/version", { auth: false });
+  }
+
   async logout() {
     return this.request("/api/v1/auth/logout", { method: "POST" });
   }
@@ -68,6 +83,10 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${deploymentId}`);
   }
 
+  async getDeploymentStatus(deploymentId) {
+    return this.request(`/api/v1/deployments/${deploymentId}/status`);
+  }
+
   async restartDeployment(deploymentId) {
     return this.request(`/api/v1/deployments/${deploymentId}/restart`, {
       method: "POST",
@@ -79,6 +98,14 @@ export class ApiClient {
       method: "POST",
       body: { replicas },
     });
+  }
+
+  async getRepositories() {
+    return this.request("/api/v1/repositories");
+  }
+
+  async getRepositoryConfig(repositoryId) {
+    return this.request(`/api/v1/repositories/${repositoryId}/config`);
   }
 
   async costPlan(payload) {
@@ -121,8 +148,11 @@ export class ApiClient {
 
   async request(endpoint, { method = "GET", body, auth = true, retry = true } = {}) {
     const config = await loadConfig();
-    const { name, profile } = getProfile(config, this.profileName);
-    const baseUrl = this.baseUrlOverride || profile.baseUrl || DEFAULT_BASE_URL;
+    const runtime = getEnvironmentProfile();
+    const { name, profile } = getProfile(config, this.profileName, {
+      baseUrl: this.baseUrlOverride,
+    });
+    const baseUrl = profile.baseUrl || DEFAULT_BASE_URL;
     const headers = {
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
@@ -142,7 +172,7 @@ export class ApiClient {
       body: body ? JSON.stringify(toSnakeCase(body)) : undefined,
     });
 
-    if (response.status === 401 && auth && retry && profile.refreshToken) {
+    if (response.status === 401 && auth && retry && profile.refreshToken && !runtime.accessToken) {
       const refreshedProfile = await this.refreshProfile(baseUrl, config, name, profile.refreshToken);
       if (refreshedProfile.accessToken) {
         return this.request(endpoint, { method, body, auth, retry: false });
