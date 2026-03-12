@@ -5,6 +5,7 @@ import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.dto.TokenResponse;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
+import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.auth.service.AuthService;
 import klepaas.backend.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,8 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -46,6 +49,9 @@ class AuthControllerTest {
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockitoBean
+    private CliAccessTokenService cliAccessTokenService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
@@ -59,7 +65,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("GET /api/v1/auth/oauth2/url/github - OAuth URL 조회 (public)")
     void getOAuthUrl() throws Exception {
-        given(authService.getOAuthUrl("github"))
+        given(authService.getOAuthUrl("github", null, null))
                 .willReturn("https://github.com/login/oauth/authorize?client_id=test");
 
         mockMvc.perform(get("/api/v1/auth/oauth2/url/github"))
@@ -71,7 +77,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/v1/auth/oauth2/login - OAuth 로그인 성공 (public)")
     void login() throws Exception {
         var tokenResponse = new TokenResponse("access_token_123", "refresh_token_456");
-        given(authService.login("valid_code")).willReturn(tokenResponse);
+        given(authService.login(eq("valid_code"), any())).willReturn(tokenResponse);
 
         mockMvc.perform(post("/api/v1/auth/oauth2/login")
                         .contentType(MediaType.APPLICATION_JSON)

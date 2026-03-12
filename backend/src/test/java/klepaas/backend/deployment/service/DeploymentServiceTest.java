@@ -7,7 +7,9 @@ import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.entity.SourceRepository;
+import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
+import klepaas.backend.deployment.repository.ScalingHistoryRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.infra.CloudInfraProviderFactory;
@@ -22,7 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,6 +45,10 @@ class DeploymentServiceTest {
     private DeploymentRepository deploymentRepository;
     @Mock
     private SourceRepositoryRepository sourceRepositoryRepository;
+    @Mock
+    private DeploymentConfigRepository deploymentConfigRepository;
+    @Mock
+    private ScalingHistoryRepository scalingHistoryRepository;
     @Mock
     private DeploymentPipelineService pipelineService;
     @Mock
@@ -74,7 +82,7 @@ class DeploymentServiceTest {
         testDeployment = Deployment.builder()
                 .sourceRepository(testRepo)
                 .branchName("main")
-                .commitHash("abc123")
+                .commitHash("abc1234")
                 .build();
     }
 
@@ -85,22 +93,31 @@ class DeploymentServiceTest {
         @Test
         @DisplayName("성공: 배포 생성 후 비동기 파이프라인 실행")
         void success() {
-            var request = new CreateDeploymentRequest(1L, "main", "abc123");
+            var request = new CreateDeploymentRequest(1L, "main", "abc1234");
             given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
             given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-            DeploymentResponse response = deploymentService.createDeployment(request);
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                DeploymentResponse response = deploymentService.createDeployment(request);
 
-            assertThat(response.branchName()).isEqualTo("main");
-            assertThat(response.commitHash()).isEqualTo("abc123");
-            assertThat(response.status()).isEqualTo(DeploymentStatus.PENDING);
+                assertThat(response.branchName()).isEqualTo("main");
+                assertThat(response.commitHash()).isEqualTo("abc1234");
+                assertThat(response.status()).isEqualTo(DeploymentStatus.PENDING);
+
+                TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+
             verify(pipelineService).executePipeline(any());
         }
 
         @Test
         @DisplayName("실패: 존재하지 않는 레포지토리")
         void failRepositoryNotFound() {
-            var request = new CreateDeploymentRequest(999L, "main", "abc123");
+            var request = new CreateDeploymentRequest(999L, "main", "abc1234");
             given(sourceRepositoryRepository.findById(999L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> deploymentService.createDeployment(request))
@@ -157,6 +174,16 @@ class DeploymentServiceTest {
         @DisplayName("성공: K8s 스케일링 호출")
         void success() {
             given(deploymentRepository.findById(1L)).willReturn(Optional.of(testDeployment));
+            given(deploymentConfigRepository.findBySourceRepositoryId(testRepo.getId()))
+                    .willReturn(Optional.of(klepaas.backend.deployment.entity.DeploymentConfig.builder()
+                            .sourceRepository(testRepo)
+                            .minReplicas(1)
+                            .maxReplicas(3)
+                            .envVars(Map.of())
+                            .containerPort(8080)
+                            .domainUrl("repo.klepaas.io")
+                            .build()));
+            given(scalingHistoryRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
             doNothing().when(k8sGenerator).scale("testowner-testrepo", 3);
 
             deploymentService.scaleDeployment(1L, new klepaas.backend.deployment.dto.ScaleRequest(3));

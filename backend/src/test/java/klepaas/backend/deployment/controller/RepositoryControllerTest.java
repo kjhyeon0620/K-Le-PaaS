@@ -5,6 +5,7 @@ import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
+import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.deployment.dto.DeploymentConfigResponse;
 import klepaas.backend.deployment.dto.RepositoryResponse;
 import klepaas.backend.deployment.entity.CloudVendor;
@@ -49,6 +50,9 @@ class RepositoryControllerTest {
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private CliAccessTokenService cliAccessTokenService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 

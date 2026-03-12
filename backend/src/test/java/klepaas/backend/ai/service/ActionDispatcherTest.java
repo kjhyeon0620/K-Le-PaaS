@@ -1,14 +1,20 @@
 package klepaas.backend.ai.service;
 
 import klepaas.backend.ai.dto.ParsedIntent;
+import klepaas.backend.ai.dto.FormattedResponseDto;
 import klepaas.backend.ai.entity.Intent;
 import klepaas.backend.ai.entity.RiskLevel;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
-import klepaas.backend.deployment.dto.RepositoryResponse;
+import klepaas.backend.ai.service.KubectlService;
+import klepaas.backend.deployment.repository.DeploymentRepository;
+import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.service.DeploymentService;
-import klepaas.backend.deployment.service.RepositoryService;
+import klepaas.backend.deployment.entity.Deployment;
+import klepaas.backend.deployment.entity.SourceRepository;
+import klepaas.backend.user.entity.Role;
+import klepaas.backend.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,9 +22,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +42,13 @@ class ActionDispatcherTest {
     private DeploymentService deploymentService;
 
     @Mock
-    private RepositoryService repositoryService;
+    private KubectlService kubectlService;
+
+    @Mock
+    private DeploymentRepository deploymentRepository;
+
+    @Mock
+    private SourceRepositoryRepository sourceRepositoryRepository;
 
     @Test
     @DisplayName("DEPLOY는 HIGH 리스크")
@@ -75,9 +87,9 @@ class ActionDispatcherTest {
         var statusResponse = new DeploymentStatusResponse(1L, DeploymentStatus.SUCCESS, null);
         given(deploymentService.getDeploymentStatus(1L)).willReturn(statusResponse);
 
-        String result = actionDispatcher.dispatch(parsedIntent, 1L);
+        FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
-        assertThat(result).contains("SUCCESS");
+        assertThat(result.message()).contains("SUCCESS");
         verify(deploymentService).getDeploymentStatus(1L);
     }
 
@@ -86,31 +98,50 @@ class ActionDispatcherTest {
     void dispatchScale() {
         var parsedIntent = new ParsedIntent(Intent.SCALE, Map.of("deployment_id", 1, "replicas", 3), 0.9, "스케일링");
 
-        String result = actionDispatcher.dispatch(parsedIntent, 1L);
+        User user = User.builder()
+                .email("test@test.com")
+                .name("tester")
+                .role(Role.USER)
+                .providerId("123")
+                .build();
+        SourceRepository repository = SourceRepository.builder()
+                .user(user)
+                .owner("owner")
+                .repoName("repo")
+                .gitUrl("https://github.com/owner/repo")
+                .cloudVendor(CloudVendor.NCP)
+                .build();
+        Deployment deployment = Deployment.builder()
+                .sourceRepository(repository)
+                .branchName("main")
+                .commitHash("abc1234")
+                .build();
+        given(deploymentRepository.findById(1L)).willReturn(Optional.of(deployment));
 
-        assertThat(result).contains("3개 레플리카");
-        verify(deploymentService).scaleDeployment(eq(1L), any());
+        FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
+
+        assertThat(result.message()).contains("3개 레플리카");
+        verify(deploymentService).scaleDeployment(eq(1L), any(), eq("NLP"));
     }
 
     @Test
-    @DisplayName("LIST_REPOSITORIES 디스패치 시 RepositoryService 호출")
+    @DisplayName("LIST_REPOSITORIES 디스패치 시 안내 메시지 반환")
     void dispatchListRepositories() {
-        var repo = new RepositoryResponse(1L, "owner", "repo", "https://github.com/owner/repo",
-                CloudVendor.NCP, 1L, LocalDateTime.now(), LocalDateTime.now());
-        given(repositoryService.getRepositories(1L)).willReturn(List.of(repo));
-
         var parsedIntent = new ParsedIntent(Intent.LIST_REPOSITORIES, Map.of(), 0.9, "저장소 목록");
-        String result = actionDispatcher.dispatch(parsedIntent, 1L);
+        FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
-        assertThat(result).contains("owner/repo");
+        assertThat(result.message()).contains("저장소 목록");
     }
 
     @Test
     @DisplayName("HELP 디스패치 시 도움말 반환")
     void dispatchHelp() {
         var parsedIntent = new ParsedIntent(Intent.HELP, Map.of(), 1.0, "도움말");
-        String result = actionDispatcher.dispatch(parsedIntent, 1L);
+        given(kubectlService.listCommands()).willReturn(
+                FormattedResponseDto.of("list_commands", "사용 가능한 명령어 목록입니다.", "명령어", Map.of(), null)
+        );
+        FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
-        assertThat(result).contains("사용 가능한 명령어");
+        assertThat(result.message()).contains("사용 가능한 명령어");
     }
 }
