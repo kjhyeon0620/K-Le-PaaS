@@ -57,11 +57,14 @@ kubernetesClient.pods()
 - 구현 완료:
   - `auth`, `ask`, `confirm`, `history`, `deployments`
   - 비용 MVP: `cost plan`, `cost diff`, `cost explain`, `cost check`
+  - 운영 보강: `doctor`, `deployments wait`, `deployments export`
   - 공통 계약: `--json`, `--quiet`, 종료 코드 표준화
   - 인증: 웹 승인형 `auth login --web`, 웹 발급형 `CLI Token`, 머신용 `auth login --token`
+  - 머신 환경: `KLEPAAS_BASE_URL`, `KLEPAAS_TOKEN`, `KLEPAAS_REFRESH_TOKEN`
 - 후속 작업:
-  - `doctor`, `logs`, `wait`
+  - `logs`, `completion`
   - CLI 배포/릴리스 방식 정리
+  - export/apply spec 고도화
   - 비용 모델 고도화
 
 ---

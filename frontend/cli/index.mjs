@@ -7,8 +7,16 @@ import readline from "node:readline/promises";
 import { spawn } from "node:child_process";
 
 import { ApiClient, CliError } from "./api.mjs";
-import { DEFAULT_BASE_URL, getConfigPath, getProfile, loadConfig, saveConfig, upsertProfile } from "./config.mjs";
-import { formatCurrency, printJson, printKeyValues, printRows } from "./output.mjs";
+import {
+  DEFAULT_BASE_URL,
+  getConfigPath,
+  getEnvironmentProfile,
+  getProfile,
+  loadConfig,
+  saveConfig,
+  upsertProfile,
+} from "./config.mjs";
+import { formatCurrency, printJson, printKeyValues, printRows, printYaml } from "./output.mjs";
 
 const EXIT_CODES = {
   SUCCESS: 0,
@@ -52,6 +60,9 @@ async function main() {
     case "cost":
       await handleCost(rest, globalOptions, client);
       return;
+    case "doctor":
+      await handleDoctor(globalOptions, client);
+      return;
     default:
       throw new CliError(`지원하지 않는 명령입니다: ${command}`, EXIT_CODES.INPUT);
   }
@@ -90,7 +101,7 @@ async function handleAuthLogin(args, globalOptions, client) {
 
   if (code) {
     const tokens = await client.exchangeOAuthCode(code, redirectUri);
-    await saveProfileTokens(globalOptions, tokens, globalOptions.baseUrl || DEFAULT_BASE_URL, client);
+    await saveProfileTokens(globalOptions, tokens, resolveBaseUrl(globalOptions), client);
     return;
   }
 
@@ -104,7 +115,7 @@ async function handleAuthLogin(args, globalOptions, client) {
       access_token: accessToken,
       refresh_token: refreshToken,
     },
-    globalOptions.baseUrl || DEFAULT_BASE_URL,
+    resolveBaseUrl(globalOptions),
     client
   );
 }
@@ -135,7 +146,7 @@ async function loginWithBrowser(globalOptions, client) {
           access_token: exchanged.token,
           refresh_token: null,
         },
-        globalOptions.baseUrl || DEFAULT_BASE_URL,
+        resolveBaseUrl(globalOptions),
         client
       );
       return;
@@ -377,8 +388,67 @@ async function handleDeployments(args, globalOptions, client) {
       console.log(response?.message || "스케일링 요청이 접수되었습니다.");
       return;
     }
+    case "wait": {
+      const deploymentId = Number(args.shift());
+      const timeoutSeconds = Number(takeOption(args, "--timeout") || "600");
+      const intervalSeconds = Number(takeOption(args, "--interval") || "5");
+      assertNoUnknownOptions(args);
+
+      if (!Number.isFinite(deploymentId)) {
+        throw new CliError("대기할 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+        throw new CliError("`--timeout`은 1초 이상의 숫자여야 합니다.", EXIT_CODES.INPUT);
+      }
+      if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) {
+        throw new CliError("`--interval`은 1초 이상의 숫자여야 합니다.", EXIT_CODES.INPUT);
+      }
+
+      await waitForDeployment(client, deploymentId, {
+        timeoutSeconds,
+        intervalSeconds,
+        json: globalOptions.json,
+      });
+      return;
+    }
+    case "export": {
+      const deploymentId = Number(args.shift());
+      const format = (takeOption(args, "--format") || "json").toLowerCase();
+      const outputPath = takeOption(args, "--output");
+      assertNoUnknownOptions(args);
+
+      if (!Number.isFinite(deploymentId)) {
+        throw new CliError("내보낼 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      if (!["json", "yaml"].includes(format)) {
+        throw new CliError("`--format`은 `json` 또는 `yaml`이어야 합니다.", EXIT_CODES.INPUT);
+      }
+
+      const exported = await exportDeployment(client, deploymentId);
+      const serialized = format === "yaml"
+        ? `${serializeYaml(exported)}\n`
+        : `${JSON.stringify(exported, null, 2)}\n`;
+
+      if (outputPath) {
+        await fs.writeFile(path.resolve(outputPath), serialized, "utf8");
+        if (!globalOptions.quiet) {
+          console.log(`내보내기 완료: ${path.resolve(outputPath)}`);
+        }
+        return;
+      }
+
+      if (format === "yaml") {
+        printYaml(exported);
+      } else {
+        printJson(exported);
+      }
+      return;
+    }
     default:
-      throw new CliError("`deployments` 하위 명령은 `list`, `get`, `restart`, `scale` 중 하나여야 합니다.", EXIT_CODES.INPUT);
+      throw new CliError(
+        "`deployments` 하위 명령은 `list`, `get`, `restart`, `scale`, `wait`, `export` 중 하나여야 합니다.",
+        EXIT_CODES.INPUT
+      );
   }
 }
 
@@ -497,6 +567,79 @@ async function saveProfileTokens(globalOptions, tokens, baseUrl, client) {
   console.log(`로그인되었습니다: ${user.name} <${user.email}>`);
   console.log(`프로필: ${globalOptions.profile}`);
   console.log(`설정 파일: ${getConfigPath()}`);
+}
+
+async function handleDoctor(globalOptions, client) {
+  const config = await loadConfig();
+  const environment = getEnvironmentProfile();
+  const profileInfo = getProfile(config, globalOptions.profile, {
+    baseUrl: globalOptions.baseUrl,
+  });
+  const effectiveProfile = profileInfo.profile;
+  const checks = [];
+  let highestExitCode = EXIT_CODES.SUCCESS;
+
+  const configPath = getConfigPath();
+  const configExists = await fileExists(configPath);
+  checks.push({
+    key: "config",
+    label: "Config file",
+    status: configExists ? "ok" : "warn",
+    detail: configExists ? configPath : "설정 파일이 아직 없습니다. env var 또는 `auth login`으로 시작할 수 있습니다.",
+  });
+
+  checks.push({
+    key: "profile",
+    label: "Active profile",
+    status: "ok",
+    detail: profileInfo.name,
+  });
+
+  checks.push({
+    key: "base_url",
+    label: "Base URL",
+    status: effectiveProfile.baseUrl ? "ok" : "fail",
+    detail: effectiveProfile.baseUrl || DEFAULT_BASE_URL,
+    source: globalOptions.baseUrl ? "cli-option" : environment.baseUrl ? "env" : "config",
+  });
+
+  checks.push({
+    key: "token",
+    label: "Access token",
+    status: effectiveProfile.accessToken ? "ok" : "warn",
+    detail: effectiveProfile.accessToken ? "configured" : "인증이 필요합니다.",
+    source: environment.accessToken ? "env" : "config",
+  });
+
+  const health = await runCheck("api", "API health", () => client.getSystemHealth());
+  checks.push(health.result);
+  highestExitCode = Math.max(highestExitCode, health.exitCode);
+
+  const version = await runCheck("version", "Server version", () => client.getSystemVersion());
+  checks.push(version.result);
+  highestExitCode = Math.max(highestExitCode, version.exitCode);
+
+  if (effectiveProfile.accessToken) {
+    const auth = await runCheck("auth", "Authenticated user", () => client.getCurrentUser(), EXIT_CODES.AUTH);
+    checks.push(auth.result);
+    highestExitCode = Math.max(highestExitCode, auth.exitCode);
+  }
+
+  if (globalOptions.json) {
+    printJson({
+      profile: profileInfo.name,
+      config_path: configPath,
+      checks,
+    });
+  } else {
+    for (const check of checks) {
+      console.log(`[${check.status.toUpperCase()}] ${check.label}: ${check.detail}`);
+    }
+  }
+
+  if (highestExitCode !== EXIT_CODES.SUCCESS) {
+    throw new CliError("CLI 환경 진단 중 실패한 항목이 있습니다.", highestExitCode, { checks });
+  }
 }
 
 function requirePlannedSpec(payload) {
@@ -636,20 +779,255 @@ Commands:
   deployments get <deployment-id>
   deployments restart <deployment-id>
   deployments scale <deployment-id> --replicas <n>
+  deployments wait <deployment-id> [--timeout <sec>] [--interval <sec>]
+  deployments export <deployment-id> [--format json|yaml] [--output <file>]
 
   cost plan --file <spec.json>
   cost diff --file <spec.json>
   cost explain --file <spec.json>
   cost check --file <spec.json> [--max-monthly <amount>]
 
+  doctor
+
 Config:
   default base url: ${DEFAULT_BASE_URL}
   config path: ${getConfigPath().replace(homeDir, "~")}
+  supported env vars: KLEPAAS_BASE_URL, KLEPAAS_TOKEN, KLEPAAS_REFRESH_TOKEN
 `);
+}
+
+function resolveBaseUrl(globalOptions) {
+  return globalOptions.baseUrl || process.env.KLEPAAS_BASE_URL || DEFAULT_BASE_URL;
 }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runCheck(key, label, fn, exitCodeOnFailure = EXIT_CODES.INPUT) {
+  try {
+    const data = await fn();
+    return {
+      exitCode: EXIT_CODES.SUCCESS,
+      result: {
+        key,
+        label,
+        status: "ok",
+        detail: summarizeCheckData(data),
+        data,
+      },
+    };
+  } catch (error) {
+    return {
+      exitCode: exitCodeOnFailure,
+      result: {
+        key,
+        label,
+        status: "fail",
+        detail: error.message || String(error),
+      },
+    };
+  }
+}
+
+async function fileExists(targetPath) {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function summarizeCheckData(data) {
+  if (data?.status) {
+    return typeof data.status === "string" ? data.status : JSON.stringify(data.status);
+  }
+  if (data?.version) {
+    return data.version;
+  }
+  if (data?.email) {
+    return `${data.name} <${data.email}>`;
+  }
+  return "ok";
+}
+
+async function waitForDeployment(client, deploymentId, { timeoutSeconds, intervalSeconds, json }) {
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  const timeline = [];
+  let lastStatus = null;
+
+  while (Date.now() <= deadline) {
+    const statusResponse = await client.getDeploymentStatus(deploymentId);
+    timeline.push({
+      status: statusResponse.status,
+      fail_reason: statusResponse.fail_reason ?? null,
+      checked_at: new Date().toISOString(),
+    });
+
+    if (statusResponse.status !== lastStatus && !json) {
+      console.log(`Deployment ${deploymentId} status: ${statusResponse.status}`);
+      if (statusResponse.fail_reason) {
+        console.log(`Reason: ${statusResponse.fail_reason}`);
+      }
+    }
+    lastStatus = statusResponse.status;
+
+    if (statusResponse.status === "SUCCESS") {
+      if (json) {
+        printJson({
+          deployment_id: deploymentId,
+          final_status: statusResponse.status,
+          fail_reason: statusResponse.fail_reason ?? null,
+          timeline,
+        });
+      }
+      return;
+    }
+
+    if (["FAILED", "CANCELED"].includes(statusResponse.status)) {
+      if (json) {
+        printJson({
+          deployment_id: deploymentId,
+          final_status: statusResponse.status,
+          fail_reason: statusResponse.fail_reason ?? null,
+          timeline,
+        });
+      }
+      throw new CliError(`배포가 ${statusResponse.status} 상태로 종료되었습니다.`, EXIT_CODES.API, statusResponse);
+    }
+
+    await sleep(intervalSeconds * 1000);
+  }
+
+  throw new CliError("배포 대기 시간이 초과되었습니다.", EXIT_CODES.TIMEOUT, {
+    deployment_id: deploymentId,
+    last_status: lastStatus,
+  });
+}
+
+async function exportDeployment(client, deploymentId) {
+  const deployment = await client.getDeployment(deploymentId);
+  let repository = null;
+  let config = null;
+
+  try {
+    repository = await findRepositoryById(client, deployment.repository_id);
+  } catch {}
+
+  try {
+    config = await client.getRepositoryConfig(deployment.repository_id);
+  } catch {}
+
+  return {
+    apiVersion: "klepaas.io/v1alpha1",
+    kind: "DeploymentExport",
+    metadata: {
+      exportedAt: new Date().toISOString(),
+      deploymentId: deployment.id,
+      repositoryId: deployment.repository_id,
+      repositoryName: deployment.repository_name,
+    },
+    deployment: {
+      branchName: deployment.branch_name,
+      commitHash: deployment.commit_hash,
+      imageUri: deployment.image_uri,
+      status: deployment.status,
+      failReason: deployment.fail_reason,
+      startedAt: deployment.started_at,
+      finishedAt: deployment.finished_at,
+      createdAt: deployment.created_at,
+    },
+    repository: repository
+      ? {
+          id: repository.id,
+          owner: repository.owner,
+          repoName: repository.repo_name ?? repository.repoName,
+          fullName: `${repository.owner}/${repository.repo_name ?? repository.repoName}`,
+          gitUrl: repository.git_url ?? repository.gitUrl,
+          cloudVendor: repository.cloud_vendor ?? repository.cloudVendor,
+        }
+      : null,
+    runtime: config
+      ? {
+          minReplicas: config.min_replicas,
+          maxReplicas: config.max_replicas,
+          containerPort: config.container_port,
+          domainUrl: config.domain_url,
+          envVars: config.env_vars ?? {},
+        }
+      : null,
+  };
+}
+
+async function findRepositoryById(client, repositoryId) {
+  const repositories = await client.getRepositories();
+  const repository = (repositories ?? []).find((item) => Number(item.id) === Number(repositoryId));
+  if (!repository) {
+    throw new CliError(`repository_id=${repositoryId} 저장소를 찾을 수 없습니다.`, EXIT_CODES.API);
+  }
+  return repository;
+}
+
+function serializeYaml(value) {
+  const lines = [];
+  collectYamlLines(value, 0, lines);
+  return lines.join("\n");
+}
+
+function collectYamlLines(value, level, lines) {
+  const indent = "  ".repeat(level);
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      lines.push(`${indent}[]`);
+      return;
+    }
+
+    for (const item of value) {
+      if (isScalar(item)) {
+        lines.push(`${indent}- ${yamlScalar(item)}`);
+      } else {
+        lines.push(`${indent}-`);
+        collectYamlLines(item, level + 1, lines);
+      }
+    }
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      lines.push(`${indent}{}`);
+      return;
+    }
+
+    for (const [key, nestedValue] of entries) {
+      if (isScalar(nestedValue)) {
+        lines.push(`${indent}${key}: ${yamlScalar(nestedValue)}`);
+      } else {
+        lines.push(`${indent}${key}:`);
+        collectYamlLines(nestedValue, level + 1, lines);
+      }
+    }
+    return;
+  }
+
+  lines.push(`${indent}${yamlScalar(value)}`);
+}
+
+function isScalar(value) {
+  return value == null || ["string", "number", "boolean"].includes(typeof value);
+}
+
+function yamlScalar(value) {
+  if (value == null) {
+    return "null";
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return /^[A-Za-z0-9_./-]+$/.test(value) ? value : JSON.stringify(value);
 }
 
 main().catch((error) => {

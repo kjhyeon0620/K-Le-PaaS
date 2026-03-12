@@ -2,6 +2,10 @@ export function printJson(value) {
   console.log(JSON.stringify(value, null, 2));
 }
 
+export function printYaml(value) {
+  console.log(toYaml(value));
+}
+
 export function printKeyValues(entries) {
   const width = Math.max(...entries.map(([key]) => key.length), 0);
   for (const [key, value] of entries) {
@@ -41,4 +45,67 @@ function resolveCell(row, key) {
     return key(row);
   }
   return row[key] ?? "";
+}
+
+function toYaml(value, level = 0) {
+  const indent = "  ".repeat(level);
+
+  if (value == null) {
+    return "null";
+  }
+
+  if (typeof value === "string") {
+    return needsQuoting(value) ? JSON.stringify(value) : value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "[]";
+    }
+
+    return value
+      .map((item) => {
+        if (isScalar(item)) {
+          return `${indent}- ${toYaml(item, level + 1)}`;
+        }
+
+        const nested = toYaml(item, level + 1)
+          .split("\n")
+          .map((line) => `${"  ".repeat(level + 1)}${line}`)
+          .join("\n");
+        return `${indent}-\n${nested}`;
+      })
+      .join("\n");
+  }
+
+  const entries = Object.entries(value);
+  if (entries.length === 0) {
+    return "{}";
+  }
+
+  return entries
+    .map(([key, nestedValue]) => {
+      if (isScalar(nestedValue)) {
+        return `${indent}${key}: ${toYaml(nestedValue, level + 1)}`;
+      }
+
+      const nested = toYaml(nestedValue, level + 1)
+        .split("\n")
+        .map((line) => `${"  ".repeat(level + 1)}${line}`)
+        .join("\n");
+      return `${indent}${key}:\n${nested}`;
+    })
+    .join("\n");
+}
+
+function isScalar(value) {
+  return value == null || ["string", "number", "boolean"].includes(typeof value);
+}
+
+function needsQuoting(value) {
+  return value === "" || /[:#\-\n]/.test(value) || /^\s|\s$/.test(value);
 }

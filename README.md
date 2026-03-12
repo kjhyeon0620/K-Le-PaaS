@@ -189,6 +189,18 @@ npm run cli -- --help
 - 머신/자동화 도구:
   - `npm run cli -- auth login --token <cli_token>`
   - 웹 콘솔 `Settings > CLI Tokens`에서 발급한 전용 토큰 사용
+- 환경변수 기반 실행:
+  - `KLEPAAS_BASE_URL=http://localhost:8080 KLEPAAS_TOKEN=kpa_cli_xxx npm run cli -- doctor`
+  - 우선순위는 `CLI 인자 > 환경변수 > 설정 파일`
+
+### CLI 주요 명령
+
+```bash
+npm run cli -- doctor
+npm run cli -- deployments wait 42 --timeout 600
+npm run cli -- deployments export 42 --format yaml --output klepaas-export.yaml
+npm run cli -- cost check --file ../docs/examples/cli-cost-spec.json --max-monthly 120000
+```
 
 ---
 

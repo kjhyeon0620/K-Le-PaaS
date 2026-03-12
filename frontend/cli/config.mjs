@@ -29,13 +29,28 @@ export function getConfigPath() {
   return CONFIG_PATH;
 }
 
-export function getProfile(config, profileName = "default") {
+export function getEnvironmentProfile() {
+  return {
+    baseUrl: process.env.KLEPAAS_BASE_URL || null,
+    accessToken: process.env.KLEPAAS_TOKEN || null,
+    refreshToken: process.env.KLEPAAS_REFRESH_TOKEN || null,
+  };
+}
+
+export function getProfile(config, profileName = "default", runtimeOverrides = {}) {
   const effectiveConfig = config ?? defaultConfig();
   const profiles = effectiveConfig.profiles ?? {};
   const name = profileName || effectiveConfig.activeProfile || "default";
+  const environment = getEnvironmentProfile();
+  const baseProfile = profiles[name] ?? { baseUrl: DEFAULT_BASE_URL };
   return {
     name,
-    profile: profiles[name] ?? { baseUrl: DEFAULT_BASE_URL },
+    profile: {
+      ...baseProfile,
+      ...pickDefined(environment),
+      ...pickDefined(runtimeOverrides),
+      baseUrl: runtimeOverrides.baseUrl || environment.baseUrl || baseProfile.baseUrl || DEFAULT_BASE_URL,
+    },
   };
 }
 
@@ -66,4 +81,8 @@ function defaultConfig() {
       },
     },
   };
+}
+
+function pickDefined(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, nestedValue]) => nestedValue != null));
 }
