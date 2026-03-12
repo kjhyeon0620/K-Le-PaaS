@@ -12,6 +12,7 @@ import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.infra.CloudInfraProvider;
 import klepaas.backend.infra.dto.BuildResult;
 import klepaas.backend.infra.dto.BuildStatusResult;
+import klepaas.backend.infra.util.ImageTagGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,6 +76,8 @@ public class NcpInfraService implements CloudInfraProvider {
         String storageKey = "builds/" + deployment.getId() + "/source.zip";
 
         try {
+            resolveCommitHashIfNeeded(gitToken, deployment);
+
             // Step 1: GitHub API 호출 → 302 redirect URL 획득 (auth 필요)
             String apiUrl = "https://api.github.com/repos/" + repo.getOwner() + "/" +
                     repo.getRepoName() + "/zipball/" + deployment.getCommitHash();
@@ -135,9 +138,7 @@ public class NcpInfraService implements CloudInfraProvider {
     public BuildResult triggerBuild(String storageKey, Deployment deployment) {
         SourceRepository repo = deployment.getSourceRepository();
         String imageName = repo.getOwner() + "-" + repo.getRepoName();
-        String commitHash = deployment.getCommitHash();
-        String shortSha = commitHash.length() >= 7 ? commitHash.substring(0, 7) : commitHash;
-        String imageUri = registryEndpoint + "/" + imageName + ":" + shortSha;
+        String imageUri = ImageTagGenerator.buildImageUri(registryEndpoint, imageName, deployment.getCommitHash());
         String jobName = "klepaas-build-" + deployment.getId();
 
         try {
@@ -279,7 +280,7 @@ public class NcpInfraService implements CloudInfraProvider {
     }
 
     private Job buildKanikoJob(String jobName, String storageKey, String imageUri, Deployment deployment) {
-        String shortSha = deployment.getCommitHash().substring(0, Math.min(7, deployment.getCommitHash().length()));
+        String shortSha = ImageTagGenerator.toShortSha(deployment.getCommitHash());
 
         Map<String, String> labels = Map.of(
                 "app.kubernetes.io/managed-by", "klepaas",
@@ -369,6 +370,50 @@ public class NcpInfraService implements CloudInfraProvider {
                     .endTemplate()
                 .endSpec()
                 .build();
+    }
+
+    private void resolveCommitHashIfNeeded(String gitToken, Deployment deployment) throws IOException, InterruptedException {
+        if (!"HEAD".equalsIgnoreCase(deployment.getCommitHash())) {
+            return;
+        }
+
+        SourceRepository repo = deployment.getSourceRepository();
+        String apiUrl = "https://api.github.com/repos/" + repo.getOwner() + "/" +
+                repo.getRepoName() + "/commits/" + deployment.getBranchName();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + gitToken)
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new BusinessException(ErrorCode.SOURCE_UPLOAD_FAILED,
+                    "브랜치 HEAD 커밋 조회 실패: HTTP " + response.statusCode());
+        }
+
+        String resolvedSha = extractCommitSha(response.body());
+        deployment.updateCommitHash(resolvedSha);
+        log.info("Resolved HEAD to commit SHA: deploymentId={}, branch={}, sha={}",
+                deployment.getId(), deployment.getBranchName(), resolvedSha);
+    }
+
+    private String extractCommitSha(String body) {
+        int shaKeyIndex = body.indexOf("\"sha\"");
+        if (shaKeyIndex < 0) {
+            throw new BusinessException(ErrorCode.SOURCE_UPLOAD_FAILED, "GitHub 커밋 SHA 응답 파싱 실패");
+        }
+
+        int colonIndex = body.indexOf(':', shaKeyIndex);
+        int firstQuote = body.indexOf('"', colonIndex + 1);
+        int secondQuote = body.indexOf('"', firstQuote + 1);
+        if (colonIndex < 0 || firstQuote < 0 || secondQuote < 0) {
+            throw new BusinessException(ErrorCode.SOURCE_UPLOAD_FAILED, "GitHub 커밋 SHA 응답 파싱 실패");
+        }
+        return body.substring(firstQuote + 1, secondQuote);
     }
 
     /**

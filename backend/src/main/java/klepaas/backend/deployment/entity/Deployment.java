@@ -83,6 +83,10 @@ public class Deployment extends BaseTimeEntity {
         this.imageUri = imageUri;
     }
 
+    public void updateCommitHash(String commitHash) {
+        this.commitHash = commitHash;
+    }
+
     // 배포 성공
     public void completeSuccess() {
         this.status = DeploymentStatus.SUCCESS;

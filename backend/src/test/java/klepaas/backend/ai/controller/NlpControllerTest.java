@@ -9,6 +9,7 @@ import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
+import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.user.entity.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -48,6 +51,9 @@ class NlpControllerTest {
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private CliAccessTokenService cliAccessTokenService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final CustomUserDetails testUser = new CustomUserDetails(1L, "test@test.com", Role.USER);
@@ -129,6 +135,8 @@ class NlpControllerTest {
     @Test
     @DisplayName("GET /api/v1/nlp/history - 인증 후 조회 성공")
     void getHistory() throws Exception {
+        given(nlpCommandService.getHistory(eq(1L), any())).willReturn(Page.empty());
+
         mockMvc.perform(get("/api/v1/nlp/history")
                         .with(user(testUser)))
                 .andExpect(status().isOk());

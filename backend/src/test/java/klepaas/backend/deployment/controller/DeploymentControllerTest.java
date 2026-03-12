@@ -5,6 +5,7 @@ import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
+import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.deployment.dto.DeploymentResponse;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
 import klepaas.backend.deployment.entity.DeploymentStatus;
@@ -50,6 +51,9 @@ class DeploymentControllerTest {
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockitoBean
+    private CliAccessTokenService cliAccessTokenService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final CustomUserDetails testUser = new CustomUserDetails(1L, "test@test.com", Role.USER);
@@ -66,7 +70,7 @@ class DeploymentControllerTest {
     @DisplayName("POST /api/v1/deployments - 배포 생성 성공")
     void createDeployment() throws Exception {
         var response = new DeploymentResponse(
-                1L, 1L, "owner/repo", "main", "abc123",
+                1L, 1L, "owner/repo", "main", "abc1234", "registry.example.com/owner-repo:abc1234",
                 DeploymentStatus.PENDING, null,
                 LocalDateTime.now(), null, LocalDateTime.now());
 
@@ -78,10 +82,11 @@ class DeploymentControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "repository_id", 1,
                                 "branch_name", "main",
-                                "commit_hash", "abc123"
+                                "commit_hash", "abc1234"
                         ))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.status").value("PENDING"));
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.image_uri").value("registry.example.com/owner-repo:abc1234"));
     }
 
     @Test

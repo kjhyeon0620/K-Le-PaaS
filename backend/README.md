@@ -145,7 +145,7 @@ initContainer(amazon/aws-cli)
 
 kaniko
   → --context=dir:///workspace
-  → --destination={NCR_ENDPOINT}/{owner}-{repo}:latest
+  → --destination={NCR_ENDPOINT}/{owner}-{repo}:{shortSha}
 ```
 
 ### AI 모듈 — Java 내장 Gemini 직접 호출
