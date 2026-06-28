@@ -3,6 +3,8 @@ package klepaas.backend.deployment.service;
 import klepaas.backend.auth.config.GitHubAppConfig;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.deployment.dto.*;
+import klepaas.backend.deployment.entity.BuildStrategy;
+import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
@@ -62,6 +64,7 @@ public class RepositoryService {
                 .envVars(new HashMap<>())
                 .containerPort(8080)
                 .domainUrl(request.repoName() + ".klepaas.io")
+                .buildStrategy(defaultBuildStrategy(request.cloudVendor()))
                 .build();
         deploymentConfigRepository.save(defaultConfig);
 
@@ -125,10 +128,21 @@ public class RepositoryService {
                 request.maxReplicas(),
                 request.envVars(),
                 request.containerPort(),
-                request.domainUrl()
+                request.domainUrl(),
+                request.buildStrategy(),
+                request.imageUriTemplate(),
+                request.imagePullSecretName()
         );
 
         log.info("DeploymentConfig updated: repositoryId={}", repositoryId);
         return DeploymentConfigResponse.from(config);
     }
+
+    private BuildStrategy defaultBuildStrategy(CloudVendor cloudVendor) {
+        return switch (cloudVendor) {
+            case NCP, AWS -> BuildStrategy.KANIKO;
+            case ON_PREMISE -> BuildStrategy.GITHUB_ACTIONS_GHCR;
+        };
+    }
+
 }

@@ -3,6 +3,7 @@ package klepaas.backend.deployment.service;
 import klepaas.backend.auth.config.GitHubAppConfig;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.deployment.dto.*;
+import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.SourceRepository;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -105,6 +107,27 @@ class RepositoryServiceTest {
             assertThat(response.repoName()).isEqualTo("testrepo");
             assertThat(response.cloudVendor()).isEqualTo(CloudVendor.NCP);
             verify(deploymentConfigRepository).save(any(DeploymentConfig.class));
+        }
+
+        @Test
+        @DisplayName("성공: ON_PREMISE 저장소는 GitHub Actions GHCR 전략을 쓰되 이미지 템플릿은 명시 설정하게 둔다")
+        void successOnPremiseDefaultBuildStrategy() {
+            var request = new CreateRepositoryRequest("kjhyeon0620", "smart-sousvide-iot-platform",
+                    "https://github.com/kjhyeon0620/smart-sousvide-iot-platform", CloudVendor.ON_PREMISE);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("kjhyeon0620", "smart-sousvide-iot-platform"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("kjhyeon0620", "smart-sousvide-iot-platform")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            repositoryService.createRepository(1L, request);
+
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            DeploymentConfig savedConfig = configCaptor.getValue();
+            assertThat(savedConfig.getBuildStrategy()).isEqualTo(BuildStrategy.GITHUB_ACTIONS_GHCR);
+            assertThat(savedConfig.getImageUriTemplate()).isNull();
         }
 
         @Test
@@ -201,7 +224,16 @@ class RepositoryServiceTest {
         @Test
         @DisplayName("성공: 배포 설정 업데이트")
         void success() {
-            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
+            var request = new UpdateDeploymentConfigRequest(
+                    2,
+                    5,
+                    Map.of("ENV", "prod"),
+                    3000,
+                    "custom.klepaas.io",
+                    BuildStrategy.GITHUB_ACTIONS_GHCR,
+                    "ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}",
+                    "ghcr-pull-secret"
+            );
             given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
             given(deploymentConfigRepository.findBySourceRepositoryId(1L))
                     .willReturn(Optional.of(testConfig));
@@ -212,6 +244,34 @@ class RepositoryServiceTest {
             assertThat(response.maxReplicas()).isEqualTo(5);
             assertThat(response.containerPort()).isEqualTo(3000);
             assertThat(response.domainUrl()).isEqualTo("custom.klepaas.io");
+            assertThat(response.buildStrategy()).isEqualTo(BuildStrategy.GITHUB_ACTIONS_GHCR);
+            assertThat(response.imageUriTemplate()).isEqualTo("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}");
+            assertThat(response.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
+        }
+
+        @Test
+        @DisplayName("성공: 새 build 설정 필드가 생략되면 기존 값을 유지")
+        void successPreservesBuildSettingsWhenRequestOmitsThem() {
+            DeploymentConfig onPremiseConfig = DeploymentConfig.builder()
+                    .sourceRepository(testRepo)
+                    .minReplicas(1)
+                    .maxReplicas(1)
+                    .envVars(Map.of())
+                    .containerPort(8080)
+                    .domainUrl("repo.klepaas.io")
+                    .buildStrategy(BuildStrategy.GITHUB_ACTIONS_GHCR)
+                    .imageUriTemplate("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}")
+                    .imagePullSecretName("ghcr-pull-secret")
+                    .build();
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(onPremiseConfig));
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+
+            assertThat(response.buildStrategy()).isEqualTo(BuildStrategy.GITHUB_ACTIONS_GHCR);
+            assertThat(response.imageUriTemplate()).isEqualTo("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}");
+            assertThat(response.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
         }
     }
 }

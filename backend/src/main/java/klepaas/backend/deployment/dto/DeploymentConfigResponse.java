@@ -1,5 +1,6 @@
 package klepaas.backend.deployment.dto;
 
+import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 
 import java.util.Map;
@@ -11,8 +12,17 @@ public record DeploymentConfigResponse(
         int maxReplicas,
         Map<String, String> envVars,
         int containerPort,
-        String domainUrl
+        String domainUrl,
+        BuildStrategy buildStrategy,
+        String imageUriTemplate,
+        String imagePullSecretName
 ) {
+    public DeploymentConfigResponse(Long id, Long repositoryId, int minReplicas, int maxReplicas,
+                                    Map<String, String> envVars, int containerPort, String domainUrl) {
+        this(id, repositoryId, minReplicas, maxReplicas, envVars, containerPort, domainUrl,
+                BuildStrategy.KANIKO, null, null);
+    }
+
     public static DeploymentConfigResponse from(DeploymentConfig entity) {
         return new DeploymentConfigResponse(
                 entity.getId(),
@@ -21,7 +31,10 @@ public record DeploymentConfigResponse(
                 entity.getMaxReplicas(),
                 entity.getEnvVars(),
                 entity.getContainerPort(),
-                entity.getDomainUrl()
+                entity.getDomainUrl(),
+                entity.getBuildStrategy(),
+                entity.getImageUriTemplate(),
+                entity.getImagePullSecretName()
         );
     }
 }

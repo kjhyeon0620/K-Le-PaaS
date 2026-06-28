@@ -3,7 +3,10 @@ package klepaas.backend.webhook.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
+import klepaas.backend.deployment.entity.BuildStrategy;
+import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.SourceRepository;
+import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.service.DeploymentService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class GitHubWebhookService {
     private String webhookSecret;
 
     private final SourceRepositoryRepository sourceRepositoryRepository;
+    private final DeploymentConfigRepository deploymentConfigRepository;
     private final DeploymentService deploymentService;
     private final ObjectMapper objectMapper;
 
@@ -75,11 +79,34 @@ public class GitHubWebhookService {
             }
 
             SourceRepository repo = repoOpt.get();
+            if (shouldSkipPushDeployment(repo)) {
+                log.info("외부 이미지 전략 저장소의 raw push 배포 무시: repo={}/{}, branch={}, commit={}",
+                        owner, repoName, branch, commitHash);
+                return;
+            }
+
             log.info("GitHub push 이벤트 처리: repo={}/{}, branch={}, commit={}", owner, repoName, branch, commitHash);
             deploymentService.createDeployment(new CreateDeploymentRequest(repo.getId(), branch, commitHash), null);
 
         } catch (Exception e) {
             log.error("GitHub push 이벤트 처리 중 오류 발생", e);
         }
+    }
+
+    private boolean shouldSkipPushDeployment(SourceRepository repository) {
+        BuildStrategy buildStrategy = deploymentConfigRepository.findBySourceRepositoryId(repository.getId())
+                .map(config -> config.getBuildStrategy())
+                .orElse(defaultBuildStrategy(repository));
+        return switch (buildStrategy) {
+            case KANIKO -> false;
+            case GITHUB_ACTIONS_GHCR, PREBUILT_IMAGE -> true;
+        };
+    }
+
+    private BuildStrategy defaultBuildStrategy(SourceRepository repository) {
+        if (repository.getCloudVendor() == CloudVendor.ON_PREMISE) {
+            return BuildStrategy.GITHUB_ACTIONS_GHCR;
+        }
+        return BuildStrategy.KANIKO;
     }
 }

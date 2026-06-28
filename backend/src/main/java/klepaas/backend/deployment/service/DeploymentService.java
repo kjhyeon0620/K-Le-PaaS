@@ -53,6 +53,9 @@ public class DeploymentService {
                 .branchName(request.branchName())
                 .commitHash(request.commitHash())
                 .build();
+        if (request.imageUri() != null && !request.imageUri().isBlank()) {
+            deployment.setImageUri(request.imageUri());
+        }
         deploymentRepository.save(deployment);
 
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),

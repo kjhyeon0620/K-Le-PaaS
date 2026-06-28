@@ -3,6 +3,7 @@ package klepaas.backend.infra.kubernetes;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.apps.DeploymentCondition;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 
@@ -31,6 +32,12 @@ public class KubernetesManifestGenerator {
 
     @Value("${kubernetes.image-pull-secret:ncp-cr}")
     private String imagePullSecretName;
+
+    @Value("${kubernetes.rollout.timeout-ms:120000}")
+    private long rolloutTimeoutMs;
+
+    @Value("${kubernetes.rollout.poll-interval-ms:2000}")
+    private long rolloutPollIntervalMs;
 
     /**
      * K8s Deployment + Service + Ingress 생성/업데이트
@@ -68,6 +75,69 @@ public class KubernetesManifestGenerator {
         log.info("Scaled: app={}, replicas={}", appName, replicas);
     }
 
+    public void waitForDeploymentAvailable(String appName) {
+        long deadline = System.currentTimeMillis() + rolloutTimeoutMs;
+        while (System.currentTimeMillis() <= deadline) {
+            Deployment deployment = kubernetesClient.apps().deployments()
+                    .inNamespace(namespace)
+                    .withName(appName)
+                    .get();
+            if (isDeploymentRolloutComplete(deployment)) {
+                log.info("Deployment rollout available: app={}, namespace={}", appName, namespace);
+                return;
+            }
+            sleepBeforeNextRolloutCheck(appName);
+        }
+        throw new BusinessException(
+                ErrorCode.DEPLOY_FAILED,
+                "K8s rollout 타임아웃: " + appName + " Deployment가 Available 상태가 아닙니다"
+        );
+    }
+
+    boolean isDeploymentRolloutComplete(Deployment deployment) {
+        if (deployment == null
+                || deployment.getMetadata() == null
+                || deployment.getSpec() == null
+                || deployment.getStatus() == null
+                || deployment.getStatus().getConditions() == null) {
+            return false;
+        }
+        int desiredReplicas = valueOrZero(deployment.getSpec().getReplicas());
+        int updatedReplicas = valueOrZero(deployment.getStatus().getUpdatedReplicas());
+        int availableReplicas = valueOrZero(deployment.getStatus().getAvailableReplicas());
+        int unavailableReplicas = valueOrZero(deployment.getStatus().getUnavailableReplicas());
+        long generation = valueOrZero(deployment.getMetadata().getGeneration());
+        long observedGeneration = valueOrZero(deployment.getStatus().getObservedGeneration());
+
+        return deployment.getStatus().getConditions().stream()
+                .anyMatch(this::isAvailableCondition)
+                && observedGeneration >= generation
+                && updatedReplicas == desiredReplicas
+                && availableReplicas == desiredReplicas
+                && unavailableReplicas == 0;
+    }
+
+    private boolean isAvailableCondition(DeploymentCondition condition) {
+        return "Available".equals(condition.getType()) && "True".equals(condition.getStatus());
+    }
+
+    private int valueOrZero(Integer value) {
+        return value != null ? value : 0;
+    }
+
+    private long valueOrZero(Long value) {
+        return value != null ? value : 0L;
+    }
+
+    private void sleepBeforeNextRolloutCheck(String appName) {
+        try {
+            Thread.sleep(rolloutPollIntervalMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s rollout 대기 중단됨: " + appName);
+        }
+    }
+
     private void createOrUpdateDeployment(String appName, String imageUri,
                                            DeploymentConfig config, Map<String, String> labels) {
         List<EnvVar> envVars = config.getEnvVars().entrySet().stream()
@@ -91,7 +161,7 @@ public class KubernetesManifestGenerator {
                         .endMetadata()
                         .withNewSpec()
                             .withImagePullSecrets(new LocalObjectReferenceBuilder()
-                                    .withName(imagePullSecretName)
+                                    .withName(resolveImagePullSecretName(config))
                                     .build())
                             .withContainers(new ContainerBuilder()
                                     .withName(appName)
@@ -110,6 +180,14 @@ public class KubernetesManifestGenerator {
                 .inNamespace(namespace)
                 .resource(deployment)
                 .serverSideApply();
+    }
+
+    private String resolveImagePullSecretName(DeploymentConfig config) {
+        String configured = config.getImagePullSecretName();
+        if (configured != null && !configured.isBlank()) {
+            return configured;
+        }
+        return imagePullSecretName;
     }
 
     private void createOrUpdateService(String appName, int containerPort, Map<String, String> labels) {

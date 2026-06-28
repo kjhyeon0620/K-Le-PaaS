@@ -8,12 +8,14 @@ import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.deployment.dto.DeploymentResponse;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
+import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.user.entity.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -29,6 +31,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -69,8 +72,9 @@ class DeploymentControllerTest {
     @Test
     @DisplayName("POST /api/v1/deployments - 배포 생성 성공")
     void createDeployment() throws Exception {
+        String imageUri = "ghcr.io/kjhyeon0620/smart-sousvide-iot-platform/backend:sha-abc1234";
         var response = new DeploymentResponse(
-                1L, 1L, "owner/repo", "main", "abc1234", "registry.example.com/owner-repo:abc1234",
+                1L, 1L, "owner/repo", "main", "abc1234", imageUri,
                 DeploymentStatus.PENDING, null,
                 LocalDateTime.now(), null, LocalDateTime.now());
 
@@ -82,11 +86,16 @@ class DeploymentControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "repository_id", 1,
                                 "branch_name", "main",
-                                "commit_hash", "abc1234"
+                                "commit_hash", "abc1234",
+                                "image_uri", imageUri
                         ))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.image_uri").value("registry.example.com/owner-repo:abc1234"));
+                .andExpect(jsonPath("$.data.image_uri").value(imageUri));
+
+        ArgumentCaptor<CreateDeploymentRequest> requestCaptor = ArgumentCaptor.forClass(CreateDeploymentRequest.class);
+        verify(deploymentService).createDeployment(requestCaptor.capture(), eq(1L));
+        org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().imageUri()).isEqualTo(imageUri);
     }
 
     @Test
