@@ -76,7 +76,7 @@ public class Deployment extends BaseTimeEntity {
     // 외부 빌드 시작 시
     public void markAsBuilding(String externalBuildId) {
         this.externalBuildId = externalBuildId;
-        // 상태는 이미 BUILDING이거나 유지
+        this.status = DeploymentStatus.BUILDING;
     }
 
     public void setImageUri(String imageUri) {

@@ -1,5 +1,6 @@
 package klepaas.backend.deployment.service;
 
+import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.global.exception.BusinessException;
@@ -44,22 +45,15 @@ public class DeploymentPipelineService {
         Long userId = deploymentRepository.findUserIdByDeploymentId(deploymentId).orElse(null);
 
         try {
-            // 1. 소스 업로드
-            notifyWs(deploymentId, userId, "UPLOADING", "in_progress", 10, "소스 코드 업로드 중...");
-            String storageKey = stepService.executeUpload(deploymentId);
+            BuildStrategy buildStrategy = stepService.getBuildStrategy(deploymentId);
+            String imageUri = switch (buildStrategy) {
+                case KANIKO -> executeKanikoBuild(deploymentId, userId);
+                case GITHUB_ACTIONS_GHCR, PREBUILT_IMAGE -> resolveExternalImage(deploymentId, userId);
+            };
 
-            // 2. 빌드 트리거
-            notifyWs(deploymentId, userId, "BUILDING", "in_progress", 30, "컨테이너 이미지 빌드 중...");
-            BuildResult buildResult = stepService.executeBuildTrigger(deploymentId, storageKey);
-
-            // 3. 빌드 폴링
-            BuildStatusResult statusResult = pollBuildStatus(deploymentId, buildResult);
-
-            // 4. K8s 배포
             notifyWs(deploymentId, userId, "DEPLOYING", "in_progress", 70, "Kubernetes에 배포 중...");
-            stepService.executeK8sDeploy(deploymentId, statusResult.imageUri());
+            stepService.executeK8sDeploy(deploymentId, imageUri);
 
-            // 5. 성공 처리
             stepService.markSuccess(deploymentId);
             notifyWs(deploymentId, userId, "SUCCESS", "completed", 100, "배포가 완료되었습니다.");
             log.info("Pipeline completed successfully: deploymentId={}", deploymentId);
@@ -69,6 +63,21 @@ public class DeploymentPipelineService {
             stepService.markFailed(deploymentId, e.getMessage());
             notifyWs(deploymentId, userId, "FAILED", "failed", 0, "배포 실패: " + e.getMessage());
         }
+    }
+
+    private String executeKanikoBuild(Long deploymentId, Long userId) {
+        notifyWs(deploymentId, userId, "UPLOADING", "in_progress", 10, "소스 코드 업로드 중...");
+        String storageKey = stepService.executeUpload(deploymentId);
+
+        notifyWs(deploymentId, userId, "BUILDING", "in_progress", 30, "컨테이너 이미지 빌드 중...");
+        BuildResult buildResult = stepService.executeBuildTrigger(deploymentId, storageKey);
+        BuildStatusResult statusResult = pollBuildStatus(deploymentId, buildResult);
+        return statusResult.imageUri();
+    }
+
+    private String resolveExternalImage(Long deploymentId, Long userId) {
+        notifyWs(deploymentId, userId, "BUILDING", "in_progress", 30, "외부 컨테이너 이미지 확인 중...");
+        return stepService.resolveExternalImage(deploymentId);
     }
 
     private BuildStatusResult pollBuildStatus(Long deploymentId, BuildResult buildResult) {

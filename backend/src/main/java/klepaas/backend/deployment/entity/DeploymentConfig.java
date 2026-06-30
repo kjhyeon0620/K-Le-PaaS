@@ -40,22 +40,56 @@ public class DeploymentConfig extends BaseTimeEntity {
     @Column(nullable = false)
     private String domainUrl;
 
+    @Enumerated(EnumType.STRING)
+    private BuildStrategy buildStrategy;
+
+    private String imageUriTemplate;
+
+    private String imagePullSecretName;
+
+    @Enumerated(EnumType.STRING)
+    private KubernetesServiceType serviceType;
+
+    private Integer nodePort;
+
     @Builder
     public DeploymentConfig(SourceRepository sourceRepository, int minReplicas, int maxReplicas,
-                            Map<String, String> envVars, int containerPort, String domainUrl) {
+                            Map<String, String> envVars, int containerPort, String domainUrl,
+                            BuildStrategy buildStrategy, String imageUriTemplate, String imagePullSecretName,
+                            KubernetesServiceType serviceType, Integer nodePort) {
         this.sourceRepository = sourceRepository;
         this.minReplicas = minReplicas;
         this.maxReplicas = maxReplicas;
         this.envVars = envVars != null ? envVars : new HashMap<>();
         this.containerPort = containerPort > 0 ? containerPort : 8080;
         this.domainUrl = domainUrl;
+        this.buildStrategy = buildStrategy != null ? buildStrategy : BuildStrategy.KANIKO;
+        this.imageUriTemplate = imageUriTemplate;
+        this.imagePullSecretName = imagePullSecretName;
+        this.serviceType = serviceType != null ? serviceType : KubernetesServiceType.CLUSTER_IP;
+        this.nodePort = nodePort;
     }
 
-    public void updateConfig(int min, int max, Map<String, String> envVars, int containerPort, String domainUrl) {
+    public BuildStrategy getBuildStrategy() {
+        return buildStrategy != null ? buildStrategy : BuildStrategy.KANIKO;
+    }
+
+    public KubernetesServiceType getServiceType() {
+        return serviceType != null ? serviceType : KubernetesServiceType.CLUSTER_IP;
+    }
+
+    public void updateConfig(int min, int max, Map<String, String> envVars, int containerPort, String domainUrl,
+                             BuildStrategy buildStrategy, String imageUriTemplate, String imagePullSecretName,
+                             KubernetesServiceType serviceType, Integer nodePort) {
         this.minReplicas = min;
         this.maxReplicas = max;
         this.envVars = envVars != null ? envVars : new HashMap<>();
         this.containerPort = containerPort > 0 ? containerPort : 8080;
         this.domainUrl = domainUrl;
+        this.buildStrategy = buildStrategy != null ? buildStrategy : getBuildStrategy();
+        this.imageUriTemplate = imageUriTemplate != null ? imageUriTemplate : this.imageUriTemplate;
+        this.imagePullSecretName = imagePullSecretName != null ? imagePullSecretName : this.imagePullSecretName;
+        this.serviceType = serviceType != null ? serviceType : getServiceType();
+        this.nodePort = nodePort;
     }
 }

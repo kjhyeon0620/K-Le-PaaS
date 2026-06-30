@@ -1,6 +1,7 @@
 package klepaas.backend.deployment.service;
 
 import klepaas.backend.auth.service.GitHubInstallationTokenService;
+import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.SourceRepository;
@@ -32,6 +33,16 @@ public class DeploymentPipelineStepService {
     private final KubernetesManifestGenerator k8sGenerator;
     private final GitHubInstallationTokenService installationTokenService;
     private final NotificationService notificationService;
+    private final ExternalImageResolver externalImageResolver;
+
+    @Transactional(readOnly = true)
+    public BuildStrategy getBuildStrategy(Long deploymentId) {
+        Deployment deployment = getDeployment(deploymentId);
+        DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(
+                        deployment.getSourceRepository().getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
+        return config.getBuildStrategy();
+    }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String executeUpload(Long deploymentId) {
@@ -72,6 +83,22 @@ public class DeploymentPipelineStepService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String resolveExternalImage(Long deploymentId) {
+        Deployment deployment = getDeployment(deploymentId);
+        DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(
+                        deployment.getSourceRepository().getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
+
+        String imageUri = externalImageResolver.resolve(deployment, config);
+        deployment.markAsBuilding("external-image");
+        deployment.setImageUri(imageUri);
+        deploymentRepository.save(deployment);
+
+        log.info("External image resolved: deploymentId={}, imageUri={}", deploymentId, imageUri);
+        return imageUri;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeK8sDeploy(Long deploymentId, String imageUri) {
         Deployment deployment = getDeployment(deploymentId);
         deployment.startDeploying();
@@ -85,6 +112,7 @@ public class DeploymentPipelineStepService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
         k8sGenerator.deploy(appName, imageUri, config, repo.getId());
+        k8sGenerator.waitForDeploymentAvailable(appName);
         log.info("K8s deploy completed: deploymentId={}, app={}", deploymentId, appName);
     }
 

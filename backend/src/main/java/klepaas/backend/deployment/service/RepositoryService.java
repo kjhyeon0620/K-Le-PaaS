@@ -3,7 +3,10 @@ package klepaas.backend.deployment.service;
 import klepaas.backend.auth.config.GitHubAppConfig;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.deployment.dto.*;
+import klepaas.backend.deployment.entity.BuildStrategy;
+import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
@@ -12,6 +15,7 @@ import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.global.exception.GitHubAppInstallationRequiredException;
 import klepaas.backend.global.exception.GitHubAppNotInstalledException;
+import klepaas.backend.global.exception.InvalidRequestException;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +66,7 @@ public class RepositoryService {
                 .envVars(new HashMap<>())
                 .containerPort(8080)
                 .domainUrl(request.repoName() + ".klepaas.io")
+                .buildStrategy(defaultBuildStrategy(request.cloudVendor()))
                 .build();
         deploymentConfigRepository.save(defaultConfig);
 
@@ -120,15 +125,52 @@ public class RepositoryService {
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repositoryId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
+        ServiceExposure serviceExposure = resolveServiceExposure(config, request);
         config.updateConfig(
                 request.minReplicas(),
                 request.maxReplicas(),
                 request.envVars(),
                 request.containerPort(),
-                request.domainUrl()
+                request.domainUrl(),
+                request.buildStrategy(),
+                request.imageUriTemplate(),
+                request.imagePullSecretName(),
+                serviceExposure.serviceType(),
+                serviceExposure.nodePort()
         );
 
         log.info("DeploymentConfig updated: repositoryId={}", repositoryId);
         return DeploymentConfigResponse.from(config);
     }
+
+    private ServiceExposure resolveServiceExposure(DeploymentConfig config, UpdateDeploymentConfigRequest request) {
+        KubernetesServiceType serviceType = request.serviceType() != null
+                ? request.serviceType()
+                : config.getServiceType();
+        Integer nodePort = request.nodePort() != null ? request.nodePort() : config.getNodePort();
+
+        if (serviceType == KubernetesServiceType.NODE_PORT && nodePort == null) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "NODE_PORT 서비스는 nodePort가 필요합니다");
+        }
+
+        if (serviceType == KubernetesServiceType.CLUSTER_IP) {
+            if (request.nodePort() != null) {
+                throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "CLUSTER_IP 서비스에는 nodePort를 설정할 수 없습니다");
+            }
+            return new ServiceExposure(serviceType, null);
+        }
+
+        return new ServiceExposure(serviceType, nodePort);
+    }
+
+    private BuildStrategy defaultBuildStrategy(CloudVendor cloudVendor) {
+        return switch (cloudVendor) {
+            case NCP, AWS -> BuildStrategy.KANIKO;
+            case ON_PREMISE -> BuildStrategy.GITHUB_ACTIONS_GHCR;
+        };
+    }
+
+    private record ServiceExposure(KubernetesServiceType serviceType, Integer nodePort) {
+    }
+
 }
