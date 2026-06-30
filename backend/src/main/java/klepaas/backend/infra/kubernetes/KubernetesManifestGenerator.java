@@ -9,6 +9,7 @@ import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +52,7 @@ public class KubernetesManifestGenerator {
 
         try {
             createOrUpdateDeployment(appName, imageUri, config, labels);
-            createOrUpdateService(appName, config.getContainerPort(), labels);
+            createOrUpdateService(appName, config, labels);
 
             if (config.getDomainUrl() != null && !config.getDomainUrl().isBlank()) {
                 createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels);
@@ -190,7 +191,8 @@ public class KubernetesManifestGenerator {
         return imagePullSecretName;
     }
 
-    private void createOrUpdateService(String appName, int containerPort, Map<String, String> labels) {
+    private void createOrUpdateService(String appName, DeploymentConfig config, Map<String, String> labels) {
+        ServicePort servicePort = buildServicePort(config);
         Service service = new ServiceBuilder()
                 .withNewMetadata()
                     .withName(appName)
@@ -199,12 +201,8 @@ public class KubernetesManifestGenerator {
                 .endMetadata()
                 .withNewSpec()
                     .withSelector(Map.of("app.kubernetes.io/name", appName))
-                    .withPorts(new ServicePortBuilder()
-                            .withPort(80)
-                            .withNewTargetPort(containerPort)
-                            .withProtocol("TCP")
-                            .build())
-                    .withType("ClusterIP")
+                    .withPorts(servicePort)
+                    .withType(config.getServiceType().getKubernetesValue())
                 .endSpec()
                 .build();
 
@@ -212,6 +210,17 @@ public class KubernetesManifestGenerator {
                 .inNamespace(namespace)
                 .resource(service)
                 .serverSideApply();
+    }
+
+    ServicePort buildServicePort(DeploymentConfig config) {
+        ServicePortBuilder builder = new ServicePortBuilder()
+                .withPort(80)
+                .withNewTargetPort(config.getContainerPort())
+                .withProtocol("TCP");
+        if (config.getServiceType() == KubernetesServiceType.NODE_PORT && config.getNodePort() != null) {
+            builder.withNodePort(config.getNodePort());
+        }
+        return builder.build();
     }
 
     private void createOrUpdateIngress(String appName, String domainUrl, int containerPort,

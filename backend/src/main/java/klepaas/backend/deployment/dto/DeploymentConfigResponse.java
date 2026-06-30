@@ -2,6 +2,7 @@ package klepaas.backend.deployment.dto;
 
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.KubernetesServiceType;
 
 import java.util.Map;
 
@@ -15,12 +16,14 @@ public record DeploymentConfigResponse(
         String domainUrl,
         BuildStrategy buildStrategy,
         String imageUriTemplate,
-        String imagePullSecretName
+        String imagePullSecretName,
+        KubernetesServiceType serviceType,
+        Integer nodePort
 ) {
     public DeploymentConfigResponse(Long id, Long repositoryId, int minReplicas, int maxReplicas,
                                     Map<String, String> envVars, int containerPort, String domainUrl) {
         this(id, repositoryId, minReplicas, maxReplicas, envVars, containerPort, domainUrl,
-                BuildStrategy.KANIKO, null, null);
+                BuildStrategy.KANIKO, null, null, KubernetesServiceType.CLUSTER_IP, null);
     }
 
     public static DeploymentConfigResponse from(DeploymentConfig entity) {
@@ -34,7 +37,9 @@ public record DeploymentConfigResponse(
                 entity.getDomainUrl(),
                 entity.getBuildStrategy(),
                 entity.getImageUriTemplate(),
-                entity.getImagePullSecretName()
+                entity.getImagePullSecretName(),
+                entity.getServiceType(),
+                entity.getNodePort()
         );
     }
 }

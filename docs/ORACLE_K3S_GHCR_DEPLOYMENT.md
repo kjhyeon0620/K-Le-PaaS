@@ -27,6 +27,8 @@ GHCR image to an Oracle Free Tier k3s target through K-Le-PaaS.
 - K-Le-PaaS runs with a kubeconfig that can reach that k3s cluster.
 - `K8S_NAMESPACE` points to the target namespace.
 - A GHCR image pull secret exists in that namespace when the GHCR image is private.
+- For the Oracle MVP, configure the service as `NODE_PORT` when host Nginx is
+  the public edge.
 - Secrets such as kubeconfig, GHCR tokens, SSH keys, and production env vars must
   stay outside Git.
 
@@ -48,7 +50,7 @@ ghcr.io/kjhyeon0620/smart-sousvide-iot-platform/backend:sha-{commitHash}
 If a deployment request provides `image_uri`, that explicit image URI is used
 instead of the template.
 
-For external image strategies, either `image_uri` or `imageUriTemplate` must be
+For external image strategies, either `image_uri` or `image_uri_template` must be
 configured. K-Le-PaaS does not infer a default GHCR package path because package
 names can differ by repository, for example `repo:sha-...` versus
 `repo/backend:sha-...`.
@@ -62,3 +64,20 @@ Oracle GHCR path by itself.
 Raw GitHub push webhooks are ignored for repositories configured with
 `GITHUB_ACTIONS_GHCR` or `PREBUILT_IMAGE`. They remain valid for the existing
 `KANIKO` path.
+
+## Service Exposure
+
+The default Kubernetes Service type remains `CLUSTER_IP`, preserving the existing
+NCP behavior. For Oracle single-node k3s behind host Nginx, set:
+
+```text
+service_type: NODE_PORT
+node_port: 30080
+container_port: 8080
+```
+
+Then route host Nginx to the selected node port, for example
+`http://127.0.0.1:30080`.
+
+`NODE_PORT` requires an explicit `node_port` so the host Nginx upstream remains
+stable. Switching back to `CLUSTER_IP` clears the stored `node_port`.

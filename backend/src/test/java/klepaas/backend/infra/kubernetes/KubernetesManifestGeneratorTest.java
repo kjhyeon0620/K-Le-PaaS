@@ -3,9 +3,13 @@ package klepaas.backend.infra.kubernetes;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentConditionBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.KubernetesServiceType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -113,5 +117,25 @@ class KubernetesManifestGeneratorTest {
 
         assertThat(generator.isDeploymentRolloutComplete(unavailable)).isFalse();
         assertThat(generator.isDeploymentRolloutComplete(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("NODE_PORT 서비스 포트에는 configured nodePort를 포함한다")
+    void buildServicePort_includesConfiguredNodePort_whenServiceTypeIsNodePort() {
+        DeploymentConfig config = DeploymentConfig.builder()
+                .minReplicas(1)
+                .maxReplicas(1)
+                .envVars(Map.of())
+                .containerPort(8080)
+                .domainUrl("iot.example.com")
+                .serviceType(KubernetesServiceType.NODE_PORT)
+                .nodePort(30080)
+                .build();
+
+        var servicePort = generator.buildServicePort(config);
+
+        assertThat(servicePort.getPort()).isEqualTo(80);
+        assertThat(servicePort.getTargetPort().getIntVal()).isEqualTo(8080);
+        assertThat(servicePort.getNodePort()).isEqualTo(30080);
     }
 }

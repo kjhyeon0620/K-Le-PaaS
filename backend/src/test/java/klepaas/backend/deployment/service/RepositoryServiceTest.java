@@ -6,6 +6,7 @@ import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
@@ -13,6 +14,7 @@ import klepaas.backend.global.exception.DuplicateResourceException;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.global.exception.GitHubAppInstallationRequiredException;
 import klepaas.backend.global.exception.GitHubAppNotInstalledException;
+import klepaas.backend.global.exception.InvalidRequestException;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
@@ -232,7 +234,9 @@ class RepositoryServiceTest {
                     "custom.klepaas.io",
                     BuildStrategy.GITHUB_ACTIONS_GHCR,
                     "ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}",
-                    "ghcr-pull-secret"
+                    "ghcr-pull-secret",
+                    KubernetesServiceType.NODE_PORT,
+                    30080
             );
             given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
             given(deploymentConfigRepository.findBySourceRepositoryId(1L))
@@ -247,6 +251,88 @@ class RepositoryServiceTest {
             assertThat(response.buildStrategy()).isEqualTo(BuildStrategy.GITHUB_ACTIONS_GHCR);
             assertThat(response.imageUriTemplate()).isEqualTo("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}");
             assertThat(response.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
+            assertThat(response.serviceType()).isEqualTo(KubernetesServiceType.NODE_PORT);
+            assertThat(response.nodePort()).isEqualTo(30080);
+        }
+
+        @Test
+        @DisplayName("실패: NODE_PORT 서비스는 nodePort가 필요하다")
+        void failNodePortServiceWithoutNodePort() {
+            var request = new UpdateDeploymentConfigRequest(
+                    2,
+                    5,
+                    Map.of("ENV", "prod"),
+                    3000,
+                    "custom.klepaas.io",
+                    BuildStrategy.GITHUB_ACTIONS_GHCR,
+                    "ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}",
+                    "ghcr-pull-secret",
+                    KubernetesServiceType.NODE_PORT,
+                    null
+            );
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("nodePort");
+        }
+
+        @Test
+        @DisplayName("성공: CLUSTER_IP로 전환하면 기존 nodePort를 제거한다")
+        void successClearsNodePortWhenServiceTypeIsClusterIp() {
+            DeploymentConfig nodePortConfig = DeploymentConfig.builder()
+                    .sourceRepository(testRepo)
+                    .minReplicas(1)
+                    .maxReplicas(1)
+                    .envVars(Map.of())
+                    .containerPort(8080)
+                    .domainUrl("repo.klepaas.io")
+                    .serviceType(KubernetesServiceType.NODE_PORT)
+                    .nodePort(30080)
+                    .build();
+            var request = new UpdateDeploymentConfigRequest(
+                    1,
+                    1,
+                    Map.of(),
+                    8080,
+                    "repo.klepaas.io",
+                    null,
+                    null,
+                    null,
+                    KubernetesServiceType.CLUSTER_IP,
+                    null
+            );
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(nodePortConfig));
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+
+            assertThat(response.serviceType()).isEqualTo(KubernetesServiceType.CLUSTER_IP);
+            assertThat(response.nodePort()).isNull();
+        }
+
+        @Test
+        @DisplayName("실패: CLUSTER_IP 서비스에는 nodePort를 설정할 수 없다")
+        void failClusterIpServiceWithNodePort() {
+            var request = new UpdateDeploymentConfigRequest(
+                    2,
+                    5,
+                    Map.of("ENV", "prod"),
+                    3000,
+                    "custom.klepaas.io",
+                    null,
+                    null,
+                    null,
+                    KubernetesServiceType.CLUSTER_IP,
+                    30080
+            );
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("nodePort");
         }
 
         @Test
@@ -262,6 +348,8 @@ class RepositoryServiceTest {
                     .buildStrategy(BuildStrategy.GITHUB_ACTIONS_GHCR)
                     .imageUriTemplate("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}")
                     .imagePullSecretName("ghcr-pull-secret")
+                    .serviceType(KubernetesServiceType.NODE_PORT)
+                    .nodePort(30080)
                     .build();
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
             given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
@@ -272,6 +360,8 @@ class RepositoryServiceTest {
             assertThat(response.buildStrategy()).isEqualTo(BuildStrategy.GITHUB_ACTIONS_GHCR);
             assertThat(response.imageUriTemplate()).isEqualTo("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}");
             assertThat(response.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
+            assertThat(response.serviceType()).isEqualTo(KubernetesServiceType.NODE_PORT);
+            assertThat(response.nodePort()).isEqualTo(30080);
         }
     }
 }
