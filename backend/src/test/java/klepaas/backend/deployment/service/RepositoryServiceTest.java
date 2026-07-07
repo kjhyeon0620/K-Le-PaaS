@@ -27,6 +27,8 @@ import org.mockito.InjectMocks;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -108,7 +111,122 @@ class RepositoryServiceTest {
             assertThat(response.owner()).isEqualTo("testowner");
             assertThat(response.repoName()).isEqualTo("testrepo");
             assertThat(response.cloudVendor()).isEqualTo(CloudVendor.NCP);
-            verify(deploymentConfigRepository).save(any(DeploymentConfig.class));
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            assertThat(configCaptor.getValue().getDomainUrl()).isEqualTo("testrepo.klepaas.io");
+        }
+
+        @Test
+        @DisplayName("성공: 설정된 suffix로 기본 배포 도메인 생성")
+        void successDefaultDomainWithConfiguredSuffix() {
+            ReflectionTestUtils.setField(repositoryService, "deploymentDomainSuffix", "juhyeon.app");
+            var request = new CreateRepositoryRequest("kjhyeon0620", "smart-sousvide-iot-platform",
+                    "https://github.com/kjhyeon0620/smart-sousvide-iot-platform", CloudVendor.ON_PREMISE);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("kjhyeon0620", "smart-sousvide-iot-platform"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("kjhyeon0620", "smart-sousvide-iot-platform")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            repositoryService.createRepository(1L, request);
+
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            assertThat(configCaptor.getValue().getDomainUrl())
+                    .isEqualTo("smart-sousvide-iot-platform.juhyeon.app");
+        }
+
+        @Test
+        @DisplayName("성공: repoName을 DNS-safe하게 변환해 기본 도메인 생성")
+        void successNormalizesRepoNameForDefaultDomain() {
+            var request = new CreateRepositoryRequest("testowner", "Smart_Sousvide IoT.Platform",
+                    "https://github.com/testowner/Smart_Sousvide IoT.Platform", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "Smart_Sousvide IoT.Platform"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "Smart_Sousvide IoT.Platform")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            repositoryService.createRepository(1L, request);
+
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            assertThat(configCaptor.getValue().getDomainUrl())
+                    .isEqualTo("smart-sousvide-iot-platform.klepaas.io");
+        }
+
+        @Test
+        @DisplayName("성공: custom domain_url을 우선 사용")
+        void successUsesCustomDomainUrl() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP, "custom.example.com");
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            repositoryService.createRepository(1L, request);
+
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            assertThat(configCaptor.getValue().getDomainUrl()).isEqualTo("custom.example.com");
+        }
+
+        @Test
+        @DisplayName("성공: custom domain_url은 lowercase canonical 값으로 저장")
+        void successCanonicalizesCustomDomainUrl() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP, "Custom.Example.COM");
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            repositoryService.createRepository(1L, request);
+
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).existsByDomainUrl("custom.example.com");
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            assertThat(configCaptor.getValue().getDomainUrl()).isEqualTo("custom.example.com");
+        }
+
+        @Test
+        @DisplayName("성공: custom domain_url이 blank면 기본 도메인 사용")
+        void successBlankCustomDomainFallsBackToDefaultDomain() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP, " ");
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            repositoryService.createRepository(1L, request);
+
+            ArgumentCaptor<DeploymentConfig> configCaptor = ArgumentCaptor.forClass(DeploymentConfig.class);
+            verify(deploymentConfigRepository).save(configCaptor.capture());
+            assertThat(configCaptor.getValue().getDomainUrl()).isEqualTo("testrepo.klepaas.io");
+        }
+
+        @Test
+        @DisplayName("실패: custom domain_url이 DNS host 형식이 아니면 거절")
+        void failInvalidCustomDomainUrl() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP, "https://example.com");
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("domain_url");
         }
 
         @Test
@@ -162,6 +280,113 @@ class RepositoryServiceTest {
 
             assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
                     .isInstanceOf(DuplicateResourceException.class);
+        }
+
+        @Test
+        @DisplayName("실패: 기본 domain_url이 이미 사용 중")
+        void failDuplicateDefaultDomainUrl() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(deploymentConfigRepository.existsByDomainUrl("testrepo.klepaas.io")).willReturn(true);
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(DuplicateResourceException.class);
+        }
+
+        @Test
+        @DisplayName("실패: custom domain_url이 이미 사용 중")
+        void failDuplicateCustomDomainUrl() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP, "custom.example.com");
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(deploymentConfigRepository.existsByDomainUrl("custom.example.com")).willReturn(true);
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(DuplicateResourceException.class);
+        }
+
+        @Test
+        @DisplayName("실패: DB unique 제약으로 domain_url 중복이 감지되면 409 예외로 변환")
+        void failDuplicateDomainUrlOnFlush() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+            willThrow(new DataIntegrityViolationException("domain_url")).given(deploymentConfigRepository).flush();
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(DuplicateResourceException.class);
+        }
+
+        @Test
+        @DisplayName("실패: domain_url과 무관한 DB 제약 위반은 원 예외를 유지")
+        void failNonDomainIntegrityViolationKeepsOriginalException() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
+            willThrow(new DataIntegrityViolationException("other_constraint"))
+                    .given(deploymentConfigRepository).flush();
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+
+        @Test
+        @DisplayName("실패: repoName 정규화 결과가 비어 있음")
+        void failBlankNormalizedRepoName() {
+            var request = new CreateRepositoryRequest("testowner", "___",
+                    "https://github.com/testowner/___", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "___"))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("repoName");
+        }
+
+        @Test
+        @DisplayName("실패: 기본 도메인의 repoName label이 63자를 초과하면 거절")
+        void failDefaultDomainWithTooLongRepoLabel() {
+            String repoName = "a".repeat(64);
+            var request = new CreateRepositoryRequest("testowner", repoName,
+                    "https://github.com/testowner/" + repoName, CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", repoName))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("domain_url");
+        }
+
+        @Test
+        @DisplayName("실패: 설정된 suffix가 DNS host 형식이 아니면 거절")
+        void failInvalidDeploymentDomainSuffix() {
+            ReflectionTestUtils.setField(repositoryService, "deploymentDomainSuffix", ".juhyeon.app");
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("DEPLOYMENT_DOMAIN_SUFFIX");
         }
 
         @Test
@@ -362,6 +587,107 @@ class RepositoryServiceTest {
             assertThat(response.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
             assertThat(response.serviceType()).isEqualTo(KubernetesServiceType.NODE_PORT);
             assertThat(response.nodePort()).isEqualTo(30080);
+        }
+
+        @Test
+        @DisplayName("성공: 자기 자신의 기존 domain_url은 유지 가능")
+        void successAllowsOwnDomainUrl() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "testrepo.klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+            given(deploymentConfigRepository.existsByDomainUrlAndSourceRepositoryIdNot("testrepo.klepaas.io", 1L))
+                    .willReturn(false);
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+
+            assertThat(response.domainUrl()).isEqualTo("testrepo.klepaas.io");
+        }
+
+        @Test
+        @DisplayName("성공: domain_url을 생략하면 기존 domain_url을 유지")
+        void successPreservesDomainUrlWhenRequestOmitsIt() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, null);
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+
+            assertThat(response.domainUrl()).isEqualTo("testrepo.klepaas.io");
+        }
+
+        @Test
+        @DisplayName("성공: 수정 domain_url은 lowercase canonical 값으로 저장")
+        void successCanonicalizesDomainUrlOnUpdate() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "Custom.KLEPAAS.IO");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+
+            verify(deploymentConfigRepository).existsByDomainUrlAndSourceRepositoryIdNot("custom.klepaas.io", 1L);
+            assertThat(response.domainUrl()).isEqualTo("custom.klepaas.io");
+        }
+
+        @Test
+        @DisplayName("실패: 다른 저장소의 domain_url로 수정할 수 없다")
+        void failDuplicateDomainUrlOnUpdate() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+            given(deploymentConfigRepository.existsByDomainUrlAndSourceRepositoryIdNot("custom.klepaas.io", 1L))
+                    .willReturn(true);
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(DuplicateResourceException.class);
+        }
+
+        @Test
+        @DisplayName("실패: 수정 중 DB unique 제약으로 domain_url 중복이 감지되면 409 예외로 변환")
+        void failDuplicateDomainUrlOnUpdateFlush() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+            willThrow(new DataIntegrityViolationException("domain_url")).given(deploymentConfigRepository).flush();
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(DuplicateResourceException.class);
+        }
+
+        @Test
+        @DisplayName("실패: 수정 중 domain_url과 무관한 DB 제약 위반은 원 예외를 유지")
+        void failNonDomainIntegrityViolationOnUpdateKeepsOriginalException() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+            willThrow(new DataIntegrityViolationException("other_constraint"))
+                    .given(deploymentConfigRepository).flush();
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+
+        @Test
+        @DisplayName("실패: 수정 domain_url이 DNS host 형식이 아니면 거절")
+        void failInvalidDomainUrlOnUpdate() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "repo..klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("domain_url");
+        }
+
+        @Test
+        @DisplayName("실패: blank domain_url로 수정할 수 없다")
+        void failBlankDomainUrlOnUpdate() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, " ");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("domain_url");
         }
     }
 }

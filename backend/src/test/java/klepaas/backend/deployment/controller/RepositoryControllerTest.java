@@ -6,6 +6,7 @@ import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.token.service.CliAccessTokenService;
+import klepaas.backend.deployment.dto.CreateRepositoryRequest;
 import klepaas.backend.deployment.dto.DeploymentConfigResponse;
 import klepaas.backend.deployment.dto.RepositoryResponse;
 import klepaas.backend.deployment.entity.CloudVendor;
@@ -14,6 +15,7 @@ import klepaas.backend.user.entity.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -27,9 +29,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -82,10 +86,15 @@ class RepositoryControllerTest {
                                 "owner", "owner",
                                 "repo_name", "repo",
                                 "git_url", "https://github.com/owner/repo",
-                                "cloud_vendor", "NCP"
+                                "cloud_vendor", "NCP",
+                                "domain_url", "custom.example.com"
                         ))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.owner").value("owner"));
+
+        ArgumentCaptor<CreateRepositoryRequest> requestCaptor = ArgumentCaptor.forClass(CreateRepositoryRequest.class);
+        verify(repositoryService).createRepository(anyLong(), requestCaptor.capture());
+        assertThat(requestCaptor.getValue().domainUrl()).isEqualTo("custom.example.com");
     }
 
     @Test

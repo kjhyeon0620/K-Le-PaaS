@@ -8,6 +8,10 @@ public record CreateRepositoryRequest(
         @NotBlank String owner,
         @NotBlank String repoName,
         @NotBlank String gitUrl,
-        @NotNull CloudVendor cloudVendor
+        @NotNull CloudVendor cloudVendor,
+        String domainUrl
 ) {
+    public CreateRepositoryRequest(String owner, String repoName, String gitUrl, CloudVendor cloudVendor) {
+        this(owner, repoName, gitUrl, cloudVendor, null);
+    }
 }

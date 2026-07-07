@@ -81,3 +81,39 @@ Then route host Nginx to the selected node port, for example
 
 `NODE_PORT` requires an explicit `node_port` so the host Nginx upstream remains
 stable. Switching back to `CLUSTER_IP` clears the stored `node_port`.
+
+## Default Deployment Domain
+
+When a repository is registered without a custom `domain_url`, K-Le-PaaS creates
+a default deployment domain from the repository name:
+
+```text
+{repo_name}.{DEPLOYMENT_DOMAIN_SUFFIX}
+```
+
+`repo_name` is normalized for DNS use before the domain is stored: lowercase
+letters, numbers, and `-` are kept; other characters become `-`; repeated `-`
+characters are collapsed; leading and trailing `-` characters are removed.
+
+The default suffix is:
+
+```text
+DEPLOYMENT_DOMAIN_SUFFIX=klepaas.io
+```
+
+For the Oracle server, set:
+
+```text
+DEPLOYMENT_DOMAIN_SUFFIX=juhyeon.app
+```
+
+Example:
+
+```text
+smart-sousvide-iot-platform.juhyeon.app
+```
+
+If a repository create request includes `domain_url`, that custom value is used
+instead. `domain_url` must be unique across repositories. When a default or
+custom domain is already in use, K-Le-PaaS rejects the request instead of adding
+suffixes such as `-2` or `-3`; set a different custom `domain_url` explicitly.
