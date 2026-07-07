@@ -14,7 +14,10 @@ import java.util.Map;
 
 @Entity
 @Getter
-@Table(name = "deployment_configs")
+@Table(
+        name = "deployment_configs",
+        uniqueConstraints = @UniqueConstraint(name = "uk_deployment_configs_domain_url", columnNames = "domain_url")
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DeploymentConfig extends BaseTimeEntity {
 
@@ -37,7 +40,7 @@ public class DeploymentConfig extends BaseTimeEntity {
     @Column(nullable = false)
     private int containerPort;
 
-    @Column(nullable = false)
+    @Column(name = "domain_url", nullable = false)
     private String domainUrl;
 
     @Enumerated(EnumType.STRING)

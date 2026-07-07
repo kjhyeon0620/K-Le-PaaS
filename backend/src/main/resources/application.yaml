@@ -77,6 +77,8 @@ slack:
     url: ${SLACK_WEBHOOK_URL:}
 
 deployment:
+  domain:
+    suffix: ${DEPLOYMENT_DOMAIN_SUFFIX:klepaas.io}
   pipeline:
     poll-initial-interval: 10000
     poll-max-interval: 60000

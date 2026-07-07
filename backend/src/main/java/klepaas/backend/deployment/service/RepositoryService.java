@@ -20,11 +20,15 @@ import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -38,6 +42,9 @@ public class RepositoryService {
     private final GitHubAppClient gitHubAppClient;
     private final GitHubAppConfig gitHubAppConfig;
 
+    @Value("${deployment.domain.suffix:klepaas.io}")
+    private String deploymentDomainSuffix = "klepaas.io";
+
     @Transactional
     public RepositoryResponse createRepository(Long userId, CreateRepositoryRequest request) {
         User user = userRepository.findById(userId)
@@ -47,6 +54,9 @@ public class RepositoryService {
                 .ifPresent(r -> {
                     throw new DuplicateResourceException(ErrorCode.REPOSITORY_ALREADY_EXISTS);
                 });
+
+        String domainUrl = resolveCreateDomainUrl(request);
+        validateDomainUrlAvailable(domainUrl);
 
         checkGitHubAppInstalled(request.owner(), request.repoName());
 
@@ -65,10 +75,10 @@ public class RepositoryService {
                 .maxReplicas(1)
                 .envVars(new HashMap<>())
                 .containerPort(8080)
-                .domainUrl(request.repoName() + ".klepaas.io")
+                .domainUrl(domainUrl)
                 .buildStrategy(defaultBuildStrategy(request.cloudVendor()))
                 .build();
-        deploymentConfigRepository.save(defaultConfig);
+        saveDeploymentConfig(defaultConfig);
 
         log.info("Repository created: {}/{} (id={})", request.owner(), request.repoName(), repository.getId());
         return RepositoryResponse.from(repository);
@@ -125,19 +135,21 @@ public class RepositoryService {
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repositoryId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
+        String domainUrl = resolveUpdateDomainUrl(repositoryId, config, request.domainUrl());
         ServiceExposure serviceExposure = resolveServiceExposure(config, request);
         config.updateConfig(
                 request.minReplicas(),
                 request.maxReplicas(),
                 request.envVars(),
                 request.containerPort(),
-                request.domainUrl(),
+                domainUrl,
                 request.buildStrategy(),
                 request.imageUriTemplate(),
                 request.imagePullSecretName(),
                 serviceExposure.serviceType(),
                 serviceExposure.nodePort()
         );
+        flushDeploymentConfigChanges();
 
         log.info("DeploymentConfig updated: repositoryId={}", repositoryId);
         return DeploymentConfigResponse.from(config);
@@ -168,6 +180,129 @@ public class RepositoryService {
             case NCP, AWS -> BuildStrategy.KANIKO;
             case ON_PREMISE -> BuildStrategy.GITHUB_ACTIONS_GHCR;
         };
+    }
+
+    private String resolveCreateDomainUrl(CreateRepositoryRequest request) {
+        if (StringUtils.hasText(request.domainUrl())) {
+            return canonicalizeDomainHost(request.domainUrl(), "domain_url");
+        }
+        String suffix = canonicalizeDomainHost(normalizeDomainSuffix(), "DEPLOYMENT_DOMAIN_SUFFIX");
+        return canonicalizeDomainHost(normalizeRepoName(request.repoName()) + "." + suffix, "domain_url");
+    }
+
+    private String normalizeRepoName(String repoName) {
+        String normalized = repoName.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9-]", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (!StringUtils.hasText(normalized)) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "repoName을 DNS-safe 도메인 이름으로 변환할 수 없습니다");
+        }
+        return normalized;
+    }
+
+    private String normalizeDomainSuffix() {
+        String suffix = deploymentDomainSuffix == null ? "" : deploymentDomainSuffix.trim();
+        if (!StringUtils.hasText(suffix)) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "deployment domain suffix가 설정되지 않았습니다");
+        }
+        return suffix;
+    }
+
+    private void validateDomainUrlAvailable(String domainUrl) {
+        if (deploymentConfigRepository.existsByDomainUrl(domainUrl)) {
+            throw new DuplicateResourceException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+    }
+
+    private void saveDeploymentConfig(DeploymentConfig config) {
+        try {
+            deploymentConfigRepository.save(config);
+            deploymentConfigRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throwDomainDuplicateIfApplicable(e);
+            throw e;
+        }
+    }
+
+    private void flushDeploymentConfigChanges() {
+        try {
+            deploymentConfigRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throwDomainDuplicateIfApplicable(e);
+            throw e;
+        }
+    }
+
+    private void throwDomainDuplicateIfApplicable(DataIntegrityViolationException exception) {
+        if (isDomainUrlIntegrityViolation(exception)) {
+            throw new DuplicateResourceException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+    }
+
+    private boolean isDomainUrlIntegrityViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalizedMessage = message.toLowerCase(Locale.ROOT);
+                if (normalizedMessage.contains("domain_url")
+                        || normalizedMessage.contains("domainurl")
+                        || normalizedMessage.contains("uk_deployment_configs_domain_url")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private String resolveUpdateDomainUrl(Long repositoryId, DeploymentConfig config, String domainUrl) {
+        if (domainUrl == null) {
+            return config.getDomainUrl();
+        }
+
+        if (!StringUtils.hasText(domainUrl)) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "domain_url은 비워둘 수 없습니다");
+        }
+
+        String canonicalDomainUrl = canonicalizeDomainHost(domainUrl, "domain_url");
+        if (deploymentConfigRepository.existsByDomainUrlAndSourceRepositoryIdNot(canonicalDomainUrl, repositoryId)) {
+            throw new DuplicateResourceException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        return canonicalDomainUrl;
+    }
+
+    private String canonicalizeDomainHost(String value, String fieldName) {
+        String host = value.trim().toLowerCase(Locale.ROOT);
+        if (!isValidDomainHost(host)) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, fieldName + "이 올바른 DNS host 형식이 아닙니다");
+        }
+        return host;
+    }
+
+    private boolean isValidDomainHost(String host) {
+        if (host.length() > 253 || host.startsWith(".") || host.endsWith(".")) {
+            return false;
+        }
+
+        String[] labels = host.split("\\.", -1);
+        if (labels.length < 2) {
+            return false;
+        }
+
+        for (String label : labels) {
+            if (!isValidDomainLabel(label)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isValidDomainLabel(String label) {
+        return !label.isBlank()
+                && label.length() <= 63
+                && label.matches("[a-z0-9]([a-z0-9-]*[a-z0-9])?");
     }
 
     private record ServiceExposure(KubernetesServiceType serviceType, Integer nodePort) {
