@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { CheckCircle2, Clock3, Laptop2, LogIn, ShieldX } from "lucide-react"
@@ -17,7 +17,7 @@ type AuthUser = {
   name: string
 }
 
-export default function CliAuthorizePage() {
+function CliAuthorizePageContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session")
   const authError = searchParams.get("authError")
@@ -57,7 +57,7 @@ export default function CliAuthorizePage() {
       setLoading(true)
       const [sessionData, userData] = await Promise.all([
         api.getCliAuthSession(id),
-        api.getCurrentUser().catch(() => null),
+        api.getCurrentUser().catch(() => null) as Promise<AuthUser | null>,
       ])
       setSession(sessionData)
       setUser(userData)
@@ -227,6 +227,14 @@ export default function CliAuthorizePage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function CliAuthorizePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-muted/30 flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중...</div>}>
+      <CliAuthorizePageContent />
+    </Suspense>
   )
 }
 
