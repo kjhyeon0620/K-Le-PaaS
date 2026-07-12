@@ -455,6 +455,8 @@ class RepositoryServiceTest {
                     2,
                     5,
                     Map.of("ENV", "prod"),
+                    List.of("smart-sousvide-runtime-config", "smart-sousvide-runtime-config"),
+                    List.of("smart-sousvide-app-env"),
                     3000,
                     "custom.klepaas.io",
                     BuildStrategy.GITHUB_ACTIONS_GHCR,
@@ -478,6 +480,47 @@ class RepositoryServiceTest {
             assertThat(response.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
             assertThat(response.serviceType()).isEqualTo(KubernetesServiceType.NODE_PORT);
             assertThat(response.nodePort()).isEqualTo(30080);
+            assertThat(response.envFromConfigMaps()).containsExactly("smart-sousvide-runtime-config");
+            assertThat(response.envFromSecrets()).containsExactly("smart-sousvide-app-env");
+        }
+
+        @Test
+        @DisplayName("성공: envFrom 목록이 null이면 빈 목록으로 저장한다")
+        void successTreatsNullEnvFromRefsAsEmptyLists() {
+            var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+
+            assertThat(response.envFromConfigMaps()).isEmpty();
+            assertThat(response.envFromSecrets()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("실패: Kubernetes 이름 형식이 아닌 envFrom 참조는 거절한다")
+        void failInvalidEnvFromRefName() {
+            var request = new UpdateDeploymentConfigRequest(
+                    2,
+                    5,
+                    Map.of("ENV", "prod"),
+                    List.of("Invalid_Name"),
+                    List.of(),
+                    3000,
+                    "custom.klepaas.io",
+                    null,
+                    null,
+                    null,
+                    KubernetesServiceType.CLUSTER_IP,
+                    null
+            );
+            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("env_from_config_maps")
+                    .hasMessageContaining("Invalid_Name");
         }
 
         @Test

@@ -26,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 
@@ -137,6 +139,8 @@ public class RepositoryService {
 
         String domainUrl = resolveUpdateDomainUrl(repositoryId, config, request.domainUrl());
         ServiceExposure serviceExposure = resolveServiceExposure(config, request);
+        List<String> envFromConfigMaps = normalizeEnvFromRefs(request.envFromConfigMaps(), "env_from_config_maps");
+        List<String> envFromSecrets = normalizeEnvFromRefs(request.envFromSecrets(), "env_from_secrets");
         config.updateConfig(
                 request.minReplicas(),
                 request.maxReplicas(),
@@ -147,7 +151,9 @@ public class RepositoryService {
                 request.imageUriTemplate(),
                 request.imagePullSecretName(),
                 serviceExposure.serviceType(),
-                serviceExposure.nodePort()
+                serviceExposure.nodePort(),
+                envFromConfigMaps,
+                envFromSecrets
         );
         flushDeploymentConfigChanges();
 
@@ -303,6 +309,40 @@ public class RepositoryService {
         return !label.isBlank()
                 && label.length() <= 63
                 && label.matches("[a-z0-9]([a-z0-9-]*[a-z0-9])?");
+    }
+
+    private List<String> normalizeEnvFromRefs(List<String> names, String fieldName) {
+        if (names == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> normalizedNames = new LinkedHashSet<>();
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            String normalizedName = name.trim();
+            if (!isValidKubernetesObjectName(normalizedName)) {
+                throw new InvalidRequestException(
+                        ErrorCode.INVALID_REQUEST,
+                        fieldName + "에는 올바른 Kubernetes ConfigMap/Secret 이름만 사용할 수 있습니다: " + normalizedName
+                );
+            }
+            normalizedNames.add(normalizedName);
+        }
+        return new ArrayList<>(normalizedNames);
+    }
+
+    private boolean isValidKubernetesObjectName(String name) {
+        if (name.length() > 253 || name.startsWith(".") || name.endsWith(".")) {
+            return false;
+        }
+        String[] labels = name.split("\\.", -1);
+        for (String label : labels) {
+            if (!isValidDomainLabel(label)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private record ServiceExposure(KubernetesServiceType serviceType, Integer nodePort) {

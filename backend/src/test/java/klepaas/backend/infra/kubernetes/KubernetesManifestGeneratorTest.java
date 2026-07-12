@@ -5,13 +5,17 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentConditionBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
+import klepaas.backend.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class KubernetesManifestGeneratorTest {
 
@@ -137,5 +141,66 @@ class KubernetesManifestGeneratorTest {
         assertThat(servicePort.getPort()).isEqualTo(80);
         assertThat(servicePort.getTargetPort().getIntVal()).isEqualTo(8080);
         assertThat(servicePort.getNodePort()).isEqualTo(30080);
+    }
+
+    @Test
+    @DisplayName("Deployment manifest에는 envVars와 envFrom ConfigMap/Secret 참조를 함께 포함한다")
+    void buildDeployment_includesEnvVarsAndEnvFromSources() {
+        DeploymentConfig config = DeploymentConfig.builder()
+                .minReplicas(1)
+                .maxReplicas(1)
+                .envVars(Map.of("ENV", "prod"))
+                .envFromConfigMaps(List.of("smart-sousvide-runtime-config"))
+                .envFromSecrets(List.of("smart-sousvide-app-env"))
+                .containerPort(3000)
+                .domainUrl("iot.example.com")
+                .imagePullSecretName("ghcr-pull-secret")
+                .serviceType(KubernetesServiceType.NODE_PORT)
+                .nodePort(30080)
+                .build();
+        ReflectionTestUtils.setField(generator, "namespace", "klepaas");
+
+        var deployment = generator.buildDeployment("smart-sousvide", "ghcr.io/app:sha", config,
+                Map.of("app.kubernetes.io/name", "smart-sousvide"));
+
+        var podSpec = deployment.getSpec().getTemplate().getSpec();
+        var container = podSpec.getContainers().get(0);
+        assertThat(podSpec.getImagePullSecrets().get(0).getName()).isEqualTo("ghcr-pull-secret");
+        assertThat(container.getPorts().get(0).getContainerPort()).isEqualTo(3000);
+        assertThat(container.getEnv())
+                .anySatisfy(env -> {
+                    assertThat(env.getName()).isEqualTo("ENV");
+                    assertThat(env.getValue()).isEqualTo("prod");
+                });
+        assertThat(container.getEnvFrom()).hasSize(2);
+        assertThat(container.getEnvFrom().get(0).getConfigMapRef().getName())
+                .isEqualTo("smart-sousvide-runtime-config");
+        assertThat(container.getEnvFrom().get(1).getSecretRef().getName())
+                .isEqualTo("smart-sousvide-app-env");
+    }
+
+    @Test
+    @DisplayName("envFrom ConfigMap이 namespace에 없으면 명확한 배포 오류를 반환한다")
+    void validateEnvFromRefs_failsWhenConfigMapIsMissing() {
+        KubernetesManifestGenerator missingRefGenerator = new KubernetesManifestGenerator(Mockito.mock(KubernetesClient.class)) {
+            @Override
+            boolean configMapExists(String name) {
+                return false;
+            }
+        };
+        ReflectionTestUtils.setField(missingRefGenerator, "namespace", "klepaas");
+        DeploymentConfig config = DeploymentConfig.builder()
+                .minReplicas(1)
+                .maxReplicas(1)
+                .envVars(Map.of())
+                .envFromConfigMaps(List.of("missing-runtime-config"))
+                .containerPort(8080)
+                .domainUrl("iot.example.com")
+                .build();
+
+        assertThatThrownBy(() -> missingRefGenerator.validateEnvFromRefs(config))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("ConfigMap")
+                .hasMessageContaining("missing-runtime-config");
     }
 }

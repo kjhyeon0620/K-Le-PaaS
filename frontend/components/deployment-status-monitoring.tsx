@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -32,9 +34,11 @@ import {
   Activity,
   ExternalLink,
   Terminal,
+  Save,
 } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, type DeploymentConfigResponse } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
+import { useToast } from "@/hooks/use-toast"
 import { RollbackDialog } from "@/components/rollback-dialog"
 import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
@@ -88,6 +92,15 @@ interface DeploymentStatusMonitoringProps {
   onNavigateToPipelines?: () => void
 }
 
+function parseEnvFromNames(value: string): string[] {
+  const names = value
+    .split(/[,\n]/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+
+  return Array.from(new Set(names))
+}
+
 export function DeploymentStatusMonitoring({
   onNavigateToMonitoring,
   onNavigateToPipelines
@@ -96,7 +109,10 @@ export function DeploymentStatusMonitoring({
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
+  const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, DeploymentConfigResponse>>({})
+  const [envFromConfigMapsInput, setEnvFromConfigMapsInput] = useState("")
+  const [envFromSecretsInput, setEnvFromSecretsInput] = useState("")
+  const [configSaving, setConfigSaving] = useState(false)
 
   // Dialog states for Rollback, Scale, Restart, Logs
   const [rollbackDialogOpen, setRollbackDialogOpen] = useState(false)
@@ -107,6 +123,7 @@ export function DeploymentStatusMonitoring({
 
   // 사용자 인증 상태 확인
   const { user, isLoading: authLoading } = useAuth()
+  const { toast } = useToast()
 
   const fetchRepositories = async () => {
     try {
@@ -115,16 +132,27 @@ export function DeploymentStatusMonitoring({
       setRepositories(response.repositories)
 
       // Fetch deployment configs for each repository
-      const configs: Record<string, { replica_count: number }> = {}
+      const configs: Record<string, DeploymentConfigResponse> = {}
       await Promise.all(
         response.repositories.map(async (repo: RepositoryWorkload) => {
           try {
             const config = await api.getDeploymentConfig(repo.owner, repo.repo)
-            configs[repo.full_name] = { replica_count: config.replica_count }
+            configs[repo.full_name] = config
           } catch (error) {
             console.error(`Failed to fetch config for ${repo.full_name}:`, error)
             // Use default replica count if config fetch fails
-            configs[repo.full_name] = { replica_count: 1 }
+            configs[repo.full_name] = {
+              owner: repo.owner,
+              repo: repo.repo,
+              min_replicas: 1,
+              max_replicas: 1,
+              replica_count: 1,
+              env_vars: {},
+              env_from_config_maps: [],
+              env_from_secrets: [],
+              container_port: 8080,
+              domain_url: null,
+            }
           }
         })
       )
@@ -142,6 +170,15 @@ export function DeploymentStatusMonitoring({
     const interval = setInterval(fetchRepositories, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (!selectedRepo || !detailsOpen) {
+      return
+    }
+    const config = deploymentConfigs[selectedRepo.full_name]
+    setEnvFromConfigMapsInput(config?.env_from_config_maps.join(", ") ?? "")
+    setEnvFromSecretsInput(config?.env_from_secrets.join(", ") ?? "")
+  }, [deploymentConfigs, detailsOpen, selectedRepo])
 
   const getStatusBadge = (status: string | undefined) => {
     if (!status) {
@@ -227,6 +264,41 @@ export function DeploymentStatusMonitoring({
   const handleActionSuccess = () => {
     // Refresh repositories after successful action
     fetchRepositories()
+  }
+
+  const handleSaveRuntimeEnvFrom = async () => {
+    if (!selectedRepo) {
+      return
+    }
+
+    try {
+      setConfigSaving(true)
+      const envFromConfigMaps = parseEnvFromNames(envFromConfigMapsInput)
+      const envFromSecrets = parseEnvFromNames(envFromSecretsInput)
+      const updatedConfig = await api.updateDeploymentRuntimeEnvFrom(
+        selectedRepo.owner,
+        selectedRepo.repo,
+        envFromConfigMaps,
+        envFromSecrets
+      )
+      setDeploymentConfigs((current) => ({
+        ...current,
+        [selectedRepo.full_name]: updatedConfig,
+      }))
+      toast({
+        title: "Runtime envFrom saved",
+        description: "ConfigMap and Secret names will be injected on the next deployment.",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save runtime envFrom settings."
+      toast({
+        title: "Save failed",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setConfigSaving(false)
+    }
   }
 
   // 사용자 인증 상태 확인
@@ -420,11 +492,20 @@ export function DeploymentStatusMonitoring({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
                       <Button
                         size="default"
                         variant="outline"
-                        className="flex-1"
+                        className="w-full"
+                        onClick={() => handleViewDetails(repo)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Config
+                      </Button>
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="w-full"
                         onClick={() => handleOpenScale(repo)}
                       >
                         <Scale className="mr-2 h-4 w-4" />
@@ -433,7 +514,7 @@ export function DeploymentStatusMonitoring({
                       <Button
                         size="default"
                         variant="outline"
-                        className="flex-1"
+                        className="w-full"
                         onClick={() => handleOpenRollback(repo)}
                       >
                         <RotateCcw className="mr-2 h-4 w-4" />
@@ -442,7 +523,7 @@ export function DeploymentStatusMonitoring({
                       <Button
                         size="default"
                         variant="outline"
-                        className="flex-1"
+                        className="w-full"
                         onClick={() => handleOpenRestart(repo)}
                       >
                         <Play className="mr-2 h-4 w-4" />
@@ -451,7 +532,7 @@ export function DeploymentStatusMonitoring({
                       <Button
                         size="default"
                         variant="outline"
-                        className="flex-1"
+                        className="w-full"
                         onClick={() => handleOpenLogs(repo)}
                       >
                         <Terminal className="mr-2 h-4 w-4" />
@@ -473,7 +554,7 @@ export function DeploymentStatusMonitoring({
 
       {/* Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Github className="h-5 w-5" />
@@ -666,6 +747,47 @@ export function DeploymentStatusMonitoring({
                         {selectedRepo.auto_deploy_enabled ? "Enabled" : "Disabled"}
                       </Badge>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Runtime envFrom</CardTitle>
+                    <CardDescription>
+                      Store Kubernetes ConfigMap and Secret names for deployment-time environment sources.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="env-from-configmaps">ConfigMap names</Label>
+                      <Textarea
+                        id="env-from-configmaps"
+                        value={envFromConfigMapsInput}
+                        onChange={(event) => setEnvFromConfigMapsInput(event.target.value)}
+                        placeholder="smart-sousvide-runtime-config"
+                        className="min-h-20 font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate multiple names with commas or new lines.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="env-from-secrets">Secret names</Label>
+                      <Textarea
+                        id="env-from-secrets"
+                        value={envFromSecretsInput}
+                        onChange={(event) => setEnvFromSecretsInput(event.target.value)}
+                        placeholder="smart-sousvide-app-env"
+                        className="min-h-20 font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Only Secret names are stored. Secret values are never shown or submitted here.
+                      </p>
+                    </div>
+                    <Button onClick={handleSaveRuntimeEnvFrom} disabled={configSaving}>
+                      <Save className="mr-2 h-4 w-4" />
+                      {configSaving ? "Saving..." : "Save runtime envFrom"}
+                    </Button>
                   </CardContent>
                 </Card>
               </TabsContent>
