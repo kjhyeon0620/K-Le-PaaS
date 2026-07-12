@@ -51,6 +51,7 @@ public class KubernetesManifestGenerator {
         );
 
         try {
+            validateEnvFromRefs(config);
             createOrUpdateDeployment(appName, imageUri, config, labels);
             createOrUpdateService(appName, config, labels);
 
@@ -59,6 +60,8 @@ public class KubernetesManifestGenerator {
             }
 
             log.info("K8s resources deployed: app={}, namespace={}", appName, namespace);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("K8s deployment failed: app={}, error={}", appName, e.getMessage(), e);
             throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: " + e.getMessage());
@@ -141,11 +144,22 @@ public class KubernetesManifestGenerator {
 
     private void createOrUpdateDeployment(String appName, String imageUri,
                                            DeploymentConfig config, Map<String, String> labels) {
+        Deployment deployment = buildDeployment(appName, imageUri, config, labels);
+
+        kubernetesClient.apps().deployments()
+                .inNamespace(namespace)
+                .resource(deployment)
+                .serverSideApply();
+    }
+
+    Deployment buildDeployment(String appName, String imageUri,
+                               DeploymentConfig config, Map<String, String> labels) {
         List<EnvVar> envVars = config.getEnvVars().entrySet().stream()
                 .map(e -> new EnvVarBuilder().withName(e.getKey()).withValue(e.getValue()).build())
                 .collect(Collectors.toList());
+        List<EnvFromSource> envFromSources = buildEnvFromSources(config);
 
-        Deployment deployment = new DeploymentBuilder()
+        return new DeploymentBuilder()
                 .withNewMetadata()
                     .withName(appName)
                     .withNamespace(namespace)
@@ -171,16 +185,65 @@ public class KubernetesManifestGenerator {
                                             .withContainerPort(config.getContainerPort())
                                             .build())
                                     .withEnv(envVars)
+                                    .withEnvFrom(envFromSources)
                                     .build())
                         .endSpec()
                     .endTemplate()
                 .endSpec()
                 .build();
+    }
 
-        kubernetesClient.apps().deployments()
+    private List<EnvFromSource> buildEnvFromSources(DeploymentConfig config) {
+        List<EnvFromSource> envFromSources = config.getEnvFromConfigMaps().stream()
+                .map(name -> new EnvFromSourceBuilder()
+                        .withConfigMapRef(new ConfigMapEnvSourceBuilder().withName(name).build())
+                        .build())
+                .collect(Collectors.toList());
+        envFromSources.addAll(config.getEnvFromSecrets().stream()
+                .map(name -> new EnvFromSourceBuilder()
+                        .withSecretRef(new SecretEnvSourceBuilder().withName(name).build())
+                        .build())
+                .toList());
+        return envFromSources;
+    }
+
+    void validateEnvFromRefs(DeploymentConfig config) {
+        config.getEnvFromConfigMaps().forEach(this::validateConfigMapExists);
+        config.getEnvFromSecrets().forEach(this::validateSecretExists);
+    }
+
+    private void validateConfigMapExists(String name) {
+        if (!configMapExists(name)) {
+            throw new BusinessException(
+                    ErrorCode.DEPLOY_FAILED,
+                    "K8s envFrom ConfigMap을 찾을 수 없습니다: namespace=" + namespace + ", name=" + name
+            );
+        }
+    }
+
+    private void validateSecretExists(String name) {
+        if (!secretExists(name)) {
+            throw new BusinessException(
+                    ErrorCode.DEPLOY_FAILED,
+                    "K8s envFrom Secret을 찾을 수 없습니다: namespace=" + namespace + ", name=" + name
+            );
+        }
+    }
+
+    boolean configMapExists(String name) {
+        ConfigMap configMap = kubernetesClient.configMaps()
                 .inNamespace(namespace)
-                .resource(deployment)
-                .serverSideApply();
+                .withName(name)
+                .get();
+        return configMap != null;
+    }
+
+    boolean secretExists(String name) {
+        Secret secret = kubernetesClient.secrets()
+                .inNamespace(namespace)
+                .withName(name)
+                .get();
+        return secret != null;
     }
 
     private String resolveImagePullSecretName(DeploymentConfig config) {
