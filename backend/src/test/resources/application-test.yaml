@@ -1,6 +1,23 @@
 spring:
   main:
     allow-bean-definition-overriding: true
+  datasource:
+    url: jdbc:h2:mem:klepaas_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+
+app:
+  version: 0.0.1-SNAPSHOT
+
+jwt:
+  secret: test-jwt-secret-must-be-at-least-thirty-two-bytes
+  access-token-expiry: 3600000
+  refresh-token-expiry: 604800000
 
 github:
   client-id: test-client-id
@@ -12,4 +29,21 @@ github:
 
 gemini:
   api:
+    base-url: https://example.test
     key: test-gemini-api-key
+
+cloud:
+  ncp:
+    credentials:
+      access-key: test-access-key
+      secret-key: test-secret-key
+    region: ap-northeast-2
+    storage:
+      endpoint: https://example.test
+      bucket: test-bucket
+    container-registry:
+      endpoint: test-registry.example.test
+
+slack:
+  webhook:
+    url:
