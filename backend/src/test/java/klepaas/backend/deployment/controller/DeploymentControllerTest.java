@@ -102,12 +102,13 @@ class DeploymentControllerTest {
     @DisplayName("GET /api/v1/deployments/{id}/status - 배포 상태 조회")
     void getDeploymentStatus() throws Exception {
         var response = new DeploymentStatusResponse(1L, DeploymentStatus.BUILDING, null);
-        given(deploymentService.getDeploymentStatus(1L)).willReturn(response);
+        given(deploymentService.getDeploymentStatus(1L, 1L)).willReturn(response);
 
         mockMvc.perform(get("/api/v1/deployments/1/status")
                         .with(user(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("BUILDING"));
+        verify(deploymentService).getDeploymentStatus(1L, 1L);
     }
 
     @Test

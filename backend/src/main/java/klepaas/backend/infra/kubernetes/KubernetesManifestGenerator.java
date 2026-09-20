@@ -10,6 +10,7 @@ import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
+import klepaas.backend.deployment.service.RuntimeResourcePolicy;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,10 @@ import java.util.stream.Collectors;
 public class KubernetesManifestGenerator {
 
     private final KubernetesClient kubernetesClient;
+    private final RuntimeResourcePolicy runtimeResourcePolicy;
 
     @Value("${kubernetes.namespace:default}")
     private String namespace;
-
-    @Value("${kubernetes.image-pull-secret:ncp-cr}")
-    private String imagePullSecretName;
 
     @Value("${kubernetes.rollout.timeout-ms:120000}")
     private long rolloutTimeoutMs;
@@ -51,12 +50,23 @@ public class KubernetesManifestGenerator {
         );
 
         try {
+            if (config.getSourceRepository() == null || !repoId.equals(config.getSourceRepository().getId())) {
+                throw new BusinessException(ErrorCode.INVALID_REQUEST, "저장소 설정이 일치하지 않습니다");
+            }
+            runtimeResourcePolicy.validateReferences(config.getSourceRepository(), config.getEnvFromConfigMaps(),
+                    config.getEnvFromSecrets(), runtimeResourcePolicy.resolveImagePullSecretName(config));
+            Deployment existingDeployment = kubernetesClient.apps().deployments().inNamespace(namespace).withName(appName).get();
+            Service existingService = kubernetesClient.services().inNamespace(namespace).withName(appName).get();
+            Ingress existingIngress = kubernetesClient.network().v1().ingresses().inNamespace(namespace).withName(appName).get();
+            rejectForeignResource(existingDeployment, repoId);
+            rejectForeignResource(existingService, repoId);
+            rejectForeignResource(existingIngress, repoId);
             validateEnvFromRefs(config);
-            createOrUpdateDeployment(appName, imageUri, config, labels);
-            createOrUpdateService(appName, config, labels);
+            createOrUpdateDeployment(appName, imageUri, config, labels, existingDeployment);
+            createOrUpdateService(appName, config, labels, existingService);
 
             if (config.getDomainUrl() != null && !config.getDomainUrl().isBlank()) {
-                createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels);
+                createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels, existingIngress);
             }
 
             log.info("K8s resources deployed: app={}, namespace={}", appName, namespace);
@@ -71,12 +81,22 @@ public class KubernetesManifestGenerator {
     /**
      * K8s 리소스 스케일링
      */
-    public void scale(String appName, int replicas) {
-        kubernetesClient.apps().deployments()
-                .inNamespace(namespace)
-                .withName(appName)
-                .scale(replicas);
+    public void scale(String appName, int replicas, Long repoId) {
+        Deployment existing = kubernetesClient.apps().deployments().inNamespace(namespace).withName(appName).get();
+        if (existing == null) throw new BusinessException(ErrorCode.ENTITY_NOT_FOUND);
+        rejectForeignResource(existing, repoId);
+        existing.getSpec().setReplicas(replicas);
+        kubernetesClient.apps().deployments().inNamespace(namespace).resource(existing)
+                .lockResourceVersion(existing.getMetadata().getResourceVersion()).replace();
         log.info("Scaled: app={}, replicas={}", appName, replicas);
+    }
+
+    private void rejectForeignResource(HasMetadata resource, Long repoId) {
+        if (resource != null && (resource.getMetadata() == null || resource.getMetadata().getLabels() == null
+                || !String.valueOf(repoId).equals(resource.getMetadata().getLabels().get("klepaas.io/repository-id"))
+                || resource.getMetadata().getResourceVersion() == null)) {
+            throw new BusinessException(ErrorCode.ENTITY_NOT_FOUND);
+        }
     }
 
     public void waitForDeploymentAvailable(String appName) {
@@ -143,13 +163,14 @@ public class KubernetesManifestGenerator {
     }
 
     private void createOrUpdateDeployment(String appName, String imageUri,
-                                           DeploymentConfig config, Map<String, String> labels) {
+                                           DeploymentConfig config, Map<String, String> labels, Deployment existing) {
         Deployment deployment = buildDeployment(appName, imageUri, config, labels);
-
-        kubernetesClient.apps().deployments()
-                .inNamespace(namespace)
-                .resource(deployment)
-                .serverSideApply();
+        if (existing == null) {
+            kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment).create();
+        } else {
+            deployment.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
+            kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment).serverSideApply();
+        }
     }
 
     Deployment buildDeployment(String appName, String imageUri,
@@ -176,7 +197,7 @@ public class KubernetesManifestGenerator {
                         .endMetadata()
                         .withNewSpec()
                             .withImagePullSecrets(new LocalObjectReferenceBuilder()
-                                    .withName(resolveImagePullSecretName(config))
+                                    .withName(runtimeResourcePolicy.resolveImagePullSecretName(config))
                                     .build())
                             .withContainers(new ContainerBuilder()
                                     .withName(appName)
@@ -246,15 +267,8 @@ public class KubernetesManifestGenerator {
         return secret != null;
     }
 
-    private String resolveImagePullSecretName(DeploymentConfig config) {
-        String configured = config.getImagePullSecretName();
-        if (configured != null && !configured.isBlank()) {
-            return configured;
-        }
-        return imagePullSecretName;
-    }
-
-    private void createOrUpdateService(String appName, DeploymentConfig config, Map<String, String> labels) {
+    private void createOrUpdateService(String appName, DeploymentConfig config, Map<String, String> labels,
+                                       Service existing) {
         ServicePort servicePort = buildServicePort(config);
         Service service = new ServiceBuilder()
                 .withNewMetadata()
@@ -269,10 +283,12 @@ public class KubernetesManifestGenerator {
                 .endSpec()
                 .build();
 
-        kubernetesClient.services()
-                .inNamespace(namespace)
-                .resource(service)
-                .serverSideApply();
+        if (existing == null) {
+            kubernetesClient.services().inNamespace(namespace).resource(service).create();
+        } else {
+            service.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
+            kubernetesClient.services().inNamespace(namespace).resource(service).serverSideApply();
+        }
     }
 
     ServicePort buildServicePort(DeploymentConfig config) {
@@ -287,7 +303,7 @@ public class KubernetesManifestGenerator {
     }
 
     private void createOrUpdateIngress(String appName, String domainUrl, int containerPort,
-                                        Map<String, String> labels) {
+                                        Map<String, String> labels, Ingress existing) {
         Ingress ingress = new IngressBuilder()
                 .withNewMetadata()
                     .withName(appName)
@@ -315,9 +331,11 @@ public class KubernetesManifestGenerator {
                 .endSpec()
                 .build();
 
-        kubernetesClient.network().v1().ingresses()
-                .inNamespace(namespace)
-                .resource(ingress)
-                .serverSideApply();
+        if (existing == null) {
+            kubernetesClient.network().v1().ingresses().inNamespace(namespace).resource(ingress).create();
+        } else {
+            ingress.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
+            kubernetesClient.network().v1().ingresses().inNamespace(namespace).resource(ingress).serverSideApply();
+        }
     }
 }

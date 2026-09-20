@@ -5,6 +5,7 @@ import klepaas.backend.ai.client.dto.GeminiResponse;
 import klepaas.backend.ai.dto.NlpCommandRequest;
 import klepaas.backend.ai.dto.NlpCommandResponse;
 import klepaas.backend.ai.dto.NlpConfirmRequest;
+import klepaas.backend.ai.dto.FormattedResponseDto;
 import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.repository.CommandLogRepository;
 import klepaas.backend.ai.repository.ConversationSessionRepository;
@@ -18,11 +19,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.test.util.ReflectionTestUtils;
+import klepaas.backend.global.exception.EntityNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -34,6 +38,7 @@ class NlpCommandServiceTest {
     @Mock private IntentParser intentParser;
     @Mock private ActionDispatcher actionDispatcher;
     @Mock private CommandLogRepository commandLogRepository;
+    @Mock private CommandConfirmationService confirmations;
     @Mock private ConversationSessionRepository sessionRepository;
     @Mock private UserRepository userRepository;
 
@@ -46,7 +51,7 @@ class NlpCommandServiceTest {
         var systemPromptResource = new ByteArrayResource("테스트 시스템 프롬프트".getBytes());
         nlpCommandService = new NlpCommandService(
                 geminiClient, intentParser, actionDispatcher,
-                commandLogRepository, sessionRepository, userRepository,
+                commandLogRepository, confirmations, sessionRepository, userRepository,
                 systemPromptResource
         );
 
@@ -56,6 +61,7 @@ class NlpCommandServiceTest {
                 .role(Role.USER)
                 .providerId("12345")
                 .build();
+        ReflectionTestUtils.setField(testUser, "id", 1L);
 
         testSession = new ConversationSession(testUser);
     }
@@ -114,7 +120,7 @@ class NlpCommandServiceTest {
                 .session(testSession)
                 .build();
 
-        given(commandLogRepository.findById(1L)).willReturn(Optional.of(commandLog));
+        given(confirmations.claim(1L, 1L)).willReturn(commandLog);
         given(actionDispatcher.dispatch(any(), eq(1L)))
                 .willReturn("배포가 시작되었습니다");
 
@@ -138,7 +144,7 @@ class NlpCommandServiceTest {
                 .session(testSession)
                 .build();
 
-        given(commandLogRepository.findById(1L)).willReturn(Optional.of(commandLog));
+        given(confirmations.cancel(1L, 1L)).willReturn(commandLog);
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L,
                 new NlpConfirmRequest(1L, false));
@@ -146,6 +152,36 @@ class NlpCommandServiceTest {
         assertThat(response.message()).contains("취소");
         assertThat(response.result()).isNull();
         verify(actionDispatcher, never()).dispatch(any(), anyLong());
+    }
+
+    @Test
+    void foreignSessionIsRejectedBeforeGemini() {
+        User stranger = User.builder().name("stranger").email("other@example.com").build();
+        ReflectionTestUtils.setField(stranger, "id", 2L);
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.findBySessionTokenAndActiveTrue("other-session"))
+                .willReturn(Optional.of(new ConversationSession(stranger)));
+
+        assertThatThrownBy(() -> nlpCommandService.processCommand(1L,
+                new NlpCommandRequest("deploy", "other-session")))
+                .isInstanceOf(EntityNotFoundException.class);
+        verifyNoInteractions(geminiClient, actionDispatcher);
+    }
+
+    @Test
+    void formattedFailureRecordsFailureWithoutSuccessMessage() {
+        CommandLog commandLog = CommandLog.builder().user(testUser).rawCommand("deploy")
+                .interpretedIntent(Intent.DEPLOY).intentArgs("{}")
+                .riskLevel(RiskLevel.HIGH).requiresConfirmation(true).build();
+        given(confirmations.claim(1L, 1L)).willReturn(commandLog);
+        given(actionDispatcher.dispatch(any(), eq(1L))).willReturn(
+                FormattedResponseDto.of("error", "대상이 허용되지 않습니다", "오류", java.util.Map.of(), null));
+
+        NlpCommandResponse response = nlpCommandService.confirmCommand(1L, new NlpConfirmRequest(1L, true));
+
+        assertThat(response.message()).isEqualTo("대상이 허용되지 않습니다");
+        verify(confirmations).fail(any(), eq("대상이 허용되지 않습니다"));
+        verify(confirmations, never()).succeed(any(), any());
     }
 
     private GeminiResponse mockGeminiResponse(String text) {

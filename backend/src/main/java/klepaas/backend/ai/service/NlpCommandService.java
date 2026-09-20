@@ -11,6 +11,7 @@ import klepaas.backend.ai.exception.AiProcessingException;
 import klepaas.backend.ai.repository.CommandLogRepository;
 import klepaas.backend.ai.repository.ConversationSessionRepository;
 import klepaas.backend.global.exception.EntityNotFoundException;
+import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
@@ -21,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +36,7 @@ public class NlpCommandService {
     private final IntentParser intentParser;
     private final ActionDispatcher actionDispatcher;
     private final CommandLogRepository commandLogRepository;
+    private final CommandConfirmationService confirmations;
     private final ConversationSessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -44,6 +47,7 @@ public class NlpCommandService {
             IntentParser intentParser,
             ActionDispatcher actionDispatcher,
             CommandLogRepository commandLogRepository,
+            CommandConfirmationService confirmations,
             ConversationSessionRepository sessionRepository,
             UserRepository userRepository,
             @Value("classpath:prompts/system-prompt.txt") Resource systemPromptResource
@@ -52,6 +56,7 @@ public class NlpCommandService {
         this.intentParser = intentParser;
         this.actionDispatcher = actionDispatcher;
         this.commandLogRepository = commandLogRepository;
+        this.confirmations = confirmations;
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         try {
@@ -61,7 +66,7 @@ public class NlpCommandService {
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public NlpCommandResponse processCommand(Long userId, NlpCommandRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
@@ -102,20 +107,28 @@ public class NlpCommandService {
         if (!requiresConfirmation) {
             try {
                 result = actionDispatcher.dispatch(parsedIntent, userId);
-                commandLog.markExecuted(toJsonString(result));
+                if (result instanceof FormattedResponseDto formatted && "error".equals(formatted.type())) {
+                    commandLog.markFailed(formatted.message());
+                } else {
+                    commandLog.markExecuted(toJsonString(result));
+                }
             } catch (Exception e) {
                 log.error("명령 실행 실패: intent={}", parsedIntent.intent(), e);
                 commandLog.markFailed(e.getMessage());
                 result = null;
+                commandLogRepository.save(commandLog);
+                if (e instanceof BusinessException businessException) throw businessException;
             }
+            commandLogRepository.save(commandLog);
         }
 
         session.touch();
+        sessionRepository.save(session);
 
         return new NlpCommandResponse(
                 commandLog.getId(),
                 parsedIntent.intent(),
-                parsedIntent.message(),
+                commandLog.getStatus() == CommandStatus.FAILED ? commandLog.getErrorMessage() : parsedIntent.message(),
                 result,
                 riskLevel,
                 requiresConfirmation,
@@ -123,12 +136,14 @@ public class NlpCommandService {
         );
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public NlpCommandResponse confirmCommand(Long userId, NlpConfirmRequest request) {
-        CommandLog commandLog = commandLogRepository.findById(request.commandLogId())
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.COMMAND_LOG_NOT_FOUND));
-
-        commandLog.confirm(request.confirmed());
+        CommandLog commandLog = request.confirmed()
+                ? confirmations.claim(request.commandLogId(), userId)
+                : confirmations.cancel(request.commandLogId(), userId);
+        if (commandLog == null) {
+            throw new BusinessException(ErrorCode.COMMAND_CONFIRMATION_CONFLICT);
+        }
 
         if (!request.confirmed()) {
             return new NlpCommandResponse(
@@ -143,21 +158,28 @@ public class NlpCommandService {
         }
 
         // 저장된 Intent 정보로 실행
-        ParsedIntent parsedIntent = deserializeParsedIntent(commandLog);
         Object result;
+        String message = "명령이 실행되었습니다.";
         try {
+            ParsedIntent parsedIntent = deserializeParsedIntent(commandLog);
             result = actionDispatcher.dispatch(parsedIntent, userId);
-            commandLog.markExecuted(toJsonString(result));
+            if (result instanceof FormattedResponseDto formatted && "error".equals(formatted.type())) {
+                confirmations.fail(commandLog.getId(), formatted.message());
+                message = formatted.message();
+            } else {
+                confirmations.succeed(commandLog.getId(), toJsonString(result));
+            }
         } catch (Exception e) {
             log.error("확인 명령 실행 실패: intent={}", commandLog.getInterpretedIntent(), e);
-            commandLog.markFailed(e.getMessage());
+            confirmations.fail(commandLog.getId(), e.getMessage());
+            message = "명령 실행에 실패했습니다: " + e.getMessage();
             result = null;
         }
 
         return new NlpCommandResponse(
                 commandLog.getId(),
                 commandLog.getInterpretedIntent(),
-                "명령이 실행되었습니다.",
+                message,
                 result,
                 commandLog.getRiskLevel(),
                 false,
@@ -173,7 +195,8 @@ public class NlpCommandService {
     private ConversationSession getOrCreateSession(User user, String sessionId) {
         if (sessionId != null && !sessionId.isBlank()) {
             return sessionRepository.findBySessionTokenAndActiveTrue(sessionId)
-                    .orElseGet(() -> sessionRepository.save(new ConversationSession(user)));
+                    .filter(session -> user.getId().equals(session.getUser().getId()))
+                    .orElseThrow(() -> new EntityNotFoundException(ErrorCode.SESSION_NOT_FOUND));
         }
         return sessionRepository.save(new ConversationSession(user));
     }

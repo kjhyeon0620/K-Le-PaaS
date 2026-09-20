@@ -6,6 +6,9 @@ import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressRule;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.ai.dto.FormattedResponseDto;
+import klepaas.backend.deployment.repository.SourceRepositoryRepository;
+import klepaas.backend.global.exception.BusinessException;
+import klepaas.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,17 +30,55 @@ import java.util.stream.Collectors;
 public class KubectlService {
 
     private final KubernetesClient kubernetesClient;
+    private final SourceRepositoryRepository sourceRepositoryRepository;
 
     @Value("${kubernetes.namespace:default}")
     private String defaultNamespace;
 
+    private List<Long> scopedRepositoryIds(String namespace, Long userId) {
+        if (userId == null || (namespace != null && !namespace.isBlank() && !namespace.equals(defaultNamespace))) {
+            throw new BusinessException(ErrorCode.ENTITY_NOT_FOUND);
+        }
+        return sourceRepositoryRepository.findAllByUserId(userId).stream().map(r -> r.getId()).toList();
+    }
+
+    private List<Pod> scopedPods(String namespace, Long userId) {
+        return scopedRepositoryIds(namespace, userId).stream()
+                .flatMap(id -> kubernetesClient.pods().inNamespace(defaultNamespace)
+                        .withLabel("klepaas.io/repository-id", id.toString()).list().getItems().stream())
+                .toList();
+    }
+
+    private List<Service> scopedServices(String namespace, Long userId) {
+        return scopedRepositoryIds(namespace, userId).stream()
+                .flatMap(id -> kubernetesClient.services().inNamespace(defaultNamespace)
+                        .withLabel("klepaas.io/repository-id", id.toString()).list().getItems().stream())
+                .toList();
+    }
+
+    private List<Deployment> scopedDeployments(String namespace, Long userId) {
+        return scopedRepositoryIds(namespace, userId).stream()
+                .flatMap(id -> kubernetesClient.apps().deployments().inNamespace(defaultNamespace)
+                        .withLabel("klepaas.io/repository-id", id.toString()).list().getItems().stream())
+                .toList();
+    }
+
+    private List<Ingress> scopedIngresses(String namespace, Long userId) {
+        return scopedRepositoryIds(namespace, userId).stream()
+                .flatMap(id -> kubernetesClient.network().v1().ingresses().inNamespace(defaultNamespace)
+                        .withLabel("klepaas.io/repository-id", id.toString()).list().getItems().stream())
+                .toList();
+    }
+
+
+
     // ─── LIST PODS ───────────────────────────────────────────────────────────
 
-    public FormattedResponseDto listPods(String namespace) {
+    public FormattedResponseDto listPods(String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            PodList podList = kubernetesClient.pods().inNamespace(ns).list();
-            List<Map<String, Object>> pods = podList.getItems().stream()
+            List<Map<String, Object>> pods = scopedPods(namespace, userId).stream()
                     .map(this::toPodInfo)
                     .collect(Collectors.toList());
 
@@ -64,26 +105,19 @@ public class KubectlService {
 
     // ─── POD STATUS ──────────────────────────────────────────────────────────
 
-    public FormattedResponseDto getPodStatus(String namespace, String appName) {
+    public FormattedResponseDto getPodStatus(String namespace, String appName, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            PodList podList;
             String labelSelector = "";
-
-            if (appName != null && !appName.isBlank()) {
-                labelSelector = "app.kubernetes.io/name=" + appName;
-                podList = kubernetesClient.pods().inNamespace(ns)
-                        .withLabel("app.kubernetes.io/name", appName).list();
-                if (podList.getItems().isEmpty()) {
-                    labelSelector = "app=" + appName;
-                    podList = kubernetesClient.pods().inNamespace(ns)
-                            .withLabel("app", appName).list();
-                }
-            } else {
-                podList = kubernetesClient.pods().inNamespace(ns).list();
-            }
-
-            List<Map<String, Object>> pods = podList.getItems().stream().map(pod -> {
+            List<Pod> selected = scopedPods(namespace, userId).stream()
+                    .filter(p -> appName == null || appName.isBlank()
+                            || appName.equals(p.getMetadata().getName())
+                            || appName.equals(Optional.ofNullable(p.getMetadata().getLabels())
+                                    .orElse(Map.of()).get("app.kubernetes.io/name")))
+                    .toList();
+            if (appName != null && !appName.isBlank()) labelSelector = "app.kubernetes.io/name=" + appName;
+            List<Map<String, Object>> pods = selected.stream().map(pod -> {
                 Map<String, Object> p = new LinkedHashMap<>();
                 p.put("name", pod.getMetadata().getName());
                 p.put("phase", Optional.ofNullable(pod.getStatus().getPhase()).orElse("Unknown"));
@@ -128,10 +162,12 @@ public class KubectlService {
 
     // ─── SERVICE STATUS ──────────────────────────────────────────────────────
 
-    public FormattedResponseDto getServiceStatus(String name, String namespace) {
+    public FormattedResponseDto getServiceStatus(String name, String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            Service svc = kubernetesClient.services().inNamespace(ns).withName(name).get();
+            Service svc = scopedServices(namespace, userId).stream()
+                    .filter(s -> Objects.equals(s.getMetadata().getName(), name)).findFirst().orElse(null);
             if (svc == null) {
                 return errorResponse("service_status", "서비스를 찾을 수 없습니다: " + name);
             }
@@ -147,12 +183,11 @@ public class KubectlService {
 
             int readyEndpoints = 0;
             try {
-                Endpoints endpoints = kubernetesClient.endpoints().inNamespace(ns).withName(name).get();
-                if (endpoints != null && endpoints.getSubsets() != null) {
-                    readyEndpoints = endpoints.getSubsets().stream()
-                            .mapToInt(s -> s.getAddresses() != null ? s.getAddresses().size() : 0)
-                            .sum();
-                }
+                readyEndpoints = (int) scopedPods(namespace, userId).stream()
+                        .filter(p -> svc.getSpec().getSelector() != null && p.getMetadata().getLabels() != null
+                                && p.getMetadata().getLabels().entrySet().containsAll(svc.getSpec().getSelector().entrySet())
+                                && p.getStatus() != null && "Running".equals(p.getStatus().getPhase()))
+                        .count();
             } catch (Exception ignored) {}
 
             Map<String, Object> formatted = new LinkedHashMap<>();
@@ -181,10 +216,12 @@ public class KubectlService {
 
     // ─── DEPLOYMENT STATUS ───────────────────────────────────────────────────
 
-    public FormattedResponseDto getDeploymentStatus(String name, String namespace) {
+    public FormattedResponseDto getDeploymentStatus(String name, String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            Deployment dep = kubernetesClient.apps().deployments().inNamespace(ns).withName(name).get();
+            Deployment dep = scopedDeployments(namespace, userId).stream()
+                    .filter(d -> Objects.equals(d.getMetadata().getName(), name)).findFirst().orElse(null);
             if (dep == null) {
                 return errorResponse("deployment_status", "디플로이먼트를 찾을 수 없습니다: " + name);
             }
@@ -210,9 +247,10 @@ public class KubectlService {
             if (selector != null && !selector.isEmpty()) {
                 String labelKey = selector.keySet().iterator().next();
                 String labelVal = selector.get(labelKey);
-                PodList pl = kubernetesClient.pods().inNamespace(ns)
-                        .withLabel(labelKey, labelVal).list();
-                pods = pl.getItems().stream().map(pod -> {
+                pods = scopedPods(namespace, userId).stream()
+                        .filter(p -> p.getMetadata().getLabels() != null
+                                && labelVal.equals(p.getMetadata().getLabels().get(labelKey)))
+                        .map(pod -> {
                     Map<String, Object> p = new LinkedHashMap<>();
                     p.put("name", pod.getMetadata().getName());
                     p.put("phase", Optional.ofNullable(pod.getStatus().getPhase()).orElse("Unknown"));
@@ -252,11 +290,11 @@ public class KubectlService {
 
     // ─── LIST SERVICES ───────────────────────────────────────────────────────
 
-    public FormattedResponseDto listServices(String namespace) {
+    public FormattedResponseDto listServices(String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            ServiceList svcList = kubernetesClient.services().inNamespace(ns).list();
-            List<Map<String, Object>> services = svcList.getItems().stream().map(svc -> {
+            List<Map<String, Object>> services = scopedServices(namespace, userId).stream().map(svc -> {
                 Map<String, Object> s = new LinkedHashMap<>();
                 s.put("name", svc.getMetadata().getName());
                 s.put("namespace", svc.getMetadata().getNamespace());
@@ -284,11 +322,11 @@ public class KubectlService {
 
     // ─── LIST INGRESSES ──────────────────────────────────────────────────────
 
-    public FormattedResponseDto listIngresses(String namespace) {
+    public FormattedResponseDto listIngresses(String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            var ingressList = kubernetesClient.network().v1().ingresses().inNamespace(ns).list();
-            List<Map<String, Object>> ingresses = ingressList.getItems().stream().map(ing -> {
+            List<Map<String, Object>> ingresses = scopedIngresses(namespace, userId).stream().map(ing -> {
                 Map<String, Object> i = new LinkedHashMap<>();
                 i.put("name", ing.getMetadata().getName());
                 i.put("namespace", ing.getMetadata().getNamespace());
@@ -346,13 +384,14 @@ public class KubectlService {
 
     // ─── LIST NAMESPACES ─────────────────────────────────────────────────────
 
-    public FormattedResponseDto listNamespaces() {
+    public FormattedResponseDto listNamespaces(Long userId) {
+        scopedRepositoryIds(null, userId);
         try {
-            NamespaceList nsList = kubernetesClient.namespaces().list();
-            List<Map<String, Object>> namespaces = nsList.getItems().stream().map(ns -> {
+            List<Map<String, Object>> namespaces = List.of(new NamespaceBuilder()
+                    .withNewMetadata().withName(defaultNamespace).endMetadata().build()).stream().map(ns -> {
                 Map<String, Object> n = new LinkedHashMap<>();
                 n.put("name", ns.getMetadata().getName());
-                n.put("status", Optional.ofNullable(ns.getStatus().getPhase()).orElse("Active"));
+                n.put("status", "Active");
                 n.put("age", computeAge(ns.getMetadata().getCreationTimestamp()));
                 return n;
             }).collect(Collectors.toList());
@@ -372,14 +411,15 @@ public class KubectlService {
 
     // ─── LIST ENDPOINTS ──────────────────────────────────────────────────────
 
-    public FormattedResponseDto listEndpoints(String namespace) {
+    public FormattedResponseDto listEndpoints(String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            ServiceList svcList = kubernetesClient.services().inNamespace(ns).list();
-            var ingressList = kubernetesClient.network().v1().ingresses().inNamespace(ns).list();
+            List<Service> services = scopedServices(namespace, userId);
+            List<Ingress> ingresses = scopedIngresses(namespace, userId);
 
             Map<String, List<Map<String, Object>>> ingressByService = new HashMap<>();
-            for (Ingress ing : ingressList.getItems()) {
+            for (Ingress ing : ingresses) {
                 if (ing.getSpec().getRules() == null) continue;
                 for (var rule : ing.getSpec().getRules()) {
                     if (rule.getHttp() == null || rule.getHttp().getPaths() == null) continue;
@@ -395,7 +435,7 @@ public class KubectlService {
                 }
             }
 
-            List<Map<String, Object>> endpoints = svcList.getItems().stream().map(svc -> {
+            List<Map<String, Object>> endpoints = services.stream().map(svc -> {
                 Map<String, Object> ep = new LinkedHashMap<>();
                 String svcName = svc.getMetadata().getName();
                 ep.put("service_name", svcName);
@@ -452,10 +492,12 @@ public class KubectlService {
 
     // ─── GET SERVICE ─────────────────────────────────────────────────────────
 
-    public FormattedResponseDto getService(String name, String namespace) {
+    public FormattedResponseDto getService(String name, String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            Service svc = kubernetesClient.services().inNamespace(ns).withName(name).get();
+            Service svc = scopedServices(namespace, userId).stream()
+                    .filter(s -> Objects.equals(s.getMetadata().getName(), name)).findFirst().orElse(null);
             if (svc == null) {
                 return errorResponse("get_service", "서비스를 찾을 수 없습니다: " + name);
             }
@@ -488,10 +530,12 @@ public class KubectlService {
 
     // ─── GET DEPLOYMENT ──────────────────────────────────────────────────────
 
-    public FormattedResponseDto getDeploymentDetail(String name, String namespace) {
+    public FormattedResponseDto getDeploymentDetail(String name, String namespace, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            Deployment dep = kubernetesClient.apps().deployments().inNamespace(ns).withName(name).get();
+            Deployment dep = scopedDeployments(namespace, userId).stream()
+                    .filter(d -> Objects.equals(d.getMetadata().getName(), name)).findFirst().orElse(null);
             if (dep == null) {
                 return errorResponse("get_deployment", "디플로이먼트를 찾을 수 없습니다: " + name);
             }
@@ -531,10 +575,18 @@ public class KubectlService {
 
     // ─── POD LOGS ────────────────────────────────────────────────────────────
 
-    public FormattedResponseDto getPodLogs(String podOrAppName, String namespace, int lines) {
+    public FormattedResponseDto getPodLogs(String podOrAppName, String namespace, int lines, Long userId) {
+        scopedRepositoryIds(namespace, userId);
         String ns = resolveNamespace(namespace);
         try {
-            String actualPodName = resolveActualPodName(podOrAppName, ns);
+            Pod pod = scopedPods(namespace, userId).stream()
+                    .filter(p -> podOrAppName != null && (podOrAppName.equals(p.getMetadata().getName())
+                            || podOrAppName.equals(Optional.ofNullable(p.getMetadata().getLabels())
+                                    .orElse(Map.of()).get("app.kubernetes.io/name"))))
+                    .findFirst().orElse(null);
+            if (pod == null) return errorResponse("logs", "파드를 찾을 수 없습니다");
+            String actualPodName = pod.getMetadata().getName();
+            lines = Math.max(1, Math.min(200, lines));
 
             String logContent = kubernetesClient.pods().inNamespace(ns)
                     .withName(actualPodName)
@@ -568,48 +620,23 @@ public class KubectlService {
 
     // ─── OVERVIEW ────────────────────────────────────────────────────────────
 
-    public FormattedResponseDto getOverview() {
+    public FormattedResponseDto getOverview(Long userId) {
+        scopedRepositoryIds(null, userId);
         try {
-            NodeList nodeList = kubernetesClient.nodes().list();
-            NamespaceList nsList = kubernetesClient.namespaces().list();
-            PodList allPods = kubernetesClient.pods().inAnyNamespace().list();
-            ServiceList allSvcs = kubernetesClient.services().inAnyNamespace().list();
+            var allPods = scopedPods(null, userId);
+            var allSvcs = scopedServices(null, userId);
 
-            int totalNodes = nodeList.getItems().size();
-            int totalNamespaces = nsList.getItems().size();
-            int totalPods = allPods.getItems().size();
-            int totalServices = allSvcs.getItems().size();
+            int totalPods = allPods.size();
+            int totalServices = allSvcs.size();
 
-            long runningPods = allPods.getItems().stream()
+            long runningPods = allPods.stream()
                     .filter(p -> "Running".equals(p.getStatus().getPhase())).count();
-            long pendingPods = allPods.getItems().stream()
+            long pendingPods = allPods.stream()
                     .filter(p -> "Pending".equals(p.getStatus().getPhase())).count();
-            long failedPods = allPods.getItems().stream()
+            long failedPods = allPods.stream()
                     .filter(p -> "Failed".equals(p.getStatus().getPhase())).count();
 
-            // ── cluster_info section ────────────────────────────────────────
-            List<Map<String, Object>> nodeItems = nodeList.getItems().stream().map(node -> {
-                Map<String, Object> n = new LinkedHashMap<>();
-                n.put("name", node.getMetadata().getName());
-                String status = Optional.ofNullable(node.getStatus().getConditions())
-                        .orElse(List.of()).stream()
-                        .filter(c -> "Ready".equals(c.getType()))
-                        .findFirst()
-                        .map(c -> "True".equals(c.getStatus()) ? "Ready" : "NotReady")
-                        .orElse("Unknown");
-                n.put("status", status);
-                return n;
-            }).collect(Collectors.toList());
 
-            Map<String, Object> clusterData = new LinkedHashMap<>();
-            clusterData.put("cluster_name", "klepaas-cluster");
-            clusterData.put("total_nodes", totalNodes);
-            clusterData.put("nodes", nodeItems);
-
-            Map<String, Object> clusterInfoSection = new LinkedHashMap<>();
-            clusterInfoSection.put("title", "클러스터 정보");
-            clusterInfoSection.put("type", "cluster_info");
-            clusterInfoSection.put("data", clusterData);
 
             // ── critical + workloads section (namespace loop) ───────────────
             List<Map<String, Object>> criticalItems = new ArrayList<>();
@@ -617,12 +644,13 @@ public class KubectlService {
             int totalDeployments = 0;
             int criticalIssues = 0;
 
-            for (Namespace ns : nsList.getItems()) {
+            for (Namespace ns : List.of(new NamespaceBuilder().withNewMetadata()
+                    .withName(defaultNamespace).endMetadata().build())) {
                 String nsName = ns.getMetadata().getName();
-                var depList = kubernetesClient.apps().deployments().inNamespace(nsName).list();
-                int nsDeployments = depList.getItems().size();
+                var depList = scopedDeployments(null, userId);
+                int nsDeployments = depList.size();
                 totalDeployments += nsDeployments;
-                int nsPodCount = (int) allPods.getItems().stream()
+                int nsPodCount = (int) allPods.stream()
                         .filter(p -> nsName.equals(p.getMetadata().getNamespace())).count();
 
                 Map<String, Object> workloadEntry = new LinkedHashMap<>();
@@ -631,7 +659,7 @@ public class KubectlService {
                 workloadEntry.put("pods", nsPodCount);
                 workloadData.add(workloadEntry);
 
-                for (Deployment dep : depList.getItems()) {
+                for (Deployment dep : depList) {
                     int desired = Optional.ofNullable(dep.getSpec().getReplicas()).orElse(0);
                     int ready = Optional.ofNullable(dep.getStatus().getReadyReplicas()).orElse(0);
                     if (desired > 0 && ready < desired) {
@@ -646,7 +674,7 @@ public class KubectlService {
                 }
             }
 
-            allPods.getItems().stream().filter(p -> "Pending".equals(p.getStatus().getPhase()))
+            allPods.stream().filter(p -> "Pending".equals(p.getStatus().getPhase()))
                     .forEach(p -> {
                         Map<String, Object> item = new LinkedHashMap<>();
                         item.put("type", "pending_pod");
@@ -655,7 +683,7 @@ public class KubectlService {
                         criticalItems.add(item);
                     });
 
-            allPods.getItems().stream().filter(p -> "Failed".equals(p.getStatus().getPhase()))
+            allPods.stream().filter(p -> "Failed".equals(p.getStatus().getPhase()))
                     .forEach(p -> {
                         Map<String, Object> item = new LinkedHashMap<>();
                         item.put("type", "failed_pod");
@@ -671,7 +699,7 @@ public class KubectlService {
             criticalSection.put("items", criticalItems);
 
             // ── warning section ─────────────────────────────────────────────
-            List<Map<String, Object>> warningItems = allPods.getItems().stream()
+            List<Map<String, Object>> warningItems = allPods.stream()
                     .filter(p -> getTotalRestarts(p) > 5)
                     .map(p -> {
                         Map<String, Object> item = new LinkedHashMap<>();
@@ -695,7 +723,7 @@ public class KubectlService {
             // ── external_services section ───────────────────────────────────
             List<Map<String, Object>> lbServices = new ArrayList<>();
             List<Map<String, Object>> npServices = new ArrayList<>();
-            allSvcs.getItems().forEach(svc -> {
+            allSvcs.forEach(svc -> {
                 String type = Optional.ofNullable(svc.getSpec().getType()).orElse("ClusterIP");
                 Map<String, Object> s = new LinkedHashMap<>();
                 s.put("namespace", svc.getMetadata().getNamespace());
@@ -715,16 +743,13 @@ public class KubectlService {
 
             // ── assemble sections ───────────────────────────────────────────
             List<Map<String, Object>> sections = new ArrayList<>();
-            sections.add(clusterInfoSection);
             if (!criticalItems.isEmpty()) sections.add(criticalSection);
             if (!warningItems.isEmpty()) sections.add(warningSection);
             sections.add(workloadsSection);
             if (!lbServices.isEmpty() || !npServices.isEmpty()) sections.add(externalSection);
 
             Map<String, Object> summary = new LinkedHashMap<>();
-            summary.put("cluster_name", "klepaas-cluster");
-            summary.put("total_nodes", totalNodes);
-            summary.put("total_namespaces", totalNamespaces);
+            summary.put("scope", "owned-apps");
             summary.put("total_deployments", totalDeployments);
             summary.put("total_pods", totalPods);
             summary.put("total_services", totalServices);
@@ -738,9 +763,7 @@ public class KubectlService {
             formatted.put("summary", summary);
 
             Map<String, Object> metadata = new LinkedHashMap<>();
-            metadata.put("cluster_name", "klepaas-cluster");
-            metadata.put("total_nodes", totalNodes);
-            metadata.put("total_namespaces", totalNamespaces);
+            metadata.put("scope", "owned-apps");
             metadata.put("total_deployments", totalDeployments);
             metadata.put("total_pods", totalPods);
             metadata.put("total_services", totalServices);
@@ -748,8 +771,8 @@ public class KubectlService {
             metadata.put("warnings_count", warningItems.size());
 
             return FormattedResponseDto.of("overview",
-                    "클러스터 전체 현황입니다. 노드: " + totalNodes + ", 디플로이먼트: " + totalDeployments + ", 파드: " + totalPods,
-                    "클러스터 개요",
+                    "내 앱 현황입니다. 디플로이먼트: " + totalDeployments + ", 파드: " + totalPods,
+                    "앱 개요",
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getOverview failed", e);
@@ -810,10 +833,11 @@ public class KubectlService {
 
     // ─── COST ANALYSIS ───────────────────────────────────────────────────────
 
-    public FormattedResponseDto getCostAnalysis() {
+    public FormattedResponseDto getCostAnalysis(Long userId) {
+        scopedRepositoryIds(null, userId);
         try {
-            PodList allPods = kubernetesClient.pods().inAnyNamespace().list();
-            int runningPods = (int) allPods.getItems().stream()
+            var allPods = scopedPods(null, userId);
+            int runningPods = (int) allPods.stream()
                     .filter(p -> "Running".equals(p.getStatus().getPhase())).count();
 
             double baseMonthlyPerPod = 30000.0;
@@ -821,7 +845,7 @@ public class KubectlService {
 
             List<Map<String, Object>> optimizations = new ArrayList<>();
 
-            long idlePods = allPods.getItems().stream()
+            long idlePods = allPods.stream()
                     .filter(p -> getTotalRestarts(p) > 10).count();
             if (idlePods > 0) {
                 Map<String, Object> opt = new LinkedHashMap<>();
@@ -832,8 +856,8 @@ public class KubectlService {
             }
 
             try {
-                var depList = kubernetesClient.apps().deployments().inAnyNamespace().list();
-                for (var dep : depList.getItems()) {
+                var depList = scopedDeployments(null, userId);
+                for (var dep : depList) {
                     int replicas = Optional.ofNullable(dep.getSpec().getReplicas()).orElse(1);
                     if (replicas > 3) {
                         Map<String, Object> opt = new LinkedHashMap<>();
@@ -873,30 +897,7 @@ public class KubectlService {
         return (namespace != null && !namespace.isBlank()) ? namespace : defaultNamespace;
     }
 
-    private String resolveActualPodName(String podOrAppName, String ns) {
-        if (podOrAppName == null) return "";
-        // Try as direct pod name first
-        Pod directPod = null;
-        try {
-            directPod = kubernetesClient.pods().inNamespace(ns).withName(podOrAppName).get();
-        } catch (Exception ignored) {}
-        if (directPod != null) return podOrAppName;
 
-        // Try by app.kubernetes.io/name label
-        PodList pl = kubernetesClient.pods().inNamespace(ns)
-                .withLabel("app.kubernetes.io/name", podOrAppName).list();
-        if (!pl.getItems().isEmpty()) {
-            return pl.getItems().get(0).getMetadata().getName();
-        }
-
-        // Try by app label
-        pl = kubernetesClient.pods().inNamespace(ns).withLabel("app", podOrAppName).list();
-        if (!pl.getItems().isEmpty()) {
-            return pl.getItems().get(0).getMetadata().getName();
-        }
-
-        return podOrAppName;
-    }
 
     private Map<String, Object> toPodInfo(Pod pod) {
         Map<String, Object> p = new LinkedHashMap<>();

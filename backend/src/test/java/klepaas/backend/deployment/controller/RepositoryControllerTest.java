@@ -32,6 +32,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -115,6 +116,7 @@ class RepositoryControllerTest {
                         .with(user(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("저장소가 삭제되었습니다"));
+        verify(repositoryService).deleteRepository(1L, 1L);
     }
 
     @Test
@@ -122,7 +124,7 @@ class RepositoryControllerTest {
     void getDeploymentConfig() throws Exception {
         var config = new DeploymentConfigResponse(1L, 1L, 1, 3, Map.of(), List.of("runtime-config"),
                 List.of("app-env"), 8080, "repo.klepaas.io", null, null, null, null, null);
-        given(repositoryService.getDeploymentConfig(1L)).willReturn(config);
+        given(repositoryService.getDeploymentConfig(1L, 1L)).willReturn(config);
 
         mockMvc.perform(get("/api/v1/repositories/1/config")
                         .with(user(testUser)))
@@ -139,7 +141,7 @@ class RepositoryControllerTest {
         var updatedConfig = new DeploymentConfigResponse(1L, 1L, 2, 5, Map.of("ENV", "prod"),
                 List.of("runtime-config"), List.of("app-env"), 3000, "custom.klepaas.io",
                 null, null, null, null, null);
-        given(repositoryService.updateDeploymentConfig(anyLong(), any())).willReturn(updatedConfig);
+        given(repositoryService.updateDeploymentConfig(anyLong(), any(), eq(1L))).willReturn(updatedConfig);
 
         mockMvc.perform(put("/api/v1/repositories/1/config")
                         .with(user(testUser))

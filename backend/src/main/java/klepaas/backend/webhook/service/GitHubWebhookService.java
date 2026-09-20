@@ -57,7 +57,10 @@ public class GitHubWebhookService {
         }
     }
 
-    public void handlePushEvent(String payload) {
+    public boolean handleVerifiedPushEvent(String payload, String signature) {
+        if (!verifySignature(payload, signature)) {
+            return false;
+        }
         try {
             JsonNode root = objectMapper.readTree(payload);
 
@@ -69,28 +72,34 @@ public class GitHubWebhookService {
 
             if (root.path("deleted").asBoolean(false)) {
                 log.info("브랜치 삭제 이벤트 무시: repo={}/{}, branch={}", owner, repoName, branch);
-                return;
+                return true;
             }
 
             Optional<SourceRepository> repoOpt = sourceRepositoryRepository.findByOwnerAndRepoName(owner, repoName);
             if (repoOpt.isEmpty()) {
                 log.info("등록되지 않은 레포지토리: owner={}, repoName={}", owner, repoName);
-                return;
+                return true;
             }
 
             SourceRepository repo = repoOpt.get();
+            if (repo.getId() == null || repo.getUser() == null || repo.getUser().getId() == null) {
+                log.warn("소유자가 없는 레포지토리의 push 이벤트 무시: repo={}/{}", owner, repoName);
+                return true;
+            }
             if (shouldSkipPushDeployment(repo)) {
                 log.info("외부 이미지 전략 저장소의 raw push 배포 무시: repo={}/{}, branch={}, commit={}",
                         owner, repoName, branch, commitHash);
-                return;
+                return true;
             }
 
             log.info("GitHub push 이벤트 처리: repo={}/{}, branch={}, commit={}", owner, repoName, branch, commitHash);
-            deploymentService.createDeployment(new CreateDeploymentRequest(repo.getId(), branch, commitHash), null);
+            deploymentService.createDeployment(new CreateDeploymentRequest(repo.getId(), branch, commitHash),
+                    repo.getUser().getId());
 
         } catch (Exception e) {
             log.error("GitHub push 이벤트 처리 중 오류 발생", e);
         }
+        return true;
     }
 
     private boolean shouldSkipPushDeployment(SourceRepository repository) {

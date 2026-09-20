@@ -1,6 +1,7 @@
 package klepaas.backend.ai.dto;
 
 import klepaas.backend.ai.entity.CommandLog;
+import klepaas.backend.ai.entity.CommandStatus;
 import klepaas.backend.ai.entity.Intent;
 import klepaas.backend.ai.entity.RiskLevel;
 
@@ -11,6 +12,7 @@ public record CommandLogResponse(
         String rawCommand,
         Intent intent,
         RiskLevel riskLevel,
+        CommandStatus status,
         boolean isExecuted,
         String executionResult,
         String errorMessage,
@@ -22,6 +24,7 @@ public record CommandLogResponse(
                 entity.getRawCommand(),
                 entity.getInterpretedIntent(),
                 entity.getRiskLevel(),
+                entity.getStatus(),
                 entity.isExecuted(),
                 entity.getExecutionResult(),
                 entity.getErrorMessage(),

@@ -21,13 +21,14 @@ public class GitHubWebhookController {
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
             @RequestBody String payload) {
 
-        if (!webhookService.verifySignature(payload, signature)) {
-            log.warn("GitHub Webhook 서명 검증 실패");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!"push".equals(event)) {
+            return webhookService.verifySignature(payload, signature)
+                    ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        if ("push".equals(event)) {
-            webhookService.handlePushEvent(payload);
+        if (!webhookService.handleVerifiedPushEvent(payload, signature)) {
+            log.warn("GitHub Webhook 서명 검증 실패");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         return ResponseEntity.ok().build();

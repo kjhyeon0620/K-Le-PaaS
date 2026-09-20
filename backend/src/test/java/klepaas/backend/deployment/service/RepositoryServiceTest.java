@@ -55,6 +55,8 @@ class RepositoryServiceTest {
     private GitHubAppClient gitHubAppClient;
     @Mock
     private GitHubAppConfig gitHubAppConfig;
+    @Mock private ResourceAccessService resourceAccessService;
+    @Mock private RuntimeResourcePolicy runtimeResourcePolicy;
 
     @InjectMocks
     private RepositoryService repositoryService;
@@ -95,6 +97,32 @@ class RepositoryServiceTest {
     class CreateRepository {
 
         @Test
+        void installedRepositoryCannotBeClaimedByAnotherGitHubUser() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo"))
+                    .willReturn(new GitHubAppClient.InstallationAccount(99999L, "User"));
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(InvalidRequestException.class);
+            verify(deploymentConfigRepository, org.mockito.Mockito.never()).save(any());
+            verify(sourceRepositoryRepository, org.mockito.Mockito.never()).save(any());
+        }
+
+        @Test
+        void organizationInstallationCannotBeClaimedWithoutMembershipProof() {
+            var request = new CreateRepositoryRequest("org", "app", "https://github.com/org/app", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(gitHubAppClient.getInstallationAccount("org", "app"))
+                    .willReturn(new GitHubAppClient.InstallationAccount(12345L, "Organization"));
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(InvalidRequestException.class);
+            verify(sourceRepositoryRepository, org.mockito.Mockito.never()).save(any());
+        }
+
+        @Test
         @DisplayName("성공: 레포지토리 + 기본 배포 설정 생성")
         void success() {
             var request = new CreateRepositoryRequest("testowner", "testrepo",
@@ -102,7 +130,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willReturn(testRepo);
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willReturn(testConfig);
 
@@ -125,7 +153,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("kjhyeon0620", "smart-sousvide-iot-platform"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("kjhyeon0620", "smart-sousvide-iot-platform")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("kjhyeon0620", "smart-sousvide-iot-platform")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -145,7 +173,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "Smart_Sousvide IoT.Platform"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "Smart_Sousvide IoT.Platform")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "Smart_Sousvide IoT.Platform")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -165,7 +193,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -184,7 +212,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -204,7 +232,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -237,7 +265,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("kjhyeon0620", "smart-sousvide-iot-platform"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("kjhyeon0620", "smart-sousvide-iot-platform")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("kjhyeon0620", "smart-sousvide-iot-platform")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -258,7 +286,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo"))
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo"))
                     .willThrow(new GitHubAppNotInstalledException("testowner", "testrepo"));
             given(gitHubAppConfig.getAppSlug()).willReturn("klepaas");
 
@@ -318,7 +346,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
             willThrow(new DataIntegrityViolationException("domain_url")).given(deploymentConfigRepository).flush();
@@ -335,7 +363,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
-            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
+            given(gitHubAppClient.getInstallationAccount("testowner", "testrepo")).willReturn(new GitHubAppClient.InstallationAccount(12345L, "User"));
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willAnswer(invocation -> invocation.getArgument(0));
             willThrow(new DataIntegrityViolationException("other_constraint"))
@@ -424,11 +452,11 @@ class RepositoryServiceTest {
         @Test
         @DisplayName("성공: 레포지토리 + 배포 설정 삭제")
         void success() {
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L))
                     .willReturn(Optional.of(testConfig));
 
-            repositoryService.deleteRepository(1L);
+            repositoryService.deleteRepository(1L, 1L);
 
             verify(deploymentConfigRepository).delete(testConfig);
             verify(sourceRepositoryRepository).delete(testRepo);
@@ -437,9 +465,9 @@ class RepositoryServiceTest {
         @Test
         @DisplayName("실패: 존재하지 않는 레포지토리")
         void failNotFound() {
-            given(sourceRepositoryRepository.findById(999L)).willReturn(Optional.empty());
+            given(resourceAccessService.requireRepository(999L, 1L)).willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.REPOSITORY_NOT_FOUND));
 
-            assertThatThrownBy(() -> repositoryService.deleteRepository(999L))
+            assertThatThrownBy(() -> repositoryService.deleteRepository(999L, 1L))
                     .isInstanceOf(EntityNotFoundException.class);
         }
     }
@@ -465,11 +493,11 @@ class RepositoryServiceTest {
                     KubernetesServiceType.NODE_PORT,
                     30080
             );
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L))
                     .willReturn(Optional.of(testConfig));
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             assertThat(response.minReplicas()).isEqualTo(2);
             assertThat(response.maxReplicas()).isEqualTo(5);
@@ -488,10 +516,10 @@ class RepositoryServiceTest {
         @DisplayName("성공: envFrom 목록이 null이면 빈 목록으로 저장한다")
         void successTreatsNullEnvFromRefsAsEmptyLists() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             assertThat(response.envFromConfigMaps()).isEmpty();
             assertThat(response.envFromSecrets()).isEmpty();
@@ -514,10 +542,10 @@ class RepositoryServiceTest {
                     KubernetesServiceType.CLUSTER_IP,
                     null
             );
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("env_from_config_maps")
                     .hasMessageContaining("Invalid_Name");
@@ -538,10 +566,10 @@ class RepositoryServiceTest {
                     KubernetesServiceType.NODE_PORT,
                     null
             );
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("nodePort");
         }
@@ -571,10 +599,10 @@ class RepositoryServiceTest {
                     KubernetesServiceType.CLUSTER_IP,
                     null
             );
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(nodePortConfig));
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             assertThat(response.serviceType()).isEqualTo(KubernetesServiceType.CLUSTER_IP);
             assertThat(response.nodePort()).isNull();
@@ -595,10 +623,10 @@ class RepositoryServiceTest {
                     KubernetesServiceType.CLUSTER_IP,
                     30080
             );
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("nodePort");
         }
@@ -620,10 +648,10 @@ class RepositoryServiceTest {
                     .nodePort(30080)
                     .build();
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(onPremiseConfig));
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             assertThat(response.buildStrategy()).isEqualTo(BuildStrategy.GITHUB_ACTIONS_GHCR);
             assertThat(response.imageUriTemplate()).isEqualTo("ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}");
@@ -636,12 +664,12 @@ class RepositoryServiceTest {
         @DisplayName("성공: 자기 자신의 기존 domain_url은 유지 가능")
         void successAllowsOwnDomainUrl() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "testrepo.klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
             given(deploymentConfigRepository.existsByDomainUrlAndSourceRepositoryIdNot("testrepo.klepaas.io", 1L))
                     .willReturn(false);
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             assertThat(response.domainUrl()).isEqualTo("testrepo.klepaas.io");
         }
@@ -650,10 +678,10 @@ class RepositoryServiceTest {
         @DisplayName("성공: domain_url을 생략하면 기존 domain_url을 유지")
         void successPreservesDomainUrlWhenRequestOmitsIt() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, null);
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             assertThat(response.domainUrl()).isEqualTo("testrepo.klepaas.io");
         }
@@ -662,10 +690,10 @@ class RepositoryServiceTest {
         @DisplayName("성공: 수정 domain_url은 lowercase canonical 값으로 저장")
         void successCanonicalizesDomainUrlOnUpdate() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "Custom.KLEPAAS.IO");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request);
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, request, 1L);
 
             verify(deploymentConfigRepository).existsByDomainUrlAndSourceRepositoryIdNot("custom.klepaas.io", 1L);
             assertThat(response.domainUrl()).isEqualTo("custom.klepaas.io");
@@ -675,12 +703,12 @@ class RepositoryServiceTest {
         @DisplayName("실패: 다른 저장소의 domain_url로 수정할 수 없다")
         void failDuplicateDomainUrlOnUpdate() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
             given(deploymentConfigRepository.existsByDomainUrlAndSourceRepositoryIdNot("custom.klepaas.io", 1L))
                     .willReturn(true);
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(DuplicateResourceException.class);
         }
 
@@ -688,11 +716,11 @@ class RepositoryServiceTest {
         @DisplayName("실패: 수정 중 DB unique 제약으로 domain_url 중복이 감지되면 409 예외로 변환")
         void failDuplicateDomainUrlOnUpdateFlush() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
             willThrow(new DataIntegrityViolationException("domain_url")).given(deploymentConfigRepository).flush();
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(DuplicateResourceException.class);
         }
 
@@ -700,12 +728,12 @@ class RepositoryServiceTest {
         @DisplayName("실패: 수정 중 domain_url과 무관한 DB 제약 위반은 원 예외를 유지")
         void failNonDomainIntegrityViolationOnUpdateKeepsOriginalException() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
             willThrow(new DataIntegrityViolationException("other_constraint"))
                     .given(deploymentConfigRepository).flush();
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(DataIntegrityViolationException.class);
         }
 
@@ -713,10 +741,10 @@ class RepositoryServiceTest {
         @DisplayName("실패: 수정 domain_url이 DNS host 형식이 아니면 거절")
         void failInvalidDomainUrlOnUpdate() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, "repo..klepaas.io");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("domain_url");
         }
@@ -725,10 +753,10 @@ class RepositoryServiceTest {
         @DisplayName("실패: blank domain_url로 수정할 수 없다")
         void failBlankDomainUrlOnUpdate() {
             var request = new UpdateDeploymentConfigRequest(2, 5, Map.of("ENV", "prod"), 3000, " ");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
 
-            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request))
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("domain_url");
         }

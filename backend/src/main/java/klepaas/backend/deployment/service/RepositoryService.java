@@ -43,12 +43,17 @@ public class RepositoryService {
     private final UserRepository userRepository;
     private final GitHubAppClient gitHubAppClient;
     private final GitHubAppConfig gitHubAppConfig;
+    private final ResourceAccessService resourceAccessService;
+    private final RuntimeResourcePolicy runtimeResourcePolicy;
 
     @Value("${deployment.domain.suffix:klepaas.io}")
     private String deploymentDomainSuffix = "klepaas.io";
 
     @Transactional
     public RepositoryResponse createRepository(Long userId, CreateRepositoryRequest request) {
+        if (userId == null) {
+            throw new EntityNotFoundException(ErrorCode.USER_NOT_FOUND);
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
@@ -60,7 +65,7 @@ public class RepositoryService {
         String domainUrl = resolveCreateDomainUrl(request);
         validateDomainUrlAvailable(domainUrl);
 
-        checkGitHubAppInstalled(request.owner(), request.repoName());
+        checkGitHubAppInstalled(user, request.owner(), request.repoName());
 
         SourceRepository repository = SourceRepository.builder()
                 .user(user)
@@ -86,9 +91,14 @@ public class RepositoryService {
         return RepositoryResponse.from(repository);
     }
 
-    private void checkGitHubAppInstalled(String owner, String repoName) {
+    private void checkGitHubAppInstalled(User user, String owner, String repoName) {
         try {
-            gitHubAppClient.getInstallationId(owner, repoName);
+            GitHubAppClient.InstallationAccount account = gitHubAppClient.getInstallationAccount(owner, repoName);
+            if (account == null || account.id() == null || !"User".equals(account.type())
+                    || user.getProviderId() == null || !account.id().toString().equals(user.getProviderId())) {
+                throw new InvalidRequestException(ErrorCode.INVALID_REQUEST,
+                        "GitHub 개인 저장소 소유자만 등록할 수 있습니다");
+            }
         } catch (GitHubAppNotInstalledException e) {
             String installUrl = "https://github.com/apps/" + gitHubAppConfig.getAppSlug() + "/installations/new";
             throw new GitHubAppInstallationRequiredException(owner, repoName, installUrl);
@@ -96,21 +106,22 @@ public class RepositoryService {
     }
 
     public List<RepositoryResponse> getRepositories(Long userId) {
+        if (userId == null) {
+            throw new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND);
+        }
         return sourceRepositoryRepository.findAllByUserId(userId).stream()
                 .map(RepositoryResponse::from)
                 .toList();
     }
 
-    public RepositoryResponse getRepository(Long repositoryId) {
-        SourceRepository repository = sourceRepositoryRepository.findById(repositoryId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND));
+    public RepositoryResponse getRepository(Long repositoryId, Long userId) {
+        SourceRepository repository = resourceAccessService.requireRepository(repositoryId, userId);
         return RepositoryResponse.from(repository);
     }
 
     @Transactional
-    public void deleteRepository(Long repositoryId) {
-        SourceRepository repository = sourceRepositoryRepository.findById(repositoryId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND));
+    public void deleteRepository(Long repositoryId, Long userId) {
+        SourceRepository repository = resourceAccessService.requireRepository(repositoryId, userId);
 
         deploymentConfigRepository.findBySourceRepositoryId(repositoryId)
                 .ifPresent(deploymentConfigRepository::delete);
@@ -119,9 +130,8 @@ public class RepositoryService {
         log.info("Repository deleted: id={}", repositoryId);
     }
 
-    public DeploymentConfigResponse getDeploymentConfig(Long repositoryId) {
-        sourceRepositoryRepository.findById(repositoryId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND));
+    public DeploymentConfigResponse getDeploymentConfig(Long repositoryId, Long userId) {
+        resourceAccessService.requireRepository(repositoryId, userId);
 
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repositoryId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
@@ -130,9 +140,8 @@ public class RepositoryService {
 
     @Transactional
     public DeploymentConfigResponse updateDeploymentConfig(Long repositoryId,
-                                                            UpdateDeploymentConfigRequest request) {
-        sourceRepositoryRepository.findById(repositoryId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND));
+                                                            UpdateDeploymentConfigRequest request, Long userId) {
+        SourceRepository repository = resourceAccessService.requireRepository(repositoryId, userId);
 
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repositoryId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
@@ -141,6 +150,8 @@ public class RepositoryService {
         ServiceExposure serviceExposure = resolveServiceExposure(config, request);
         List<String> envFromConfigMaps = normalizeEnvFromRefs(request.envFromConfigMaps(), "env_from_config_maps");
         List<String> envFromSecrets = normalizeEnvFromRefs(request.envFromSecrets(), "env_from_secrets");
+        runtimeResourcePolicy.validateReferences(repository, envFromConfigMaps, envFromSecrets,
+                request.imagePullSecretName() != null ? request.imagePullSecretName() : config.getImagePullSecretName());
         config.updateConfig(
                 request.minReplicas(),
                 request.maxReplicas(),

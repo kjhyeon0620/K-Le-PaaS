@@ -11,6 +11,7 @@ import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.service.DeploymentService;
+import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.user.entity.Role;
@@ -50,6 +51,9 @@ class ActionDispatcherTest {
     @Mock
     private SourceRepositoryRepository sourceRepositoryRepository;
 
+    @Mock
+    private ResourceAccessService resourceAccessService;
+
     @Test
     @DisplayName("DEPLOY는 HIGH 리스크")
     void classifyDeployAsHigh() {
@@ -85,12 +89,12 @@ class ActionDispatcherTest {
     void dispatchStatus() {
         var parsedIntent = new ParsedIntent(Intent.STATUS, Map.of("deployment_id", 1), 0.9, "상태 확인");
         var statusResponse = new DeploymentStatusResponse(1L, DeploymentStatus.SUCCESS, null);
-        given(deploymentService.getDeploymentStatus(1L)).willReturn(statusResponse);
+        given(deploymentService.getDeploymentStatus(1L, 1L)).willReturn(statusResponse);
 
         FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result.message()).contains("SUCCESS");
-        verify(deploymentService).getDeploymentStatus(1L);
+        verify(deploymentService).getDeploymentStatus(1L, 1L);
     }
 
     @Test
@@ -116,12 +120,12 @@ class ActionDispatcherTest {
                 .branchName("main")
                 .commitHash("abc1234")
                 .build();
-        given(deploymentRepository.findById(1L)).willReturn(Optional.of(deployment));
+        given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(deployment);
 
         FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result.message()).contains("3개 레플리카");
-        verify(deploymentService).scaleDeployment(eq(1L), any(), eq("NLP"));
+        verify(deploymentService).scaleDeployment(eq(1L), any(), eq("NLP"), eq(1L));
     }
 
     @Test

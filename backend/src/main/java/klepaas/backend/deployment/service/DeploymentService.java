@@ -37,16 +37,14 @@ public class DeploymentService {
     private final DeploymentPipelineService pipelineService;
     private final CloudInfraProviderFactory infraProviderFactory;
     private final KubernetesManifestGenerator k8sGenerator;
-
-    @Transactional
-    public DeploymentResponse createDeployment(CreateDeploymentRequest request) {
-        return createDeployment(request, null);
-    }
+    private final ResourceAccessService resourceAccessService;
+    private final RuntimeResourcePolicy runtimeResourcePolicy;
 
     @Transactional
     public DeploymentResponse createDeployment(CreateDeploymentRequest request, Long userId) {
-        SourceRepository repository = sourceRepositoryRepository.findById(request.repositoryId())
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND));
+        SourceRepository repository = resourceAccessService.requireRepository(request.repositoryId(), userId);
+        deploymentConfigRepository.findBySourceRepositoryId(repository.getId())
+                .ifPresent(config -> runtimeResourcePolicy.validateReferences(repository, config));
 
         Deployment deployment = Deployment.builder()
                 .sourceRepository(repository)
@@ -72,40 +70,37 @@ public class DeploymentService {
         return DeploymentResponse.from(deployment);
     }
 
-    public Page<DeploymentResponse> getDeployments(Long repositoryId, Pageable pageable) {
+    public Page<DeploymentResponse> getDeployments(Long repositoryId, Pageable pageable, Long userId) {
+        resourceAccessService.requireRepository(repositoryId, userId);
         return deploymentRepository.findBySourceRepositoryId(repositoryId, pageable)
                 .map(DeploymentResponse::from);
     }
 
-    public DeploymentResponse getDeployment(Long deploymentId) {
-        Deployment deployment = deploymentRepository.findById(deploymentId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+    public DeploymentResponse getDeployment(Long deploymentId, Long userId) {
+        Deployment deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         return DeploymentResponse.from(deployment);
     }
 
-    public DeploymentStatusResponse getDeploymentStatus(Long deploymentId) {
-        Deployment deployment = deploymentRepository.findById(deploymentId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+    public DeploymentStatusResponse getDeploymentStatus(Long deploymentId, Long userId) {
+        Deployment deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         return DeploymentStatusResponse.from(deployment);
     }
 
-    public DeploymentLogResponse getDeploymentLogs(Long deploymentId) {
-        deploymentRepository.findById(deploymentId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+    public DeploymentLogResponse getDeploymentLogs(Long deploymentId, Long userId) {
+        resourceAccessService.requireDeployment(deploymentId, userId);
 
         // TODO: Phase 5+ - NCP에서 실제 빌드/배포 로그 조회
         return new DeploymentLogResponse(deploymentId, List.of("로그 조회 기능은 향후 구현 예정입니다."));
     }
 
     @Transactional
-    public void scaleDeployment(Long deploymentId, ScaleRequest request) {
-        scaleDeployment(deploymentId, request, "USER");
+    public void scaleDeployment(Long deploymentId, ScaleRequest request, Long userId) {
+        scaleDeployment(deploymentId, request, "USER", userId);
     }
 
     @Transactional
-    public void scaleDeployment(Long deploymentId, ScaleRequest request, String triggeredBy) {
-        Deployment deployment = deploymentRepository.findById(deploymentId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+    public void scaleDeployment(Long deploymentId, ScaleRequest request, String triggeredBy, Long userId) {
+        Deployment deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         DeploymentConfig deploymentConfig = deploymentConfigRepository
                 .findBySourceRepositoryId(deployment.getSourceRepository().getId())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
@@ -114,7 +109,7 @@ public class DeploymentService {
         String appName = repo.getOwner() + "-" + repo.getRepoName();
         int previousReplicas = deploymentConfig.getMinReplicas();
 
-        k8sGenerator.scale(appName, request.replicas());
+        k8sGenerator.scale(appName, request.replicas(), repo.getId());
 
         scalingHistoryRepository.save(
                 ScalingHistory.builder()
@@ -129,20 +124,20 @@ public class DeploymentService {
                 deploymentId, previousReplicas, request.replicas(), triggeredBy);
     }
 
-    public Page<ScalingHistoryResponse> getScalingHistory(Long repositoryId, Pageable pageable) {
+    public Page<ScalingHistoryResponse> getScalingHistory(Long repositoryId, Pageable pageable, Long userId) {
+        resourceAccessService.requireRepository(repositoryId, userId);
         return scalingHistoryRepository.findByDeploymentSourceRepositoryIdOrderByCreatedAtDesc(repositoryId, pageable)
                 .map(ScalingHistoryResponse::from);
     }
 
     @Transactional
-    public void restartDeployment(Long deploymentId) {
-        Deployment deployment = deploymentRepository.findById(deploymentId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+    public void restartDeployment(Long deploymentId, Long userId) {
+        Deployment deployment = resourceAccessService.requireDeployment(deploymentId, userId);
 
         SourceRepository repo = deployment.getSourceRepository();
         String appName = repo.getOwner() + "-" + repo.getRepoName();
-        k8sGenerator.scale(appName, 0);
-        k8sGenerator.scale(appName, 1);
+        k8sGenerator.scale(appName, 0, repo.getId());
+        k8sGenerator.scale(appName, 1, repo.getId());
 
         log.info("Restart completed: deploymentId={}", deploymentId);
     }
