@@ -34,42 +34,49 @@ public class DeploymentController {
     @GetMapping("/deployments")
     public ApiResponse<Page<DeploymentResponse>> getDeployments(
             @RequestParam Long repositoryId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(deploymentService.getDeployments(repositoryId, pageable));
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentService.getDeployments(repositoryId, pageable, userDetails.getUserId()));
     }
 
     @GetMapping("/deployments/{id}")
-    public ApiResponse<DeploymentResponse> getDeployment(@PathVariable Long id) {
-        return ApiResponse.success(deploymentService.getDeployment(id));
+    public ApiResponse<DeploymentResponse> getDeployment(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentService.getDeployment(id, userDetails.getUserId()));
     }
 
     @GetMapping("/deployments/{id}/status")
-    public ApiResponse<DeploymentStatusResponse> getDeploymentStatus(@PathVariable Long id) {
-        return ApiResponse.success(deploymentService.getDeploymentStatus(id));
+    public ApiResponse<DeploymentStatusResponse> getDeploymentStatus(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentService.getDeploymentStatus(id, userDetails.getUserId()));
     }
 
     @GetMapping("/deployments/{id}/logs")
-    public ApiResponse<DeploymentLogResponse> getDeploymentLogs(@PathVariable Long id) {
-        return ApiResponse.success(deploymentService.getDeploymentLogs(id));
+    public ApiResponse<DeploymentLogResponse> getDeploymentLogs(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentService.getDeploymentLogs(id, userDetails.getUserId()));
     }
 
     @PostMapping("/deployments/{id}/scale")
     public ApiResponse<Void> scaleDeployment(@PathVariable Long id,
-                                              @Valid @RequestBody ScaleRequest request) {
-        deploymentService.scaleDeployment(id, request);
+                                              @Valid @RequestBody ScaleRequest request,
+                                              @AuthenticationPrincipal CustomUserDetails userDetails) {
+        deploymentService.scaleDeployment(id, request, userDetails.getUserId());
         return ApiResponse.success(null, "스케일링 요청이 접수되었습니다");
     }
 
     @PostMapping("/deployments/{id}/restart")
-    public ApiResponse<Void> restartDeployment(@PathVariable Long id) {
-        deploymentService.restartDeployment(id);
+    public ApiResponse<Void> restartDeployment(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        deploymentService.restartDeployment(id, userDetails.getUserId());
         return ApiResponse.success(null, "재시작 요청이 접수되었습니다");
     }
 
     @GetMapping("/repositories/{repositoryId}/scaling-history")
     public ApiResponse<Page<ScalingHistoryResponse>> getScalingHistory(
             @PathVariable Long repositoryId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(deploymentService.getScalingHistory(repositoryId, pageable));
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentService.getScalingHistory(repositoryId, pageable, userDetails.getUserId()));
     }
 }

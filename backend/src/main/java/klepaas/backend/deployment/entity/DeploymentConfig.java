@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -37,6 +40,14 @@ public class DeploymentConfig extends BaseTimeEntity {
     @Column(columnDefinition = "TEXT")
     private Map<String, String> envVars = new HashMap<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "TEXT")
+    private List<String> envFromConfigMaps = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "TEXT")
+    private List<String> envFromSecrets = new ArrayList<>();
+
     @Column(nullable = false)
     private int containerPort;
 
@@ -59,11 +70,14 @@ public class DeploymentConfig extends BaseTimeEntity {
     public DeploymentConfig(SourceRepository sourceRepository, int minReplicas, int maxReplicas,
                             Map<String, String> envVars, int containerPort, String domainUrl,
                             BuildStrategy buildStrategy, String imageUriTemplate, String imagePullSecretName,
-                            KubernetesServiceType serviceType, Integer nodePort) {
+                            KubernetesServiceType serviceType, Integer nodePort,
+                            List<String> envFromConfigMaps, List<String> envFromSecrets) {
         this.sourceRepository = sourceRepository;
         this.minReplicas = minReplicas;
         this.maxReplicas = maxReplicas;
         this.envVars = envVars != null ? envVars : new HashMap<>();
+        this.envFromConfigMaps = normalizeEnvFromRefs(envFromConfigMaps);
+        this.envFromSecrets = normalizeEnvFromRefs(envFromSecrets);
         this.containerPort = containerPort > 0 ? containerPort : 8080;
         this.domainUrl = domainUrl;
         this.buildStrategy = buildStrategy != null ? buildStrategy : BuildStrategy.KANIKO;
@@ -83,10 +97,13 @@ public class DeploymentConfig extends BaseTimeEntity {
 
     public void updateConfig(int min, int max, Map<String, String> envVars, int containerPort, String domainUrl,
                              BuildStrategy buildStrategy, String imageUriTemplate, String imagePullSecretName,
-                             KubernetesServiceType serviceType, Integer nodePort) {
+                             KubernetesServiceType serviceType, Integer nodePort,
+                             List<String> envFromConfigMaps, List<String> envFromSecrets) {
         this.minReplicas = min;
         this.maxReplicas = max;
         this.envVars = envVars != null ? envVars : new HashMap<>();
+        this.envFromConfigMaps = normalizeEnvFromRefs(envFromConfigMaps);
+        this.envFromSecrets = normalizeEnvFromRefs(envFromSecrets);
         this.containerPort = containerPort > 0 ? containerPort : 8080;
         this.domainUrl = domainUrl;
         this.buildStrategy = buildStrategy != null ? buildStrategy : getBuildStrategy();
@@ -94,5 +111,18 @@ public class DeploymentConfig extends BaseTimeEntity {
         this.imagePullSecretName = imagePullSecretName != null ? imagePullSecretName : this.imagePullSecretName;
         this.serviceType = serviceType != null ? serviceType : getServiceType();
         this.nodePort = nodePort;
+    }
+
+    private List<String> normalizeEnvFromRefs(List<String> names) {
+        if (names == null) {
+            return new ArrayList<>();
+        }
+        LinkedHashSet<String> normalizedNames = new LinkedHashSet<>();
+        for (String name : names) {
+            if (name != null && !name.isBlank()) {
+                normalizedNames.add(name.trim());
+            }
+        }
+        return new ArrayList<>(normalizedNames);
     }
 }

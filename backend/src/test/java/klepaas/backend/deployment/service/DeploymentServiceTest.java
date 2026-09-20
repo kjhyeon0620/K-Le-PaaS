@@ -37,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class DeploymentServiceTest {
@@ -55,6 +56,8 @@ class DeploymentServiceTest {
     private CloudInfraProviderFactory infraProviderFactory;
     @Mock
     private KubernetesManifestGenerator k8sGenerator;
+    @Mock private ResourceAccessService resourceAccessService;
+    @Mock private RuntimeResourcePolicy runtimeResourcePolicy;
     @InjectMocks
     private DeploymentService deploymentService;
 
@@ -71,6 +74,7 @@ class DeploymentServiceTest {
                 .providerId("12345")
                 .build();
 
+        org.springframework.test.util.ReflectionTestUtils.setField(testUser, "id", 1L);
         testRepo = SourceRepository.builder()
                 .user(testUser)
                 .owner("testowner")
@@ -79,6 +83,7 @@ class DeploymentServiceTest {
                 .cloudVendor(CloudVendor.NCP)
                 .build();
 
+        org.springframework.test.util.ReflectionTestUtils.setField(testRepo, "id", 1L);
         testDeployment = Deployment.builder()
                 .sourceRepository(testRepo)
                 .branchName("main")
@@ -91,15 +96,31 @@ class DeploymentServiceTest {
     class CreateDeployment {
 
         @Test
+        void foreignAndMissingActorNeverStartPipeline() {
+            var request = new CreateDeploymentRequest(1L, "main", "abc1234");
+            given(resourceAccessService.requireRepository(1L, 2L))
+                    .willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.REPOSITORY_NOT_FOUND));
+            given(resourceAccessService.requireRepository(1L, null))
+                    .willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.REPOSITORY_NOT_FOUND));
+
+            assertThatThrownBy(() -> deploymentService.createDeployment(request, 2L))
+                    .isInstanceOf(EntityNotFoundException.class);
+            assertThatThrownBy(() -> deploymentService.createDeployment(request, null))
+                    .isInstanceOf(EntityNotFoundException.class);
+            verifyNoInteractions(pipelineService, deploymentRepository, k8sGenerator);
+        }
+
+        @Test
         @DisplayName("성공: 배포 생성 후 비동기 파이프라인 실행")
         void success() {
             var request = new CreateDeploymentRequest(1L, "main", "abc1234");
-            given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.empty());
             given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             TransactionSynchronizationManager.initSynchronization();
             try {
-                DeploymentResponse response = deploymentService.createDeployment(request);
+                DeploymentResponse response = deploymentService.createDeployment(request, 1L);
 
                 assertThat(response.branchName()).isEqualTo("main");
                 assertThat(response.commitHash()).isEqualTo("abc1234");
@@ -118,9 +139,9 @@ class DeploymentServiceTest {
         @DisplayName("실패: 존재하지 않는 레포지토리")
         void failRepositoryNotFound() {
             var request = new CreateDeploymentRequest(999L, "main", "abc1234");
-            given(sourceRepositoryRepository.findById(999L)).willReturn(Optional.empty());
+            given(resourceAccessService.requireRepository(999L, 1L)).willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.REPOSITORY_NOT_FOUND));
 
-            assertThatThrownBy(() -> deploymentService.createDeployment(request))
+            assertThatThrownBy(() -> deploymentService.createDeployment(request, 1L))
                     .isInstanceOf(EntityNotFoundException.class);
         }
     }
@@ -132,9 +153,9 @@ class DeploymentServiceTest {
         @Test
         @DisplayName("성공: 배포 상세 조회")
         void success() {
-            given(deploymentRepository.findById(1L)).willReturn(Optional.of(testDeployment));
+            given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(testDeployment);
 
-            DeploymentResponse response = deploymentService.getDeployment(1L);
+            DeploymentResponse response = deploymentService.getDeployment(1L, 1L);
 
             assertThat(response.branchName()).isEqualTo("main");
             assertThat(response.repositoryName()).isEqualTo("testowner/testrepo");
@@ -143,9 +164,9 @@ class DeploymentServiceTest {
         @Test
         @DisplayName("실패: 존재하지 않는 배포")
         void failNotFound() {
-            given(deploymentRepository.findById(999L)).willReturn(Optional.empty());
+            given(resourceAccessService.requireDeployment(999L, 1L)).willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.DEPLOYMENT_NOT_FOUND));
 
-            assertThatThrownBy(() -> deploymentService.getDeployment(999L))
+            assertThatThrownBy(() -> deploymentService.getDeployment(999L, 1L))
                     .isInstanceOf(EntityNotFoundException.class);
         }
     }
@@ -157,9 +178,9 @@ class DeploymentServiceTest {
         @Test
         @DisplayName("성공: 배포 상태 조회 - PENDING")
         void success() {
-            given(deploymentRepository.findById(1L)).willReturn(Optional.of(testDeployment));
+            given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(testDeployment);
 
-            DeploymentStatusResponse response = deploymentService.getDeploymentStatus(1L);
+            DeploymentStatusResponse response = deploymentService.getDeploymentStatus(1L, 1L);
 
             assertThat(response.status()).isEqualTo(DeploymentStatus.PENDING);
             assertThat(response.failReason()).isNull();
@@ -171,9 +192,19 @@ class DeploymentServiceTest {
     class ScaleDeployment {
 
         @Test
+        void foreignActorNeverCallsKubernetes() {
+            given(resourceAccessService.requireDeployment(1L, 2L))
+                    .willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.DEPLOYMENT_NOT_FOUND));
+            assertThatThrownBy(() -> deploymentService.scaleDeployment(1L,
+                    new klepaas.backend.deployment.dto.ScaleRequest(3), 2L))
+                    .isInstanceOf(EntityNotFoundException.class);
+            verifyNoInteractions(k8sGenerator, scalingHistoryRepository);
+        }
+
+        @Test
         @DisplayName("성공: K8s 스케일링 호출")
         void success() {
-            given(deploymentRepository.findById(1L)).willReturn(Optional.of(testDeployment));
+            given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(testDeployment);
             given(deploymentConfigRepository.findBySourceRepositoryId(testRepo.getId()))
                     .willReturn(Optional.of(klepaas.backend.deployment.entity.DeploymentConfig.builder()
                             .sourceRepository(testRepo)
@@ -184,11 +215,11 @@ class DeploymentServiceTest {
                             .domainUrl("repo.klepaas.io")
                             .build()));
             given(scalingHistoryRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
-            doNothing().when(k8sGenerator).scale("testowner-testrepo", 3);
+            doNothing().when(k8sGenerator).scale("testowner-testrepo", 3, 1L);
 
-            deploymentService.scaleDeployment(1L, new klepaas.backend.deployment.dto.ScaleRequest(3));
+            deploymentService.scaleDeployment(1L, new klepaas.backend.deployment.dto.ScaleRequest(3), 1L);
 
-            verify(k8sGenerator).scale("testowner-testrepo", 3);
+            verify(k8sGenerator).scale("testowner-testrepo", 3, 1L);
         }
     }
 
@@ -199,13 +230,13 @@ class DeploymentServiceTest {
         @Test
         @DisplayName("성공: scale 0 → 1로 재시작")
         void success() {
-            given(deploymentRepository.findById(1L)).willReturn(Optional.of(testDeployment));
-            doNothing().when(k8sGenerator).scale(anyString(), any(int.class));
+            given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(testDeployment);
+            doNothing().when(k8sGenerator).scale(anyString(), any(int.class), anyLong());
 
-            deploymentService.restartDeployment(1L);
+            deploymentService.restartDeployment(1L, 1L);
 
-            verify(k8sGenerator).scale("testowner-testrepo", 0);
-            verify(k8sGenerator).scale("testowner-testrepo", 1);
+            verify(k8sGenerator).scale("testowner-testrepo", 0, 1L);
+            verify(k8sGenerator).scale("testowner-testrepo", 1, 1L);
         }
     }
 }

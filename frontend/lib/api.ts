@@ -600,24 +600,27 @@ class ApiClient {
         (r: any) => r.owner === owner && r.repo_name === repo
       )
       if (!targetRepo) throw new Error('Repository not found')
-      return this.request<DeploymentConfigResponse>(
+      const config = await this.request<DeploymentConfigResponse>(
         `/api/v1/repositories/${targetRepo.id}/config`
       )
+      return normalizeDeploymentConfigResponse(owner, repo, config)
     } catch {
-      return {
+      return normalizeDeploymentConfigResponse(owner, repo, {
         owner,
         repo,
-        replica_count: 1,
-        is_default: true,
-        last_scaled_at: null,
-        last_scaled_by: null,
-        created_at: null,
-        updated_at: null,
-      }
+        min_replicas: 1,
+        max_replicas: 1,
+        env_vars: {},
+        env_from_config_maps: [],
+        env_from_secrets: [],
+        container_port: 8080,
+        domain_url: null,
+      })
     }
   }
 
   async updateDeploymentConfig(owner: string, repo: string, replicaCount: number): Promise<any> {
+    const currentConfig = await this.getDeploymentConfig(owner, repo)
     const repos = await this.request<any[]>('/api/v1/repositories')
     const targetRepo = (repos || []).find(
       (r: any) => r.owner === owner && r.repo_name === repo
@@ -629,10 +632,51 @@ class ApiClient {
       body: JSON.stringify({
         min_replicas: replicaCount,
         max_replicas: replicaCount,
-        env_vars: {},
-        container_port: 8080,
+        env_vars: currentConfig.env_vars,
+        env_from_config_maps: currentConfig.env_from_config_maps,
+        env_from_secrets: currentConfig.env_from_secrets,
+        container_port: currentConfig.container_port,
+        domain_url: currentConfig.domain_url,
+        build_strategy: currentConfig.build_strategy,
+        image_uri_template: currentConfig.image_uri_template,
+        image_pull_secret_name: currentConfig.image_pull_secret_name,
+        service_type: currentConfig.service_type,
+        node_port: currentConfig.node_port,
       }),
     })
+  }
+
+  async updateDeploymentRuntimeEnvFrom(
+    owner: string,
+    repo: string,
+    envFromConfigMaps: readonly string[],
+    envFromSecrets: readonly string[]
+  ): Promise<DeploymentConfigResponse> {
+    const currentConfig = await this.getDeploymentConfig(owner, repo)
+    const repos = await this.request<any[]>('/api/v1/repositories')
+    const targetRepo = (repos || []).find(
+      (r: any) => r.owner === owner && r.repo_name === repo
+    )
+    if (!targetRepo) throw new Error('Repository not found')
+
+    const updatedConfig = await this.request<DeploymentConfigResponse>(`/api/v1/repositories/${targetRepo.id}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        min_replicas: currentConfig.min_replicas,
+        max_replicas: currentConfig.max_replicas,
+        env_vars: currentConfig.env_vars,
+        env_from_config_maps: envFromConfigMaps,
+        env_from_secrets: envFromSecrets,
+        container_port: currentConfig.container_port,
+        domain_url: currentConfig.domain_url,
+        build_strategy: currentConfig.build_strategy,
+        image_uri_template: currentConfig.image_uri_template,
+        image_pull_secret_name: currentConfig.image_pull_secret_name,
+        service_type: currentConfig.service_type,
+        node_port: currentConfig.node_port,
+      }),
+    })
+    return normalizeDeploymentConfigResponse(owner, repo, updatedConfig)
   }
 
   async getScalingHistory(owner: string, repo: string, limit: number = 20): Promise<ScalingHistoryResponse> {
@@ -753,14 +797,51 @@ export interface RollbackListResponse {
 }
 
 export interface DeploymentConfigResponse {
-  owner: string
-  repo: string
+  id?: number
+  repository_id?: number
+  owner?: string
+  repo?: string
+  min_replicas: number
+  max_replicas: number
   replica_count: number
-  is_default: boolean
-  last_scaled_at: string | null
-  last_scaled_by: string | null
-  created_at: string | null
-  updated_at: string | null
+  env_vars: Record<string, string>
+  env_from_config_maps: string[]
+  env_from_secrets: string[]
+  container_port: number
+  domain_url: string | null
+  build_strategy?: string | null
+  image_uri_template?: string | null
+  image_pull_secret_name?: string | null
+  service_type?: string | null
+  node_port?: number | null
+  is_default?: boolean
+  last_scaled_at?: string | null
+  last_scaled_by?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+function normalizeDeploymentConfigResponse(
+  owner: string,
+  repo: string,
+  config: Omit<DeploymentConfigResponse, 'replica_count'> & { readonly replica_count?: number }
+): DeploymentConfigResponse {
+  const maxReplicas = config.max_replicas ?? config.replica_count ?? 1
+  const minReplicas = config.min_replicas ?? maxReplicas
+
+  return {
+    ...config,
+    owner,
+    repo,
+    min_replicas: minReplicas,
+    max_replicas: maxReplicas,
+    replica_count: config.replica_count ?? maxReplicas,
+    env_vars: config.env_vars ?? {},
+    env_from_config_maps: config.env_from_config_maps ?? [],
+    env_from_secrets: config.env_from_secrets ?? [],
+    container_port: config.container_port ?? 8080,
+    domain_url: config.domain_url ?? null,
+  }
 }
 
 export interface ScalingHistoryResponse {

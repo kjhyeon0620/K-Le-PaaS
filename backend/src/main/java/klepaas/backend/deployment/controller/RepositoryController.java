@@ -36,25 +36,29 @@ public class RepositoryController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<RepositoryResponse> getRepository(@PathVariable Long id) {
-        return ApiResponse.success(repositoryService.getRepository(id));
+    public ApiResponse<RepositoryResponse> getRepository(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(repositoryService.getRepository(id, userDetails.getUserId()));
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteRepository(@PathVariable Long id) {
-        repositoryService.deleteRepository(id);
+    public ApiResponse<Void> deleteRepository(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        repositoryService.deleteRepository(id, userDetails.getUserId());
         return ApiResponse.success(null, "저장소가 삭제되었습니다");
     }
 
     @GetMapping("/{id}/config")
-    public ApiResponse<DeploymentConfigResponse> getDeploymentConfig(@PathVariable Long id) {
-        return ApiResponse.success(repositoryService.getDeploymentConfig(id));
+    public ApiResponse<DeploymentConfigResponse> getDeploymentConfig(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(repositoryService.getDeploymentConfig(id, userDetails.getUserId()));
     }
 
     @PutMapping("/{id}/config")
     public ApiResponse<DeploymentConfigResponse> updateDeploymentConfig(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateDeploymentConfigRequest request) {
-        return ApiResponse.success(repositoryService.updateDeploymentConfig(id, request));
+            @Valid @RequestBody UpdateDeploymentConfigRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(repositoryService.updateDeploymentConfig(id, request, userDetails.getUserId()));
     }
 }

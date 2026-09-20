@@ -68,3 +68,11 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+springBoot {
+	buildInfo {
+		properties {
+			additional = [revision: providers.gradleProperty('revision').getOrElse('unknown')]
+		}
+	}
+}

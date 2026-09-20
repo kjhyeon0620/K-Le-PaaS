@@ -38,6 +38,7 @@ public enum ErrorCode {
     AI_PARSE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 응답 파싱에 실패했습니다"),
     COMMAND_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_003", "명령 기록을 찾을 수 없습니다"),
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_004", "세션을 찾을 수 없습니다"),
+    COMMAND_CONFIRMATION_CONFLICT(HttpStatus.CONFLICT, "AI_005", "명령을 확인할 수 없습니다"),
 
     // CLI Token
     CLI_TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, "CLI_001", "CLI 토큰을 찾을 수 없습니다"),

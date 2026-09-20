@@ -1,0 +1,103 @@
+name: Build and deploy
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: backend/**/*.gradle*
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Test and package backend
+        working-directory: backend
+        run: ./gradlew test bootJar -Prevision="$GITHUB_SHA" --no-daemon
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WS_URL: ${{ vars.NEXT_PUBLIC_WS_URL }}
+        run: |
+          [[ "$NEXT_PUBLIC_API_URL" == https://* && "$NEXT_PUBLIC_WS_URL" == wss://* ]] || {
+            echo 'Set repository variables NEXT_PUBLIC_API_URL (https) and NEXT_PUBLIC_WS_URL (wss)' >&2
+            exit 1
+          }
+          npm ci
+          npm run build
+      - name: Package and verify release
+        run: |
+          python3 -m unittest discover -s scripts/deploy -p 'test_*.py' -v
+          bash scripts/ci/test-package-release.sh "$RUNNER_TEMP/sample-release.tar.gz"
+          bash scripts/ci/package-release.sh "$GITHUB_WORKSPACE" "$GITHUB_SHA" "$GITHUB_WORKSPACE/release.tar.gz"
+          mkdir -p "$RUNNER_TEMP/release-check"
+          tar -xzf release.tar.gz -C "$RUNNER_TEMP/release-check"
+          cd "$RUNNER_TEMP/release-check"
+          sha256sum -c SHA256SUMS
+          test "$(cat REVISION)" = "$GITHUB_SHA"
+          python3 -c 'import os, zipfile; info = zipfile.ZipFile("backend.jar").read("META-INF/build-info.properties").decode(); assert "build.revision=" + os.environ["GITHUB_SHA"] in info.splitlines()'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-${{ github.sha }}
+          path: release.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-${{ github.sha }}
+      - name: Stream release to deployment receiver
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          if [[ "$latest" != "$GITHUB_SHA" ]]; then
+            echo 'Skipping superseded release'
+            exit 0
+          fi
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ && "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] || exit 1
+          (( DEPLOY_PORT >= 1 && DEPLOY_PORT <= 65535 ))
+          [[ -n "$DEPLOY_SSH_KEY" && -n "$DEPLOY_KNOWN_HOSTS" && -s release.tar.gz ]] || exit 1
+          key=$(mktemp)
+          known_hosts=$(mktemp)
+          trap 'rm -f -- "$key" "$known_hosts"' EXIT
+          chmod 600 "$key" "$known_hosts"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$known_hosts"
+          ssh -F /dev/null -i "$key" -p "$DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o LogLevel=ERROR "$DEPLOY_USER@$DEPLOY_HOST" "deploy $GITHUB_SHA" < release.tar.gz

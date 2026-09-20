@@ -24,13 +24,20 @@ public class GitHubAppClient {
     }
 
     public Long getInstallationId(String owner, String repo) {
+        return getInstallation(owner, repo).id();
+    }
+
+    public InstallationAccount getInstallationAccount(String owner, String repo) {
+        return getInstallation(owner, repo).account();
+    }
+
+    private InstallationResponse getInstallation(String owner, String repo) {
         try {
-            InstallationResponse response = githubClient.get()
+            return githubClient.get()
                     .uri("/repos/{owner}/{repo}/installation", owner, repo)
                     .header("Authorization", "Bearer " + jwtProvider.generateAppJwt())
                     .retrieve()
                     .body(InstallationResponse.class);
-            return response.id();
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode().value() == 404) {
                 throw new GitHubAppNotInstalledException(owner, repo);
@@ -54,7 +61,8 @@ public class GitHubAppClient {
         }
     }
 
-    private record InstallationResponse(Long id) {}
+    private record InstallationResponse(Long id, InstallationAccount account) {}
+    public record InstallationAccount(Long id, String type) {}
 
     private record InstallationTokenResponse(String token) {}
 }

@@ -1,0 +1,5 @@
+The `release.yml` workflow checks pull requests to `main` and `develop`, builds releases on pushes to `main`, and permits a manual run on `main`. Only a successful `main` build can deploy. The release archive uploaded as `release-<commit SHA>` contains `backend.jar`, the complete standalone `frontend/` runtime, `REVISION`, and `SHA256SUMS`.
+
+Set repository variables `NEXT_PUBLIC_API_URL` (HTTPS) and `NEXT_PUBLIC_WS_URL` (WSS) before running CI. These public URLs are embedded in the frontend at build time and are also available to pull-request builds. Do not put secrets in these variables.
+
+Create a protected `production` GitHub environment with secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_SSH_KEY`, and `DEPLOY_KNOWN_HOSTS`. The known-hosts value must contain the trusted host key for the exact hostname and port (use `[hostname]:port` for a nondefault port), established independently before deployment. Use an SSH key dedicated to the server's forced-command deployment receiver. The workflow streams the existing release archive over SSH; the server owns validation, health checks, activation, and rollback.

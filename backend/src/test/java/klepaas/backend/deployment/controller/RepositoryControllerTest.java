@@ -32,6 +32,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -115,26 +116,32 @@ class RepositoryControllerTest {
                         .with(user(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("저장소가 삭제되었습니다"));
+        verify(repositoryService).deleteRepository(1L, 1L);
     }
 
     @Test
     @DisplayName("GET /api/v1/repositories/{id}/config - 배포 설정 조회")
     void getDeploymentConfig() throws Exception {
-        var config = new DeploymentConfigResponse(1L, 1L, 1, 3, Map.of(), 8080, "repo.klepaas.io");
-        given(repositoryService.getDeploymentConfig(1L)).willReturn(config);
+        var config = new DeploymentConfigResponse(1L, 1L, 1, 3, Map.of(), List.of("runtime-config"),
+                List.of("app-env"), 8080, "repo.klepaas.io", null, null, null, null, null);
+        given(repositoryService.getDeploymentConfig(1L, 1L)).willReturn(config);
 
         mockMvc.perform(get("/api/v1/repositories/1/config")
                         .with(user(testUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.container_port").value(8080))
-                .andExpect(jsonPath("$.data.domain_url").value("repo.klepaas.io"));
+                .andExpect(jsonPath("$.data.domain_url").value("repo.klepaas.io"))
+                .andExpect(jsonPath("$.data.env_from_config_maps[0]").value("runtime-config"))
+                .andExpect(jsonPath("$.data.env_from_secrets[0]").value("app-env"));
     }
 
     @Test
     @DisplayName("PUT /api/v1/repositories/{id}/config - 배포 설정 수정")
     void updateDeploymentConfig() throws Exception {
-        var updatedConfig = new DeploymentConfigResponse(1L, 1L, 2, 5, Map.of("ENV", "prod"), 3000, "custom.klepaas.io");
-        given(repositoryService.updateDeploymentConfig(anyLong(), any())).willReturn(updatedConfig);
+        var updatedConfig = new DeploymentConfigResponse(1L, 1L, 2, 5, Map.of("ENV", "prod"),
+                List.of("runtime-config"), List.of("app-env"), 3000, "custom.klepaas.io",
+                null, null, null, null, null);
+        given(repositoryService.updateDeploymentConfig(anyLong(), any(), eq(1L))).willReturn(updatedConfig);
 
         mockMvc.perform(put("/api/v1/repositories/1/config")
                         .with(user(testUser))
@@ -143,12 +150,16 @@ class RepositoryControllerTest {
                                 "min_replicas", 2,
                                 "max_replicas", 5,
                                 "env_vars", Map.of("ENV", "prod"),
+                                "env_from_config_maps", List.of("runtime-config"),
+                                "env_from_secrets", List.of("app-env"),
                                 "container_port", 3000,
                                 "domain_url", "custom.klepaas.io"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.min_replicas").value(2))
-                .andExpect(jsonPath("$.data.container_port").value(3000));
+                .andExpect(jsonPath("$.data.container_port").value(3000))
+                .andExpect(jsonPath("$.data.env_from_config_maps[0]").value("runtime-config"))
+                .andExpect(jsonPath("$.data.env_from_secrets[0]").value("app-env"));
     }
 
     @Test

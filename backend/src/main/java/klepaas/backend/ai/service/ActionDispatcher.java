@@ -7,6 +7,7 @@ import klepaas.backend.ai.entity.RiskLevel;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.dto.ScaleRequest;
 import klepaas.backend.deployment.service.DeploymentService;
+import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.entity.SourceRepository;
@@ -29,6 +30,7 @@ public class ActionDispatcher {
     private final KubectlService kubectlService;
     private final DeploymentRepository deploymentRepository;
     private final SourceRepositoryRepository sourceRepositoryRepository;
+    private final ResourceAccessService resourceAccessService;
 
     public RiskLevel classifyRisk(Intent intent) {
         return switch (intent) {
@@ -45,28 +47,28 @@ public class ActionDispatcher {
         return switch (parsedIntent.intent()) {
             // ─ Platform deployment operations ─
             case DEPLOY -> executeDeploy(args, userId);
-            case SCALE -> executeScale(args);
-            case RESTART -> executeRestart(args);
-            case STATUS -> executeStatus(args);
-            case LOGS -> executeLogs(args);
-            case LIST_DEPLOYMENTS -> executeListDeployments(args);
+            case SCALE -> executeScale(args, userId);
+            case RESTART -> executeRestart(args, userId);
+            case STATUS -> executeStatus(args, userId);
+            case LOGS -> executeLogs(args, userId);
+            case LIST_DEPLOYMENTS -> executeListDeployments(args, userId);
             case LIST_REPOSITORIES -> executeListRepositories(userId);
 
             // ─ Kubernetes read operations ─
-            case LIST_PODS -> kubectlService.listPods(getString(args, "namespace"));
-            case POD_STATUS -> kubectlService.getPodStatus(getString(args, "namespace"), getString(args, "app_name"));
-            case SERVICE_STATUS -> kubectlService.getServiceStatus(getString(args, "name"), getString(args, "namespace"));
-            case DEPLOYMENT_STATUS -> kubectlService.getDeploymentStatus(getString(args, "name"), getString(args, "namespace"));
-            case LIST_SERVICES -> kubectlService.listServices(getString(args, "namespace"));
-            case LIST_INGRESSES -> kubectlService.listIngresses(getString(args, "namespace"));
-            case LIST_NAMESPACES -> kubectlService.listNamespaces();
-            case LIST_ENDPOINTS -> kubectlService.listEndpoints(getString(args, "namespace"));
-            case GET_SERVICE -> kubectlService.getService(getString(args, "name"), getString(args, "namespace"));
-            case GET_DEPLOYMENT -> kubectlService.getDeploymentDetail(getString(args, "name"), getString(args, "namespace"));
+            case LIST_PODS -> kubectlService.listPods(getString(args, "namespace"), userId);
+            case POD_STATUS -> kubectlService.getPodStatus(getString(args, "namespace"), getString(args, "app_name"), userId);
+            case SERVICE_STATUS -> kubectlService.getServiceStatus(getString(args, "name"), getString(args, "namespace"), userId);
+            case DEPLOYMENT_STATUS -> kubectlService.getDeploymentStatus(getString(args, "name"), getString(args, "namespace"), userId);
+            case LIST_SERVICES -> kubectlService.listServices(getString(args, "namespace"), userId);
+            case LIST_INGRESSES -> kubectlService.listIngresses(getString(args, "namespace"), userId);
+            case LIST_NAMESPACES -> kubectlService.listNamespaces(userId);
+            case LIST_ENDPOINTS -> kubectlService.listEndpoints(getString(args, "namespace"), userId);
+            case GET_SERVICE -> kubectlService.getService(getString(args, "name"), getString(args, "namespace"), userId);
+            case GET_DEPLOYMENT -> kubectlService.getDeploymentDetail(getString(args, "name"), getString(args, "namespace"), userId);
             case POD_LOGS -> kubectlService.getPodLogs(
                     getString(args, "pod_name") != null ? getString(args, "pod_name") : getString(args, "app_name"),
                     getString(args, "namespace"),
-                    getInt(args, "lines", 100));
+                    getInt(args, "lines", 100), userId);
 
             // ─ Rollback operations ─
             case LIST_ROLLBACK -> executeListRollback(args, userId);
@@ -74,9 +76,9 @@ public class ActionDispatcher {
             case ROLLBACK_EXECUTION -> executeRollbackConfirm(args, userId);
 
             // ─ Overview, help, cost ─
-            case OVERVIEW -> kubectlService.getOverview();
+            case OVERVIEW -> kubectlService.getOverview(userId);
             case LIST_COMMANDS -> kubectlService.listCommands();
-            case COST_ANALYSIS -> kubectlService.getCostAnalysis();
+            case COST_ANALYSIS -> kubectlService.getCostAnalysis(userId);
             case HELP -> executeHelp();
 
             case UNKNOWN -> parsedIntent.message();
@@ -111,11 +113,11 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeScale(Map<String, Object> args) {
+    private Object executeScale(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
         int replicas = getInt(args, "replicas", 1);
 
-        var deployment = deploymentRepository.findById(deploymentId).orElse(null);
+        var deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         String owner = "", repo = "";
         int oldReplicas = 1;
         if (deployment != null) {
@@ -124,7 +126,7 @@ public class ActionDispatcher {
             repo = srcRepo.getRepoName();
         }
 
-        deploymentService.scaleDeployment(deploymentId, new ScaleRequest(replicas), "NLP");
+        deploymentService.scaleDeployment(deploymentId, new ScaleRequest(replicas), "NLP", userId);
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("repository", owner + "/" + repo);
@@ -148,9 +150,9 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeRestart(Map<String, Object> args) {
+    private Object executeRestart(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
-        var deployment = deploymentRepository.findById(deploymentId).orElse(null);
+        var deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         String name = "deployment-" + deploymentId;
         String namespace = "default";
         if (deployment != null) {
@@ -158,7 +160,7 @@ public class ActionDispatcher {
             name = srcRepo.getOwner() + "-" + srcRepo.getRepoName();
         }
 
-        deploymentService.restartDeployment(deploymentId);
+        deploymentService.restartDeployment(deploymentId, userId);
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("name", name);
@@ -174,9 +176,9 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeStatus(Map<String, Object> args) {
+    private Object executeStatus(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
-        var status = deploymentService.getDeploymentStatus(deploymentId);
+        var status = deploymentService.getDeploymentStatus(deploymentId, userId);
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("name", "deployment-" + deploymentId);
@@ -197,9 +199,9 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeLogs(Map<String, Object> args) {
+    private Object executeLogs(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
-        var logs = deploymentService.getDeploymentLogs(deploymentId);
+        var logs = deploymentService.getDeploymentLogs(deploymentId, userId);
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("pod_name", "deployment-" + deploymentId);
@@ -219,9 +221,9 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeListDeployments(Map<String, Object> args) {
+    private Object executeListDeployments(Map<String, Object> args, Long userId) {
         Long repositoryId = toLong(args.get("repository_id"));
-        var deployments = deploymentService.getDeployments(repositoryId, PageRequest.of(0, 10));
+        var deployments = deploymentService.getDeployments(repositoryId, PageRequest.of(0, 10), userId);
 
         List<Map<String, Object>> items = new ArrayList<>();
         deployments.forEach(d -> {
@@ -272,6 +274,8 @@ public class ActionDispatcher {
                     "오류",
                     Map.of("error", "저장소 없음"), null);
         }
+
+        resourceAccessService.requireRepository(srcRepo.getId(), userId);
 
         var deployments = deploymentRepository
                 .findBySourceRepositoryId(srcRepo.getId(), PageRequest.of(0, 10));
@@ -335,6 +339,8 @@ public class ActionDispatcher {
                     "오류",
                     Map.of("error", "저장소 없음"), null);
         }
+
+        resourceAccessService.requireRepository(srcRepo.getId(), userId);
 
         var request = new CreateDeploymentRequest(srcRepo.getId(), "main", commitHash);
         var response = deploymentService.createDeployment(request, userId);

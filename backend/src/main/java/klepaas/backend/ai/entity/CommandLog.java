@@ -41,6 +41,10 @@ public class CommandLog extends BaseTimeEntity {
 
     private boolean isExecuted;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private CommandStatus status;
+
     @Column(columnDefinition = "TEXT")
     private String executionResult;
 
@@ -65,6 +69,7 @@ public class CommandLog extends BaseTimeEntity {
         this.riskLevel = riskLevel;
         this.requiresConfirmation = requiresConfirmation;
         this.isExecuted = isExecuted;
+        this.status = requiresConfirmation ? CommandStatus.PENDING : CommandStatus.EXECUTING;
         this.errorMessage = errorMessage;
         this.aiResponse = aiResponse;
         this.session = session;
@@ -73,11 +78,13 @@ public class CommandLog extends BaseTimeEntity {
     public void markExecuted(String executionResult) {
         this.isExecuted = true;
         this.executionResult = executionResult;
+        this.status = CommandStatus.SUCCEEDED;
     }
 
     public void markFailed(String errorMessage) {
         this.isExecuted = false;
         this.errorMessage = errorMessage;
+        this.status = CommandStatus.FAILED;
     }
 
     public void confirm(boolean confirmed) {
