@@ -42,7 +42,7 @@ public class CommandLog extends BaseTimeEntity {
     private boolean isExecuted;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 20, nullable = false)
     private CommandStatus status;
 
     @Column(columnDefinition = "TEXT")
