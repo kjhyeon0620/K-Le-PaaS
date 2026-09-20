@@ -112,9 +112,9 @@ class CommandConfirmationConcurrencyTest {
         assertThat(confirmations.claim(low.getId(), owner)).isNull();
 
         Long legacy = pending(owner);
-        jdbc.update("update command_log set status = null where id = ?", legacy);
+        jdbc.update("update command_log set status = ? where id = ?", CommandStatus.UNKNOWN.name(), legacy);
         assertThat(confirmations.claim(legacy, owner)).isNull();
-        assertThat(jdbc.queryForObject("select count(*) from command_log where id = ? and status is null", Integer.class, legacy)).isEqualTo(1);
+        assertThat(logs.findById(legacy).orElseThrow().getStatus()).isEqualTo(CommandStatus.UNKNOWN);
     }
 
     @Test

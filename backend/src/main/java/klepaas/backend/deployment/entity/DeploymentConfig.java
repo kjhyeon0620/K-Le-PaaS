@@ -6,8 +6,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,15 +35,15 @@ public class DeploymentConfig extends BaseTimeEntity {
 
     private int maxReplicas;
 
-    @JdbcTypeCode(SqlTypes.JSON)
+    @JdbcType(JsonAsTextJdbcType.class)
     @Column(columnDefinition = "TEXT")
     private Map<String, String> envVars = new HashMap<>();
 
-    @JdbcTypeCode(SqlTypes.JSON)
+    @JdbcType(JsonAsTextJdbcType.class)
     @Column(columnDefinition = "TEXT")
     private List<String> envFromConfigMaps = new ArrayList<>();
 
-    @JdbcTypeCode(SqlTypes.JSON)
+    @JdbcType(JsonAsTextJdbcType.class)
     @Column(columnDefinition = "TEXT")
     private List<String> envFromSecrets = new ArrayList<>();
 
