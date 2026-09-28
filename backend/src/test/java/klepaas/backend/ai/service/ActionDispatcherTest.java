@@ -5,6 +5,9 @@ import klepaas.backend.ai.dto.FormattedResponseDto;
 import klepaas.backend.ai.entity.Intent;
 import klepaas.backend.ai.entity.RiskLevel;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
+import klepaas.backend.deployment.dto.ScaleRequest;
+import klepaas.backend.global.exception.BusinessException;
+import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.ai.service.KubectlService;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
@@ -19,6 +22,7 @@ import klepaas.backend.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -121,11 +126,26 @@ class ActionDispatcherTest {
                 .commitHash("abc1234")
                 .build();
         given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(deployment);
+        given(deploymentService.scaleDeployment(eq(1L), any(), eq("NLP"), eq(1L))).willReturn(2);
 
         FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result.message()).contains("3개 레플리카");
-        verify(deploymentService).scaleDeployment(eq(1L), any(), eq("NLP"), eq(1L));
+        assertThat(result.metadata()).isEqualTo(Map.of("owner", "owner", "repo", "repo", "old_replicas", 2, "new_replicas", 3, "status", "completed"));
+    }
+
+    @Test
+    @DisplayName("SCALE에 replicas가 없으면 1로 추정하지 않고 0을 전달해 서비스 검증에 맡긴다")
+    void dispatchScaleWithoutReplicasDoesNotDefaultToOne() {
+        var parsedIntent = new ParsedIntent(Intent.SCALE, Map.of("deployment_id", 1), 0.9, "스케일링");
+        given(deploymentService.scaleDeployment(eq(1L), any(), eq("NLP"), eq(1L)))
+                .willThrow(new BusinessException(ErrorCode.INVALID_REQUEST));
+
+        assertThatThrownBy(() -> actionDispatcher.dispatch(parsedIntent, 1L))
+                .isInstanceOf(BusinessException.class);
+        ArgumentCaptor<ScaleRequest> request = ArgumentCaptor.forClass(ScaleRequest.class);
+        verify(deploymentService).scaleDeployment(eq(1L), request.capture(), eq("NLP"), eq(1L));
+        assertThat(request.getValue().replicas()).isZero();
     }
 
     @Test

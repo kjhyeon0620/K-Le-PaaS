@@ -2,14 +2,13 @@ package klepaas.backend.deployment.service;
 
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.Deployment;
-import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.ScalingHistory;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.ScalingHistoryRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
-import klepaas.backend.global.exception.EntityNotFoundException;
+import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
@@ -98,18 +97,21 @@ public class DeploymentService {
         scaleDeployment(deploymentId, request, "USER", userId);
     }
 
+    /**
+     * @return 변경 전 실제 replica 수
+     */
     @Transactional
-    public void scaleDeployment(Long deploymentId, ScaleRequest request, String triggeredBy, Long userId) {
+    public int scaleDeployment(Long deploymentId, ScaleRequest request, String triggeredBy, Long userId) {
+        // REST의 @Valid를 거치지 않는 NLP 경로도 같은 규칙을 적용한다
+        if (request.replicas() < 1) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "replicas는 1 이상이어야 합니다");
+        }
         Deployment deployment = resourceAccessService.requireDeployment(deploymentId, userId);
-        DeploymentConfig deploymentConfig = deploymentConfigRepository
-                .findBySourceRepositoryId(deployment.getSourceRepository().getId())
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
         SourceRepository repo = deployment.getSourceRepository();
         String appName = repo.getOwner() + "-" + repo.getRepoName();
-        int previousReplicas = deploymentConfig.getMinReplicas();
 
-        k8sGenerator.scale(appName, request.replicas(), repo.getId());
+        int previousReplicas = k8sGenerator.scale(appName, request.replicas(), repo.getId());
 
         scalingHistoryRepository.save(
                 ScalingHistory.builder()
@@ -122,6 +124,7 @@ public class DeploymentService {
 
         log.info("Scale completed: deploymentId={}, previousReplicas={}, newReplicas={}, triggeredBy={}",
                 deploymentId, previousReplicas, request.replicas(), triggeredBy);
+        return previousReplicas;
     }
 
     public Page<ScalingHistoryResponse> getScalingHistory(Long repositoryId, Pageable pageable, Long userId) {
@@ -136,8 +139,7 @@ public class DeploymentService {
 
         SourceRepository repo = deployment.getSourceRepository();
         String appName = repo.getOwner() + "-" + repo.getRepoName();
-        k8sGenerator.scale(appName, 0, repo.getId());
-        k8sGenerator.scale(appName, 1, repo.getId());
+        k8sGenerator.restart(appName, repo.getId());
 
         log.info("Restart completed: deploymentId={}", deploymentId);
     }
