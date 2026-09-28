@@ -13,7 +13,7 @@ After the initial installation is complete, follow this workflow; do not repeat 
 
 This workflow updates the K-Le-PaaS platform itself. User applications use their own image build and callback flow described in [Oracle k3s + GHCR deployment](ORACLE_K3S_GHCR_DEPLOYMENT.md).
 
-Releases restart services; they do not promise zero downtime. Schema migrations, database backups/restores, application environment changes, and inactive release cleanup are separate operator tasks. Prepare schema changes before releasing code because startup uses `ddl-auto=validate`. Never treat application rollback as database rollback.
+Releases restart services; they do not promise zero downtime. Database backups/restores, application environment changes, and inactive release cleanup are separate operator tasks. Schema changes ship as Flyway migrations in `backend/src/main/resources/db/migration` and are applied when the backend starts, before Hibernate validates the mappings (`ddl-auto=validate`). The first release containing Flyway registers the existing database as baseline version 1 without running `V1`; later releases apply only newer versions. Before merging a release that adds a migration, test it against a copy of the production database and take a stopped-backend backup. Migrations are not reversed by an application rollback, so keep each migration compatible with the previous release. Never treat application rollback as database rollback.
 
 ## Initial installation
 

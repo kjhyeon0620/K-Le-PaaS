@@ -1,5 +1,7 @@
 # Command log status migration (H2)
 
+> **History.** This manual migration was applied to production before Flyway was introduced, and its final column definition is part of `db/migration/V1__baseline_schema.sql`. New schema changes are Flyway migrations; do not add scripts here.
+
 Run `command-log-status.sql` against the existing H2 database before starting the updated backend. Stop command intake and the backend, allow any in-flight commands to finish, then back up the database. Do not use Hibernate `ddl-auto:update` as a substitute for the data migration.
 
 Apply the SQL in order: add nullable `status`, backfill rows where status is null, run all three validation queries, and apply the final `NOT NULL` statement only after `unmigrated_count` and `inconsistent_legacy_count` are both zero. Set the default to `UNKNOWN` after the final type change (H2 clears the earlier default during that change). The script can be rerun: it preserves existing non-null states and legacy boolean fields. The default lets the previous backend JAR continue inserting logs if the application is rolled back without restoring the database; those rows remain `UNKNOWN` and never become eligible for execution. A completed row with no error maps to `SUCCEEDED`; an unexecuted row with an error maps to `FAILED`; every other historical combination maps to `UNKNOWN`. Old `confirmed=false` does not imply a pending command. Audit all pre-upgrade rows before admitting new commands; `UNKNOWN` is never eligible for execution.
