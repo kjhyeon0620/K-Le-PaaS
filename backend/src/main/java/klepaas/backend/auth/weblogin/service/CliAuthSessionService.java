@@ -56,6 +56,7 @@ public class CliAuthSessionService {
                 .platform(sanitize(request.platform(), "unknown"))
                 .cliVersion(sanitize(request.cliVersion(), "dev"))
                 .expiresAt(LocalDateTime.now().plusMinutes(5))
+                .scope(request.scope())
                 .build();
 
         cliAuthSessionRepository.save(session);
@@ -112,7 +113,7 @@ public class CliAuthSessionService {
 
         CreateCliAccessTokenResponse issued = cliAccessTokenService.createToken(
                 session.getApprovedByUserId(),
-                new CreateCliAccessTokenRequest(tokenName(session), TOKEN_EXPIRES_DAYS)
+                new CreateCliAccessTokenRequest(tokenName(session), TOKEN_EXPIRES_DAYS, session.getScope())
         );
         session.markConsumed(LocalDateTime.now());
         return new ExchangeCliAuthSessionResponse(issued.token(), issued.metadata());

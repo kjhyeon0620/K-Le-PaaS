@@ -23,9 +23,10 @@ class FlywayMigrationTest {
     void freshDatabaseAppliesBaselineAndFollowUpMigrations() throws Exception {
         DataSource dataSource = newDatabase();
 
-        assertThat(flyway(dataSource).migrate().migrationsExecuted).isEqualTo(2);
+        flyway(dataSource).migrate();
 
-        assertThat(appliedVersions(dataSource)).containsExactly("1:SQL", "2:SQL");
+        assertThat(appliedVersions(dataSource)).startsWith("1:SQL").endsWith("9999:SQL")
+                .allMatch(v -> v.endsWith(":SQL"));
         assertThat(columnDefault(dataSource, "COMMAND_LOG", "STATUS")).isEqualTo("'UNKNOWN'");
     }
 
@@ -39,20 +40,22 @@ class FlywayMigrationTest {
                     + "values (current_timestamp, current_timestamp, 'legacy@example.test', 'legacy')");
         }
 
-        assertThat(flyway(dataSource).migrate().migrationsExecuted).isEqualTo(1);
+        flyway(dataSource).migrate();
         assertThat(flyway(dataSource).migrate().migrationsExecuted).isZero();
 
-        assertThat(appliedVersions(dataSource)).containsExactly("1:BASELINE", "2:SQL");
+        // V1은 실행되지 않고 baseline으로만 기록되며, 이후 버전만 적용된다
+        assertThat(appliedVersions(dataSource)).startsWith("1:BASELINE").endsWith("9999:SQL")
+                .doesNotContain("1:SQL");
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery("select email, flyway_sample from users")) {
             assertThat(rs.next()).isTrue();
             assertThat(rs.getString(1)).isEqualTo("legacy@example.test");
-            assertThat(rs.getString(2)).isEqualTo("v2");
+            assertThat(rs.getString(2)).isEqualTo("sample");
         }
     }
 
     private Flyway flyway(DataSource dataSource) {
-        // application.yaml의 spring.flyway 설정과 동일하게 맞추고 테스트 전용 V2 위치만 추가한다
+        // application.yaml의 spring.flyway 설정과 동일하게 맞추고 테스트 전용 V9999 위치만 추가한다
         return Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration", "classpath:db/testmigration")

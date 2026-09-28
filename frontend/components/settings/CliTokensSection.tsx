@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Copy, KeyRound, Trash2 } from "lucide-react"
 
-import api, { CliAccessTokenResponse, CreateCliAccessTokenResponse } from "@/lib/api"
+import api, { CliAccessTokenResponse, CliTokenScope, CreateCliAccessTokenResponse } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +19,8 @@ export function CliTokensSection() {
   const [newToken, setNewToken] = useState<CreateCliAccessTokenResponse | null>(null)
   const [name, setName] = useState("local-cli")
   const [expiresInDays, setExpiresInDays] = useState("30")
+  // 자동화·에이전트에는 조회 전용을 기본으로 권장한다
+  const [scope, setScope] = useState<CliTokenScope>("READ_ONLY")
 
   useEffect(() => {
     void loadTokens()
@@ -53,7 +55,7 @@ export function CliTokensSection() {
 
     try {
       setCreating(true)
-      const created = await api.createCliAccessToken({ name: name.trim(), expiresInDays: parsedDays })
+      const created = await api.createCliAccessToken({ name: name.trim(), expiresInDays: parsedDays, scope })
       setNewToken(created)
       setTokens((current) => [created.metadata, ...current])
       toast({
@@ -100,11 +102,11 @@ export function CliTokensSection() {
       <CardHeader>
         <CardTitle>CLI Tokens</CardTitle>
         <CardDescription>
-          CLI, 스크립트, 에이전트용 전용 액세스 토큰을 발급합니다. 토큰 원문은 발급 직후 한 번만 표시됩니다.
+          CLI, 스크립트, 에이전트용 전용 액세스 토큰을 발급합니다. 조회 전용 토큰은 조회와 비용 계산만 할 수 있고 배포·설정 변경은 서버에서 거부됩니다. 토큰 원문은 발급 직후 한 번만 표시됩니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-[1.5fr,120px,auto]">
+        <div className="grid gap-4 md:grid-cols-[1.5fr,120px,160px,auto]">
           <div className="space-y-2">
             <Label htmlFor="cli-token-name">토큰 이름</Label>
             <Input
@@ -124,6 +126,18 @@ export function CliTokensSection() {
               value={expiresInDays}
               onChange={(e) => setExpiresInDays(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cli-token-scope">권한</Label>
+            <select
+              id="cli-token-scope"
+              value={scope}
+              onChange={(e) => setScope(e.target.value as CliTokenScope)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+            >
+              <option value="READ_ONLY">조회 전용</option>
+              <option value="FULL">전체 권한</option>
+            </select>
           </div>
           <div className="flex items-end">
             <Button onClick={createToken} disabled={creating}>
@@ -174,6 +188,7 @@ export function CliTokensSection() {
                       <Badge variant={revoked ? "secondary" : "default"}>
                         {revoked ? "폐기됨" : "활성"}
                       </Badge>
+                      <Badge variant="outline">{scopeLabel(token.scope)}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Prefix: {token.token_prefix} | 생성: {formatDate(token.created_at)} | 만료: {formatDate(token.expires_at)}
@@ -199,6 +214,10 @@ export function CliTokensSection() {
       </CardContent>
     </Card>
   )
+}
+
+function scopeLabel(scope: CliTokenScope) {
+  return scope === "READ_ONLY" ? "조회 전용" : "전체 권한"
 }
 
 function formatDate(value: string) {

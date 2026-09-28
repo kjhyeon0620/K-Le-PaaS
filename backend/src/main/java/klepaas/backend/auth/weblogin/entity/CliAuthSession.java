@@ -1,6 +1,7 @@
 package klepaas.backend.auth.weblogin.entity;
 
 import jakarta.persistence.*;
+import klepaas.backend.auth.token.entity.CliTokenScope;
 import klepaas.backend.global.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -49,6 +50,11 @@ public class CliAuthSession extends BaseTimeEntity {
 
     private Long approvedByUserId;
 
+    /** 승인 후 발급될 CLI 토큰의 scope. 승인 화면에 표시된다. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CliTokenScope scope;
+
     @Builder
     public CliAuthSession(
             String id,
@@ -58,7 +64,8 @@ public class CliAuthSession extends BaseTimeEntity {
             String hostname,
             String platform,
             String cliVersion,
-            LocalDateTime expiresAt
+            LocalDateTime expiresAt,
+            CliTokenScope scope
     ) {
         this.id = id;
         this.userCode = userCode;
@@ -68,6 +75,7 @@ public class CliAuthSession extends BaseTimeEntity {
         this.platform = platform;
         this.cliVersion = cliVersion;
         this.expiresAt = expiresAt;
+        this.scope = scope == null ? CliTokenScope.FULL : scope;
     }
 
     public void markApproved(Long userId, LocalDateTime approvedAt) {

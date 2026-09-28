@@ -1,5 +1,6 @@
 package klepaas.backend.auth.weblogin.dto;
 
+import klepaas.backend.auth.token.entity.CliTokenScope;
 import klepaas.backend.auth.weblogin.entity.CliAuthSession;
 import klepaas.backend.auth.weblogin.entity.CliAuthSessionStatus;
 
@@ -13,6 +14,7 @@ public record CliAuthSessionResponse(
         String hostname,
         String platform,
         String cliVersion,
+        CliTokenScope scope,
         LocalDateTime expiresAt,
         int pollIntervalSeconds,
         String verificationUrl
@@ -26,6 +28,7 @@ public record CliAuthSessionResponse(
                 session.getHostname(),
                 session.getPlatform(),
                 session.getCliVersion(),
+                session.getScope(),
                 session.getExpiresAt(),
                 pollIntervalSeconds,
                 verificationUrl

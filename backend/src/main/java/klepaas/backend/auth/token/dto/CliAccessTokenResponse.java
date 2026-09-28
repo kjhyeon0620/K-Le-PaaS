@@ -1,6 +1,7 @@
 package klepaas.backend.auth.token.dto;
 
 import klepaas.backend.auth.token.entity.CliAccessToken;
+import klepaas.backend.auth.token.entity.CliTokenScope;
 
 import java.time.LocalDateTime;
 
@@ -8,6 +9,7 @@ public record CliAccessTokenResponse(
         Long id,
         String name,
         String tokenPrefix,
+        CliTokenScope scope,
         LocalDateTime expiresAt,
         LocalDateTime lastUsedAt,
         LocalDateTime revokedAt,
@@ -18,6 +20,7 @@ public record CliAccessTokenResponse(
                 entity.getId(),
                 entity.getName(),
                 entity.getTokenPrefix(),
+                entity.getScope(),
                 entity.getExpiresAt(),
                 entity.getLastUsedAt(),
                 entity.getRevokedAt(),

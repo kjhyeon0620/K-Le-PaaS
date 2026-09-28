@@ -1,7 +1,9 @@
 package klepaas.backend.auth.config;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
+import klepaas.backend.auth.token.entity.CliTokenScope;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +26,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private static final String FULL = CliTokenScope.FULL.authority();
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${cors.allowed-origins:http://localhost:3000}")
@@ -37,11 +41,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())) // H2 Console
                 .authorizeHttpRequests(auth -> auth
+                        // sendError(401/403)의 /error 재디스패치는 필터 인증이 없으므로 원래 상태 코드를 유지하도록 허용
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/api/v1/auth/me").authenticated()
                         .requestMatchers("/api/v1/auth/logout").authenticated()
-                        .requestMatchers("/api/v1/cli-tokens/**").authenticated()
-                        .requestMatchers("/api/v1/cli-auth/sessions/*/approve").authenticated()
-                        .requestMatchers("/api/v1/cli-auth/sessions/*/reject").authenticated()
+                        // CLI 로그인 승인은 토큰 발급과 같으므로 전체 권한만 허용한다(권한 상승 방지)
+                        .requestMatchers("/api/v1/cli-auth/sessions/*/approve").hasAuthority(FULL)
+                        .requestMatchers("/api/v1/cli-auth/sessions/*/reject").hasAuthority(FULL)
                         .requestMatchers("/api/v1/users/me").authenticated()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/cli-auth/sessions/**").permitAll()
@@ -51,7 +57,10 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .anyRequest().authenticated()
+                        // READ_ONLY CLI 토큰은 조회와 비용 계산만 한다. 그 밖의 변경(토큰 발급·폐기 포함)은 FULL만 허용
+                        .requestMatchers(HttpMethod.GET, "/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/cost/**").authenticated()
+                        .anyRequest().hasAuthority(FULL)
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) ->
