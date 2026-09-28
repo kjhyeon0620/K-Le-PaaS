@@ -15,6 +15,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 - GitHub ZIP 소스 다운로드와 재패키징
 - NCP Object Storage 업로드
 - Kaniko Kubernetes Job 기반 이미지 빌드
+- GitHub Actions/GHCR 또는 prebuilt 이미지 기반 외부 빌드 배포
 - commit SHA 기반 이미지 태그와 NCR push
 - Fabric8 Kubernetes Client 기반 Deployment, Service, Ingress apply
 - Gemini 2.5 Flash 기반 자연어 명령 해석
@@ -36,9 +37,12 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | NCP Object Storage upload | 구현 MVP | AWS SDK v2 S3 호환 업로드 경로 구현 |
 | Kaniko image build | 구현 MVP | Kubernetes Job 기반 빌드 경로 구현 |
 | Kubernetes deploy | 구현 MVP | Fabric8 server-side apply로 Deployment, Service, Ingress 반영 |
+| External image deploy | 구현 MVP | GHCR/prebuilt 이미지 배포, envFrom·pull secret·Service 설정 지원 |
+| KLEPAAS CI/CD | 구현 | main 빌드 성공 후 Oracle ARM64 systemd 자동 배포, 버전·readiness 확인 및 실패 시 앱 버전 복구 |
 | Commit SHA image tags | 구현 | 짧은 commit SHA를 이미지 태그로 사용 |
 | Natural language operations | 구현 MVP | Gemini client, intent parser, dispatcher, command log, confirmation flow 구현 |
 | Risk confirmation | 구현 MVP | MEDIUM / HIGH 명령은 확인 후 실행 |
+| Resource access | 구현 | 저장소 소유권·namespace·라벨·허용 참조 검사, 명령 승인 만료·동시 중복 차단 |
 | CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor` 제공 |
 | Cost guardrails | 구현 MVP | spec 기반 비용 추정, diff, explain, budget check 제공 |
 | Slack notification | 구현 MVP | Incoming Webhook 기반 알림 구현, 운영 환경 설정 필요 |
@@ -49,6 +53,8 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | Monitoring metrics | 일부 구현 | UI는 있으나 backend metrics API는 미구현 |
 | MCP connector | 예정 | frontend stub / 설계 방향만 존재 |
 | IaC / Terraform | 예정 | 현재 Terraform/OpenTofu 구현 없음, 향후 방향 |
+
+KLEPAAS 자체 CI/CD와 사용자 앱 배포는 별도입니다. 이 저장소의 `main` 머지는 플랫폼 backend/frontend를 갱신하며, 사용자 앱에는 별도의 이미지 빌드와 배포 callback 연결이 필요합니다. 앱별 probe·자원 설정, 여러 앱의 공통 workflow·도메인 연결, 배포 설정 snapshot을 이용한 복구는 아직 완성되지 않았습니다.
 
 ## 구조
 
@@ -73,6 +79,8 @@ flowchart LR
     API --> Audit["Command Logs"]
     API --> Notify["Slack / WebSocket MVP"]
 ```
+
+위 그림의 소스 다운로드·Kaniko 경로는 NCP 빌드 흐름입니다. 외부 이미지 경로는 프로젝트 CI에서 빌드·push한 이미지를 받아 Kubernetes 배포부터 수행합니다. [Oracle k3s + GHCR 안내](docs/ORACLE_K3S_GHCR_DEPLOYMENT.md)를 참고하세요.
 
 ## 사용 인터페이스
 
@@ -233,6 +241,9 @@ kubectl rollout status deployment/<deployment-name> -n <namespace>
 
 - [Backend README](backend/README.md)
 - [Frontend README](frontend/README.md)
+- [KLEPAAS 자체 CI/CD와 운영 복구](docs/CICD.md)
+- [사용자 앱 Oracle k3s + GHCR 배포](docs/ORACLE_K3S_GHCR_DEPLOYMENT.md)
+- [앱 접근 권한과 허용 참조 설정](docs/STAGE2_RESOURCE_ACCESS.md)
 - [CLI 전략](docs/CLI_STRATEGY.md)
 - [CLI 레퍼런스](docs/CLI_REFERENCE.md)
 - [CLI 비용 예시](docs/examples/cli-cost-spec.json)

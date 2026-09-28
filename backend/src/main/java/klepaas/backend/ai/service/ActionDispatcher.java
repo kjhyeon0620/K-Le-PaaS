@@ -115,18 +115,18 @@ public class ActionDispatcher {
 
     private Object executeScale(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
-        int replicas = getInt(args, "replicas", 1);
+        // 누락 시 1로 추정하지 않고 0을 넘겨 서비스 검증에서 거부되게 한다
+        int replicas = getInt(args, "replicas", 0);
 
         var deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         String owner = "", repo = "";
-        int oldReplicas = 1;
         if (deployment != null) {
             var srcRepo = deployment.getSourceRepository();
             owner = srcRepo.getOwner();
             repo = srcRepo.getRepoName();
         }
 
-        deploymentService.scaleDeployment(deploymentId, new ScaleRequest(replicas), "NLP", userId);
+        int oldReplicas = deploymentService.scaleDeployment(deploymentId, new ScaleRequest(replicas), "NLP", userId);
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("repository", owner + "/" + repo);

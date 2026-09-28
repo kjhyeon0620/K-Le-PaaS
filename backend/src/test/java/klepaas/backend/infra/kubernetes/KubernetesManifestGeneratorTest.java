@@ -348,4 +348,64 @@ class KubernetesManifestGeneratorTest {
         Mockito.verify(client.apps().deployments().inNamespace("klepaas").withName("owner-repo"), Mockito.never())
                 .scale(Mockito.anyInt());
     }
+
+    @Test
+    void scaleReturnsPreviousReplicas() {
+        KubernetesClient client = mockScopedClient();
+        var own = new DeploymentBuilder().withNewMetadata().withName("owner-repo")
+                .withResourceVersion("42").addToLabels("klepaas.io/repository-id", "7")
+                .endMetadata().withNewSpec().withReplicas(3).endSpec().build();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(own);
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+        assertThat(subject.scale("owner-repo", 5, 7L)).isEqualTo(3);
+        assertThat(own.getSpec().getReplicas()).isEqualTo(5);
+    }
+
+    @Test
+    void restartKeepsReplicasAndUpdatesTemplateAnnotation() {
+        KubernetesClient client = mockScopedClient();
+        var own = new DeploymentBuilder().withNewMetadata().withName("owner-repo")
+                .withResourceVersion("42").addToLabels("klepaas.io/repository-id", "7")
+                .endMetadata().withNewSpec().withReplicas(3)
+                .withNewTemplate().withNewMetadata().addToAnnotations("keep", "me").endMetadata().endTemplate()
+                .endSpec().build();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(own);
+        var resource = client.apps().deployments().inNamespace("klepaas").resource(own);
+        var versionedResource = resource.lockResourceVersion("42");
+        Mockito.clearInvocations(resource, versionedResource);
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+        subject.restart("owner-repo", 7L);
+
+        assertThat(own.getSpec().getReplicas()).isEqualTo(3);
+        assertThat(own.getSpec().getTemplate().getMetadata().getAnnotations())
+                .containsEntry("keep", "me")
+                .containsKey("kubectl.kubernetes.io/restartedAt");
+        Mockito.verify(resource).lockResourceVersion("42");
+        Mockito.verify(versionedResource).replace();
+        Mockito.verify(client.apps().deployments().inNamespace("klepaas").withName("owner-repo"), Mockito.never())
+                .scale(Mockito.anyInt());
+    }
+
+    @Test
+    void restartingForeignSameNameDeploymentIsRejected() {
+        KubernetesClient client = mockScopedClient();
+        var foreign = new DeploymentBuilder().withNewMetadata().withName("owner-repo")
+                .withResourceVersion("42").addToLabels("klepaas.io/repository-id", "8").endMetadata()
+                .withNewSpec().withNewTemplate().endTemplate().endSpec().build();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(foreign);
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+        assertThatThrownBy(() -> subject.restart("owner-repo", 7L))
+                .isInstanceOf(BusinessException.class);
+        Mockito.verify(client.apps().deployments().inNamespace("klepaas"), Mockito.never())
+                .resource(Mockito.any(io.fabric8.kubernetes.api.model.apps.Deployment.class));
+    }
 }

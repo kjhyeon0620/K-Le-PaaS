@@ -18,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -79,16 +81,43 @@ public class KubernetesManifestGenerator {
     }
 
     /**
-     * K8s 리소스 스케일링
+     * K8s 리소스 스케일링. 변경 전 replica 수를 반환한다.
      */
-    public void scale(String appName, int replicas, Long repoId) {
+    public int scale(String appName, int replicas, Long repoId) {
+        Deployment existing = getOwnedDeployment(appName, repoId);
+        Integer previous = existing.getSpec().getReplicas();
+        existing.getSpec().setReplicas(replicas);
+        replaceWithObservedVersion(existing);
+        log.info("Scaled: app={}, replicas={} -> {}", appName, previous, replicas);
+        // replicas 미지정 Deployment는 Kubernetes 기본값 1로 동작한다
+        return previous == null ? 1 : previous;
+    }
+
+    /**
+     * Pod template annotation을 갱신해 replica 수를 유지한 채 rolling restart한다. (kubectl rollout restart와 동일)
+     */
+    public void restart(String appName, Long repoId) {
+        Deployment existing = getOwnedDeployment(appName, repoId);
+        PodTemplateSpec template = existing.getSpec().getTemplate();
+        if (template.getMetadata() == null) template.setMetadata(new ObjectMeta());
+        Map<String, String> annotations = template.getMetadata().getAnnotations() == null
+                ? new HashMap<>() : new HashMap<>(template.getMetadata().getAnnotations());
+        annotations.put("kubectl.kubernetes.io/restartedAt", Instant.now().toString());
+        template.getMetadata().setAnnotations(annotations);
+        replaceWithObservedVersion(existing);
+        log.info("Restarted: app={}, replicas={}", appName, existing.getSpec().getReplicas());
+    }
+
+    private Deployment getOwnedDeployment(String appName, Long repoId) {
         Deployment existing = kubernetesClient.apps().deployments().inNamespace(namespace).withName(appName).get();
         if (existing == null) throw new BusinessException(ErrorCode.ENTITY_NOT_FOUND);
         rejectForeignResource(existing, repoId);
-        existing.getSpec().setReplicas(replicas);
-        kubernetesClient.apps().deployments().inNamespace(namespace).resource(existing)
-                .lockResourceVersion(existing.getMetadata().getResourceVersion()).replace();
-        log.info("Scaled: app={}, replicas={}", appName, replicas);
+        return existing;
+    }
+
+    private void replaceWithObservedVersion(Deployment deployment) {
+        kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment)
+                .lockResourceVersion(deployment.getMetadata().getResourceVersion()).replace();
     }
 
     private void rejectForeignResource(HasMetadata resource, Long repoId) {

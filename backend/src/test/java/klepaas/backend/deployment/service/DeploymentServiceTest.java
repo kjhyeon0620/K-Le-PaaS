@@ -3,14 +3,17 @@ package klepaas.backend.deployment.service;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.dto.DeploymentResponse;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
+import klepaas.backend.deployment.dto.ScaleRequest;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentStatus;
+import klepaas.backend.deployment.entity.ScalingHistory;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.ScalingHistoryRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
+import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
@@ -21,6 +24,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,10 +38,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -202,24 +209,28 @@ class DeploymentServiceTest {
         }
 
         @Test
-        @DisplayName("성공: K8s 스케일링 호출")
+        @DisplayName("성공: 실제 이전 replica 수를 이력에 기록")
         void success() {
             given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(testDeployment);
-            given(deploymentConfigRepository.findBySourceRepositoryId(testRepo.getId()))
-                    .willReturn(Optional.of(klepaas.backend.deployment.entity.DeploymentConfig.builder()
-                            .sourceRepository(testRepo)
-                            .minReplicas(1)
-                            .maxReplicas(3)
-                            .envVars(Map.of())
-                            .containerPort(8080)
-                            .domainUrl("repo.klepaas.io")
-                            .build()));
+            given(k8sGenerator.scale("testowner-testrepo", 3, 1L)).willReturn(2);
             given(scalingHistoryRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
-            doNothing().when(k8sGenerator).scale("testowner-testrepo", 3, 1L);
 
-            deploymentService.scaleDeployment(1L, new klepaas.backend.deployment.dto.ScaleRequest(3), 1L);
+            int previous = deploymentService.scaleDeployment(1L, new ScaleRequest(3), "USER", 1L);
 
-            verify(k8sGenerator).scale("testowner-testrepo", 3, 1L);
+            assertThat(previous).isEqualTo(2);
+            ArgumentCaptor<ScalingHistory> history = ArgumentCaptor.forClass(ScalingHistory.class);
+            verify(scalingHistoryRepository).save(history.capture());
+            assertThat(history.getValue().getPreviousReplicas()).isEqualTo(2);
+            assertThat(history.getValue().getNewReplicas()).isEqualTo(3);
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = {0, -1})
+        @DisplayName("실패: 1 미만 replicas는 Kubernetes 호출 없이 거부")
+        void rejectsNonPositiveReplicas(int replicas) {
+            assertThatThrownBy(() -> deploymentService.scaleDeployment(1L, new ScaleRequest(replicas), "NLP", 1L))
+                    .isInstanceOf(BusinessException.class);
+            verifyNoInteractions(k8sGenerator, scalingHistoryRepository);
         }
     }
 
@@ -228,15 +239,14 @@ class DeploymentServiceTest {
     class RestartDeployment {
 
         @Test
-        @DisplayName("성공: scale 0 → 1로 재시작")
+        @DisplayName("성공: replica 수를 바꾸지 않고 rolling restart")
         void success() {
             given(resourceAccessService.requireDeployment(1L, 1L)).willReturn(testDeployment);
-            doNothing().when(k8sGenerator).scale(anyString(), any(int.class), anyLong());
 
             deploymentService.restartDeployment(1L, 1L);
 
-            verify(k8sGenerator).scale("testowner-testrepo", 0, 1L);
-            verify(k8sGenerator).scale("testowner-testrepo", 1, 1L);
+            verify(k8sGenerator).restart("testowner-testrepo", 1L);
+            verify(k8sGenerator, never()).scale(anyString(), anyInt(), anyLong());
         }
     }
 }
