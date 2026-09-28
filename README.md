@@ -43,7 +43,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | Natural language operations | 구현 MVP | Gemini client, intent parser, dispatcher, command log, confirmation flow 구현 |
 | Risk confirmation | 구현 MVP | MEDIUM / HIGH 명령은 확인 후 실행 |
 | Resource access | 구현 | 저장소 소유권·namespace·라벨·허용 참조 검사, 명령 승인 만료·동시 중복 차단 |
-| CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor` 제공 |
+| CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor` 제공, 토큰 권한 범위(`read-only`/`full`) 서버 강제 |
 | Cost guardrails | 구현 MVP | spec 기반 비용 추정, diff, explain, budget check 제공 |
 | Slack notification | 구현 MVP | Incoming Webhook 기반 알림 구현, 운영 환경 설정 필요 |
 | WebSocket deployment events | 구현 MVP | 인증된 WebSocket endpoint와 배포 update publisher 구현 |
@@ -154,6 +154,7 @@ K-Le-PaaS는 운영 명령을 실행하기 전에 위험도를 분류합니다.
 사용자와 agent가 지켜야 할 원칙:
 
 - MEDIUM / HIGH 명령의 confirmation을 우회하지 않습니다.
+- 자동화와 agent에는 조회 전용(`read-only`) CLI 토큰을 사용합니다. 서버가 변경 요청을 403으로 거부합니다.
 - 추측한 이름보다 명시적인 deployment ID, repository ID를 우선합니다.
 - 자동화에서는 `--json` 출력과 exit code를 사용합니다.
 - command log를 감사 가능한 실행 기록으로 취급합니다.

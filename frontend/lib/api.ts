@@ -113,12 +113,13 @@ class ApiClient {
     return this.request<CliAccessTokenResponse[]>('/api/v1/cli-tokens')
   }
 
-  async createCliAccessToken(payload: { name: string; expiresInDays: number }) {
+  async createCliAccessToken(payload: { name: string; expiresInDays: number; scope: CliTokenScope }) {
     return this.request<CreateCliAccessTokenResponse>('/api/v1/cli-tokens', {
       method: 'POST',
       body: JSON.stringify({
         name: payload.name,
         expires_in_days: payload.expiresInDays,
+        scope: payload.scope,
       }),
     })
   }
@@ -859,10 +860,13 @@ export interface ScalingHistoryResponse {
   total_count: number
 }
 
+export type CliTokenScope = 'READ_ONLY' | 'FULL'
+
 export interface CliAccessTokenResponse {
   id: number
   name: string
   token_prefix: string
+  scope: CliTokenScope
   expires_at: string
   last_used_at: string | null
   revoked_at: string | null
@@ -882,6 +886,7 @@ export interface CliAuthSessionResponse {
   hostname: string
   platform: string
   cli_version: string
+  scope: CliTokenScope
   expires_at: string
   poll_interval_seconds: number
   verification_url: string

@@ -40,13 +40,19 @@ public class CliAccessToken extends BaseTimeEntity {
 
     private LocalDateTime revokedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CliTokenScope scope;
+
     @Builder
-    public CliAccessToken(User user, String name, String tokenHash, String tokenPrefix, LocalDateTime expiresAt) {
+    public CliAccessToken(User user, String name, String tokenHash, String tokenPrefix, LocalDateTime expiresAt,
+                          CliTokenScope scope) {
         this.user = user;
         this.name = name;
         this.tokenHash = tokenHash;
         this.tokenPrefix = tokenPrefix;
         this.expiresAt = expiresAt;
+        this.scope = scope == null ? CliTokenScope.FULL : scope;
     }
 
     public boolean isUsableAt(LocalDateTime now) {

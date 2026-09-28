@@ -50,10 +50,11 @@ public class CliAccessTokenService {
                 .tokenHash(hash(rawToken))
                 .tokenPrefix(rawToken.substring(0, Math.min(rawToken.length(), 12)))
                 .expiresAt(LocalDateTime.now().plusDays(request.expiresInDays()))
+                .scope(request.scope())
                 .build();
 
         cliAccessTokenRepository.save(entity);
-        log.info("CLI access token created: userId={}, tokenId={}", userId, entity.getId());
+        log.info("CLI access token created: userId={}, tokenId={}, scope={}", userId, entity.getId(), entity.getScope());
         return new CreateCliAccessTokenResponse(rawToken, CliAccessTokenResponse.from(entity));
     }
 
@@ -87,7 +88,7 @@ public class CliAccessTokenService {
 
         token.markUsed(LocalDateTime.now());
         User user = token.getUser();
-        return new CustomUserDetails(user.getId(), user.getEmail(), user.getRole());
+        return new CustomUserDetails(user.getId(), user.getEmail(), user.getRole(), token.getScope());
     }
 
     private String generateToken() {

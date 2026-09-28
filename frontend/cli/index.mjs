@@ -87,6 +87,7 @@ async function handleAuth(args, globalOptions, client) {
 
 async function handleAuthLogin(args, globalOptions, client) {
   const useWeb = takeFlag(args, "--web");
+  const scope = takeOption(args, "--scope");
   const code = takeOption(args, "--code");
   const accessToken = takeOption(args, "--token");
   const refreshToken = takeOption(args, "--refresh-token");
@@ -94,8 +95,12 @@ async function handleAuthLogin(args, globalOptions, client) {
 
   assertNoUnknownOptions(args);
 
+  if (scope && !useWeb) {
+    throw new CliError("`--scope`는 `--web` 로그인에서만 사용할 수 있습니다.", EXIT_CODES.INPUT);
+  }
+
   if (useWeb) {
-    await loginWithBrowser(globalOptions, client);
+    await loginWithBrowser(globalOptions, client, parseScope(scope));
     return;
   }
 
@@ -120,15 +125,30 @@ async function handleAuthLogin(args, globalOptions, client) {
   );
 }
 
-async function loginWithBrowser(globalOptions, client) {
+const TOKEN_SCOPES = { "read-only": "READ_ONLY", full: "FULL" };
+
+function parseScope(value) {
+  if (!value) {
+    return "FULL";
+  }
+  const scope = TOKEN_SCOPES[value];
+  if (!scope) {
+    throw new CliError("`--scope`는 `read-only` 또는 `full`이어야 합니다.", EXIT_CODES.INPUT);
+  }
+  return scope;
+}
+
+async function loginWithBrowser(globalOptions, client, scope) {
   const session = await client.createCliAuthSession({
     clientName: "KLEPaaS CLI",
     hostname: os.hostname(),
     platform: `${process.platform}/${process.arch}`,
     cliVersion: "1.0.0",
+    scope,
   });
 
   console.log("브라우저에서 KLEPaaS CLI 로그인을 승인하세요.");
+  console.log(`요청 권한: ${scope === "READ_ONLY" ? "조회 전용" : "전체 권한"}`);
   console.log(`승인 URL: ${session.verification_url}`);
   console.log(`User Code: ${session.user_code}`);
   console.log("브라우저가 열리지 않으면 위 URL을 직접 열어 승인하세요.");
@@ -766,7 +786,7 @@ Usage:
 
 Commands:
   auth login --token <access-token> [--refresh-token <refresh-token>]
-  auth login --web
+  auth login --web [--scope read-only|full]
   auth login --code <oauth-code> [--redirect-uri <uri>]
   auth whoami
   auth logout
