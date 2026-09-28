@@ -126,16 +126,16 @@ export interface ServiceEndpointsData {
   endpoints: ServiceEndpoint[]
 }
 
-// Deployment 관련 타입
+// Deployment 관련 타입 (NLP LIST_DEPLOYMENTS: 배포 이력 레코드)
 export interface DeploymentInfo {
+  id: number
   name: string
-  namespace: string
-  replicas: string
-  ready: string
-  up_to_date: string
-  available: string
-  age: string
-  image: string
+  status: string
+  branch: string | null
+  commit: string | null
+  image: string | null
+  fail_reason: string | null
+  created_at: string | null
 }
 
 // Ingress 관련 타입

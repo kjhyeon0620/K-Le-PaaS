@@ -893,6 +893,39 @@ public class KubectlService {
 
     // ─── HELPERS ─────────────────────────────────────────────────────────────
 
+    public String getDefaultNamespace() {
+        return defaultNamespace;
+    }
+
+    /**
+     * 저장소 라벨로 선택한 Pod의 ready/restart 집계. 호출자는 저장소 소유권을 먼저 확인해야 한다.
+     * 조회에 실패하면 추정값 대신 ready·restarts를 "unknown"으로 반환한다.
+     */
+    public Map<String, Object> summarizeRepositoryPods(Long repositoryId) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("namespace", defaultNamespace);
+        try {
+            List<Pod> pods = kubernetesClient.pods().inNamespace(defaultNamespace)
+                    .withLabel("klepaas.io/repository-id", repositoryId.toString()).list().getItems();
+            long ready = pods.stream().filter(this::isPodReady).count();
+            summary.put("ready", ready + "/" + pods.size());
+            summary.put("restarts", pods.stream().mapToInt(this::getTotalRestarts).sum());
+            summary.put("all_ready", !pods.isEmpty() && ready == pods.size());
+        } catch (Exception e) {
+            log.warn("summarizeRepositoryPods failed: repositoryId={}", repositoryId, e);
+            summary.put("ready", "unknown");
+            summary.put("restarts", "unknown");
+            summary.put("all_ready", false);
+            summary.put("error", e.getMessage());
+        }
+        return summary;
+    }
+
+    private boolean isPodReady(Pod pod) {
+        List<ContainerStatus> statuses = pod.getStatus() == null ? null : pod.getStatus().getContainerStatuses();
+        return statuses != null && !statuses.isEmpty() && statuses.stream().allMatch(ContainerStatus::getReady);
+    }
+
     private String resolveNamespace(String namespace) {
         return (namespace != null && !namespace.isBlank()) ? namespace : defaultNamespace;
     }

@@ -154,7 +154,7 @@ public class ActionDispatcher {
         Long deploymentId = toLong(args.get("deployment_id"));
         var deployment = resourceAccessService.requireDeployment(deploymentId, userId);
         String name = "deployment-" + deploymentId;
-        String namespace = "default";
+        String namespace = kubectlService.getDefaultNamespace();
         if (deployment != null) {
             var srcRepo = deployment.getSourceRepository();
             name = srcRepo.getOwner() + "-" + srcRepo.getRepoName();
@@ -179,22 +179,27 @@ public class ActionDispatcher {
     private Object executeStatus(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
         var status = deploymentService.getDeploymentStatus(deploymentId, userId);
+        var repository = resourceAccessService.requireDeployment(deploymentId, userId).getSourceRepository();
+        // 추정값 대신 실제 Pod 집계를 사용하고, 조회 실패 시 unknown으로 표시한다
+        Map<String, Object> pods = kubectlService.summarizeRepositoryPods(repository.getId());
 
         Map<String, Object> formatted = new LinkedHashMap<>();
-        formatted.put("name", "deployment-" + deploymentId);
-        formatted.put("namespace", "default");
+        formatted.put("name", repository.getOwner() + "-" + repository.getRepoName());
+        formatted.put("namespace", pods.get("namespace"));
         formatted.put("status", status.status().toString());
-        formatted.put("ready", "1/1");
-        formatted.put("restarts", 0);
+        formatted.put("ready", pods.get("ready"));
+        formatted.put("restarts", pods.get("restarts"));
         formatted.put("age", "");
         formatted.put("node", "");
 
         Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put("namespace", "default");
-        metadata.put("is_healthy", "SUCCESS".equals(status.status().toString()));
+        metadata.put("namespace", pods.get("namespace"));
+        metadata.put("is_healthy", "SUCCESS".equals(status.status().toString())
+                && Boolean.TRUE.equals(pods.get("all_ready")));
+        if (pods.containsKey("error")) metadata.put("pod_status_error", pods.get("error"));
 
         return FormattedResponseDto.of("status",
-                "배포 ID " + deploymentId + " 상태: " + status.status(),
+                "배포 ID " + deploymentId + " 상태: " + status.status() + ", Pod ready: " + pods.get("ready"),
                 "상태: " + status.status(),
                 formatted, metadata);
     }
@@ -205,13 +210,13 @@ public class ActionDispatcher {
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("pod_name", "deployment-" + deploymentId);
-        formatted.put("namespace", "default");
+        formatted.put("namespace", kubectlService.getDefaultNamespace());
         formatted.put("lines", logs.logs().size());
         formatted.put("log_lines", logs.logs());
         formatted.put("total_lines", logs.logs().size());
 
         Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put("namespace", "default");
+        metadata.put("namespace", kubectlService.getDefaultNamespace());
         metadata.put("lines_requested", 100);
         metadata.put("lines_returned", logs.logs().size());
 
@@ -228,19 +233,20 @@ public class ActionDispatcher {
         List<Map<String, Object>> items = new ArrayList<>();
         deployments.forEach(d -> {
             Map<String, Object> item = new LinkedHashMap<>();
+            // Kubernetes 상태가 아닌 배포 이력 레코드이므로 저장된 값만 반환한다
+            item.put("id", d.id());
             item.put("name", "deployment-" + d.id());
-            item.put("namespace", "default");
-            item.put("replicas", "1");
-            item.put("ready", "1");
-            item.put("up_to_date", "1");
-            item.put("available", "1");
-            item.put("age", "");
-            item.put("image", "");
+            item.put("status", d.status().toString());
+            item.put("branch", d.branchName());
+            item.put("commit", d.commitHash());
+            item.put("image", d.imageUri());
+            item.put("fail_reason", d.failReason());
+            item.put("created_at", d.createdAt() == null ? null : d.createdAt().toString());
             items.add(item);
         });
 
         Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put("namespace", "default");
+        metadata.put("namespace", kubectlService.getDefaultNamespace());
         metadata.put("total", items.size());
 
         return FormattedResponseDto.of("list_deployments",
