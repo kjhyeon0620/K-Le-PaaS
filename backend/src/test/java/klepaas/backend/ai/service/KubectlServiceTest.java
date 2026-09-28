@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,6 +32,45 @@ class KubectlServiceTest {
 
         assertThatThrownBy(() -> service.listPods("kube-system", 1L)).isInstanceOf(BusinessException.class);
         Mockito.verifyNoInteractions(client);
+    }
+
+    @Test
+    void repositoryPodSummaryCountsOnlyFullyReadyPods() {
+        var client = Mockito.mock(KubernetesClient.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(client.pods().inNamespace("klepaas"))
+                .thenReturn(scopedMock(io.fabric8.kubernetes.client.dsl.NonNamespaceOperation.class));
+        Mockito.when(client.pods().inNamespace("klepaas").withLabel("klepaas.io/repository-id", "7"))
+                .thenReturn(scopedMock(io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable.class));
+        Mockito.when(client.pods().inNamespace("klepaas").withLabel("klepaas.io/repository-id", "7").list())
+                .thenReturn(new PodListBuilder().withItems(
+                        podWithContainers(true, 1, true, 0),
+                        podWithContainers(true, 2, false, 1)).build());
+        var service = new KubectlService(client, Mockito.mock(SourceRepositoryRepository.class));
+        ReflectionTestUtils.setField(service, "defaultNamespace", "klepaas");
+
+        assertThat(service.summarizeRepositoryPods(7L)).isEqualTo(Map.of(
+                "namespace", "klepaas", "ready", "1/2", "restarts", 4, "all_ready", false));
+    }
+
+    @Test
+    void repositoryPodSummaryReportsUnknownWhenClusterIsUnavailable() {
+        var client = Mockito.mock(KubernetesClient.class);
+        Mockito.when(client.pods()).thenThrow(new IllegalStateException("connection refused"));
+        var service = new KubectlService(client, Mockito.mock(SourceRepositoryRepository.class));
+        ReflectionTestUtils.setField(service, "defaultNamespace", "klepaas");
+
+        assertThat(service.summarizeRepositoryPods(7L)).isEqualTo(Map.of(
+                "namespace", "klepaas", "ready", "unknown", "restarts", "unknown",
+                "all_ready", false, "error", "connection refused"));
+    }
+
+    private io.fabric8.kubernetes.api.model.Pod podWithContainers(boolean firstReady, int firstRestarts,
+                                                                  boolean secondReady, int secondRestarts) {
+        return new PodBuilder().withNewMetadata().withName("pod").endMetadata()
+                .withNewStatus()
+                .addNewContainerStatus().withReady(firstReady).withRestartCount(firstRestarts).endContainerStatus()
+                .addNewContainerStatus().withReady(secondReady).withRestartCount(secondRestarts).endContainerStatus()
+                .endStatus().build();
     }
 
     @Test

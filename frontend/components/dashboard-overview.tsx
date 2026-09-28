@@ -93,8 +93,10 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
   const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
-  const [cpuUsage, setCpuUsage] = useState(0)
-  const [memoryUsage, setMemoryUsage] = useState(0)
+  const [loadError, setLoadError] = useState(false)
+  // null = 수집된 값 없음. 0%로 표시하지 않는다.
+  const [cpuUsage, setCpuUsage] = useState<number | null>(null)
+  const [memoryUsage, setMemoryUsage] = useState<number | null>(null)
   const [alerts, setAlerts] = useState<Array<{ id: string; title?: string; message?: string; severity?: string; created_at?: string }>>([])
 
   // 사용자 인증 상태 확인
@@ -122,8 +124,6 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                 configs[repo.full_name] = { replica_count: config.replica_count }
               } catch (error) {
                 console.error(`Failed to fetch config for ${repo.full_name}:`, error)
-                // Use default replica count if config fetch fails
-                configs[repo.full_name] = { replica_count: 1 }
               }
             })
           )
@@ -162,23 +162,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
-        // Fallback to mock data if API fails
-        setData({
-          clusters: 3,
-          deployments: 12,
-          pendingDeployments: 4,
-          activeDeployments: 8,
-          cpuUsage: 68,
-          memoryUsage: 45,
-          systemHealth: [
-            { service: "NCP Connection", status: "healthy" },
-            { service: "Kubernetes API", status: "healthy" },
-            { service: "GitHub Integration", status: "warning" },
-            { service: "Monitoring", status: "healthy" }
-          ],
-          connectedRepositories: [],
-          pullRequests: []
-        })
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
@@ -244,6 +228,16 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          대시보드 데이터를 불러오지 못했습니다. 백엔드 연결 상태를 확인한 뒤 다시 시도해 주세요.
+        </CardContent>
+      </Card>
     )
   }
 
@@ -396,9 +390,9 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">CPU Usage</div>
-                <div className="text-sm text-muted-foreground">{cpuUsage.toFixed(2)}%</div>
+                <div className="text-sm text-muted-foreground">{cpuUsage === null ? "미수집" : `${cpuUsage.toFixed(2)}%`}</div>
               </div>
-              <Progress value={cpuUsage} className="mt-2" />
+              <Progress value={cpuUsage ?? 0} className="mt-2" />
             </div>
 
             {/* Memory with alerts */}
@@ -408,9 +402,9 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
                   Memory Usage
                 </div>
-                <div className="text-sm text-muted-foreground">{memoryUsage.toFixed(2)}%</div>
+                <div className="text-sm text-muted-foreground">{memoryUsage === null ? "미수집" : `${memoryUsage.toFixed(2)}%`}</div>
               </div>
-              <Progress value={memoryUsage} className="mt-2 mb-3" />
+              <Progress value={memoryUsage ?? 0} className="mt-2 mb-3" />
 
               {/* Removed inline alerts under memory to avoid duplication with Alerts card */}
               <div className="mt-3 pt-3 border-t">

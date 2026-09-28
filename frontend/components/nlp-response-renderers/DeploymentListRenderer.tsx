@@ -20,29 +20,30 @@ export function DeploymentListRenderer({ response }: DeploymentListRendererProps
   const total_deployments = deployments.length
 
 
-  const getReadyStatus = (ready: string) => {
-    const [readyCount, totalCount] = ready.split('/').map(Number)
-    const isFullyReady = readyCount === totalCount && totalCount > 0
-
-    if (isFullyReady) {
+  const getDeploymentStatus = (status: string, failReason: string | null) => {
+    if (status === "SUCCESS") {
       return (
         <div className="flex items-center gap-1">
           <CheckCircle className="w-4 h-4 text-green-500" />
           <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-            {ready}
+            {status}
           </Badge>
         </div>
       )
     }
 
-    return (
-      <div className="flex items-center gap-1">
-        <XCircle className="w-4 h-4 text-red-500" />
-        <Badge variant="destructive">
-          {ready}
-        </Badge>
-      </div>
-    )
+    if (status === "FAILED") {
+      return (
+        <div className="flex items-center gap-1" title={failReason ?? undefined}>
+          <XCircle className="w-4 h-4 text-red-500" />
+          <Badge variant="destructive">
+            {status}
+          </Badge>
+        </div>
+      )
+    }
+
+    return <Badge variant="outline">{status}</Badge>
   }
 
   return (
@@ -76,22 +77,22 @@ export function DeploymentListRenderer({ response }: DeploymentListRendererProps
       
       <CardContent>
         {total_deployments === 0 ? (
-          <p className="text-muted-foreground">현재 실행 중인 Deployment가 없습니다.</p>
+          <p className="text-muted-foreground">배포 이력이 없습니다.</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>이름</TableHead>
-                <TableHead>준비 상태</TableHead>
-                <TableHead>업데이트됨</TableHead>
-                <TableHead>사용 가능</TableHead>
-                <TableHead>경과 시간</TableHead>
-                <TableHead>네임스페이스</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>브랜치</TableHead>
+                <TableHead>커밋</TableHead>
+                <TableHead>생성 시각</TableHead>
+                <TableHead>이미지</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deployments.map((deployment, index) => (
-                <TableRow key={`${deployment.name}-${deployment.namespace}-${index}`}>
+                <TableRow key={`${deployment.id}-${index}`}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {deployment.name}
@@ -105,27 +106,13 @@ export function DeploymentListRenderer({ response }: DeploymentListRendererProps
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getReadyStatus(deployment.ready)}
+                    {getDeploymentStatus(deployment.status, deployment.fail_reason)}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {deployment.up_to_date}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {deployment.available}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {deployment.age}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {deployment.namespace}
-                    </Badge>
+                  <TableCell className="text-xs">{deployment.branch ?? "-"}</TableCell>
+                  <TableCell className="font-mono text-xs">{deployment.commit?.slice(0, 7) ?? "-"}</TableCell>
+                  <TableCell className="text-xs">{deployment.created_at ?? "-"}</TableCell>
+                  <TableCell className="max-w-[240px] truncate font-mono text-xs" title={deployment.image ?? undefined}>
+                    {deployment.image ?? "-"}
                   </TableCell>
                 </TableRow>
               ))}
