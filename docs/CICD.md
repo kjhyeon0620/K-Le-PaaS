@@ -2,11 +2,26 @@
 
 This deploy path ships one Git revision as a backend JAR and complete Next.js standalone frontend. CI builds on ARM64, sends a compressed release over a pinned SSH connection, and asks the root-owned receiver to validate and activate it. The receiver never receives application secrets. Its working directories and environment files come from the existing systemd units; the backend unit's original working directory must continue to contain the existing H2 `data/` directory. No database file is copied during a deployment.
 
-## One-time operator setup
+## Normal release flow
+
+After the initial installation is complete, follow this workflow; do not repeat account provisioning or the initial database migration for every merge.
+
+1. Open a PR to `main`. The `build` job runs backend tests and packaging, builds the ARM64 frontend, and verifies the release archive. PRs to `develop` are also checked but are not deployed.
+2. Merge after the required checks pass. The resulting `main` push builds that revision and, on success, runs the `production` deploy job. Manual workflow dispatch is supported only on `main`.
+3. Read the **deploy job and its log**, not just the build result. A superseded commit may be skipped; the latest main release is the intended target. The receiver checks backend readiness/revision and the frontend release marker before reporting success.
+4. On release failure, inspect the failed run. The receiver attempts to restore the previous application release and reports failure even if restoration succeeds. Follow the recovery procedure below if restoration also fails.
+
+This workflow updates the K-Le-PaaS platform itself. User applications use their own image build and callback flow described in [Oracle k3s + GHCR deployment](ORACLE_K3S_GHCR_DEPLOYMENT.md).
+
+Releases restart services; they do not promise zero downtime. Schema migrations, database backups/restores, application environment changes, and inactive release cleanup are separate operator tasks. Prepare schema changes before releasing code because startup uses `ddl-auto=validate`. Never treat application rollback as database rollback.
+
+## Initial installation
 
 Do this during a maintenance window before enabling the production deploy job. Record `systemctl cat <backend-unit>` and `systemctl cat <frontend-unit>` and test that both existing services still start from their original unit definitions. Keep those unit definitions: on the first failed release, the receiver removes only its own `90-klepaas-release.conf` drop-ins and restarts the original legacy JAR and `npm start` frontend. The original frontend does not need a standalone build for this fallback. The first automated release **must not run before** the explicit H2 schema/data migration described in [the migration procedure](../backend/src/main/resources/db/manual/README.md). Take the H2 backup only with the backend stopped and use it only for a separately planned restore, never as an automatic deploy rollback. The migration must permit old-version inserts during code rollback; check its exact SQL and run its validation queries first.
 
 Confirm installed Java 17, Node.js 22, Python 3.12, `systemd`, `sudo` and disk space for two complete releases. **Before any release**, both original application units must run under a dedicated runtime identity with no sudo authorization and no SSH login or writable SSH authentication material. A sudo-capable account is unsafe even with `NoNewPrivileges=true`: released code could create a fresh login outside its unit. Provision the runtime identity and grant it only the existing backend working directory/H2 `data/` write access and required application file reads; validate the legacy units still start and keep the original backend data location. Root owns unit definitions, the deployment tree, and the deploy SSH account's authorized key. The example release base below is root-owned and world-readable so the dedicated app account can run the artifacts. Ensure `/opt/klepaas`, `/opt/klepaas/releases` and `/etc/klepaas` cannot be written by either the deploy SSH account or application account. The receiver also sets `NoNewPrivileges=true` on both release units as defense in depth. Verify the backend unit retains its original `WorkingDirectory=` and absolute `EnvironmentFile=`. Verify the frontend unit retains its absolute `EnvironmentFile=` for runtime secrets; deployment sets its `WorkingDirectory=` to the standalone release.
+
+The application identity must have both read and traverse permission on the backend working directory, not just traverse permission. Verify the running Java process's actual working directory and open database file after changing identities or permissions; a healthy response alone does not prove that it opened the intended H2 database.
 
 Install from the reviewed repository revision:
 
