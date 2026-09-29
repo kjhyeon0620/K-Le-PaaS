@@ -5,6 +5,8 @@ import klepaas.backend.auth.token.dto.CliAccessTokenResponse;
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenRequest;
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenResponse;
 import klepaas.backend.auth.token.entity.CliAccessToken;
+import klepaas.backend.auth.token.entity.CliTokenScope;
+import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.auth.token.exception.CliAccessTokenNotFoundException;
 import klepaas.backend.auth.token.repository.CliAccessTokenRepository;
 import klepaas.backend.global.exception.EntityNotFoundException;
@@ -37,11 +39,13 @@ public class CliAccessTokenService {
 
     private final CliAccessTokenRepository cliAccessTokenRepository;
     private final UserRepository userRepository;
+    private final ResourceAccessService resourceAccessService;
 
     @Transactional
     public CreateCliAccessTokenResponse createToken(Long userId, CreateCliAccessTokenRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+        validateRepositoryBinding(request, userId);
 
         String rawToken = generateToken();
         CliAccessToken entity = CliAccessToken.builder()
@@ -51,6 +55,7 @@ public class CliAccessTokenService {
                 .tokenPrefix(rawToken.substring(0, Math.min(rawToken.length(), 12)))
                 .expiresAt(LocalDateTime.now().plusDays(request.expiresInDays()))
                 .scope(request.scope())
+                .repositoryId(request.repositoryId())
                 .build();
 
         cliAccessTokenRepository.save(entity);
@@ -88,7 +93,19 @@ public class CliAccessTokenService {
 
         token.markUsed(LocalDateTime.now());
         User user = token.getUser();
-        return new CustomUserDetails(user.getId(), user.getEmail(), user.getRole(), token.getScope());
+        return new CustomUserDetails(user.getId(), user.getEmail(), user.getRole(), token.getScope(), token.getRepositoryId());
+    }
+
+    /** DEPLOY 토큰은 본인 소유 저장소 1개에 묶이고, 다른 scope는 저장소를 지정할 수 없다. */
+    private void validateRepositoryBinding(CreateCliAccessTokenRequest request, Long userId) {
+        if (request.scope() == CliTokenScope.DEPLOY) {
+            if (request.repositoryId() == null) {
+                throw new InvalidRequestException(ErrorCode.INVALID_CLI_TOKEN_SCOPE, "배포 전용 토큰에는 저장소가 필요합니다");
+            }
+            resourceAccessService.requireRepository(request.repositoryId(), userId);
+        } else if (request.repositoryId() != null) {
+            throw new InvalidRequestException(ErrorCode.INVALID_CLI_TOKEN_SCOPE, "저장소는 배포 전용 토큰에만 지정할 수 있습니다");
+        }
     }
 
     private String generateToken() {

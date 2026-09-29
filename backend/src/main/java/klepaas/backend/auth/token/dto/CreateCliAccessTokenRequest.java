@@ -8,9 +8,15 @@ import klepaas.backend.auth.token.entity.CliTokenScope;
 public record CreateCliAccessTokenRequest(
         @NotBlank String name,
         @Min(1) @Max(365) int expiresInDays,
-        CliTokenScope scope
+        CliTokenScope scope,
+        /** DEPLOY scope에서만 필수 */
+        Long repositoryId
 ) {
     public CreateCliAccessTokenRequest(String name, int expiresInDays) {
-        this(name, expiresInDays, null);
+        this(name, expiresInDays, null, null);
+    }
+
+    public CreateCliAccessTokenRequest(String name, int expiresInDays, CliTokenScope scope) {
+        this(name, expiresInDays, scope, null);
     }
 }

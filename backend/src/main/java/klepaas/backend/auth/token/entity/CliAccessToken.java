@@ -44,15 +44,20 @@ public class CliAccessToken extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private CliTokenScope scope;
 
+    /** DEPLOY 토큰이 배포할 수 있는 저장소. 다른 scope에서는 null */
+    @Column(name = "repository_id")
+    private Long repositoryId;
+
     @Builder
     public CliAccessToken(User user, String name, String tokenHash, String tokenPrefix, LocalDateTime expiresAt,
-                          CliTokenScope scope) {
+                          CliTokenScope scope, Long repositoryId) {
         this.user = user;
         this.name = name;
         this.tokenHash = tokenHash;
         this.tokenPrefix = tokenPrefix;
         this.expiresAt = expiresAt;
         this.scope = scope == null ? CliTokenScope.FULL : scope;
+        this.repositoryId = repositoryId;
     }
 
     public boolean isUsableAt(LocalDateTime now) {

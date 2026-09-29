@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.ai.client.GeminiClient;
+import klepaas.backend.ai.client.dto.GeminiResponse;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenRequest;
@@ -19,6 +20,7 @@ import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.service.DeploymentPipelineService;
+import klepaas.backend.deployment.service.RuntimeResourcePolicy;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
@@ -37,10 +39,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -71,6 +77,7 @@ class CliTokenScopeHttpTest {
     @Autowired private CliAuthSessionRepository sessions;
     @Autowired private JwtTokenProvider jwt;
     @Autowired private CliAccessTokenService cliTokens;
+    @Autowired private RuntimeResourcePolicy resourcePolicy;
 
     @MockitoBean private GitHubAppClient github;
     @MockitoBean private GeminiClient gemini;
@@ -94,6 +101,7 @@ class CliTokenScopeHttpTest {
                 new CreateCliAccessTokenRequest("read", 1, CliTokenScope.READ_ONLY)).token();
         long readOnlyId = cliTokens.listTokens(owner.getId()).get(0).id();
         String deploymentUrl = "/api/v1/deployments/" + deployment.getId();
+        long deploymentsBefore = deployments.count();
 
         assertEquals(200, send("GET", "/api/v1/repositories/" + repo.getId(), readOnly, null).statusCode());
         assertEquals(200, send("GET", deploymentUrl + "/status", readOnly, null).statusCode());
@@ -120,7 +128,7 @@ class CliTokenScopeHttpTest {
         verifyNoInteractions(pipeline, gemini);
         verify(generator, never()).scale(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(), anyLong());
         verify(generator, never()).restart(org.mockito.ArgumentMatchers.anyString(), anyLong());
-        assertEquals(1, deployments.count());
+        assertEquals(deploymentsBefore, deployments.count());
         assertEquals(1, cliTokens.listTokens(owner.getId()).size());
     }
 
@@ -147,6 +155,75 @@ class CliTokenScopeHttpTest {
         String issued = exchanged.path("data").path("token").asText();
         assertEquals(200, send("GET", "/api/v1/cli-tokens", issued, null).statusCode());
         assertEquals(403, send("POST", "/api/v1/deployments", issued, "{}").statusCode());
+    }
+
+    @Test
+    void proposeOnlyTokenCanProposeButOnlyPeopleConfirm() throws Exception {
+        User owner = users.save(User.builder().name("agent").email("scope-agent@example.test").role(Role.USER).build());
+        Deployment deployment = deployments.save(Deployment.builder().sourceRepository(repository(owner, "agent-svc"))
+                .branchName("main").commitHash("abcdef0").build());
+        String agent = cliTokens.createToken(owner.getId(),
+                new CreateCliAccessTokenRequest("agent", 1, CliTokenScope.PROPOSE_ONLY)).token();
+        when(gemini.generate(any())).thenReturn(new GeminiResponse(List.of(new GeminiResponse.Candidate(
+                new GeminiResponse.Content(List.of(new GeminiResponse.Part(
+                        "{\"intent\":\"RESTART\",\"args\":{\"deployment_id\":" + deployment.getId()
+                                + "},\"confidence\":1,\"message\":\"Restart\"}")), "model")))));
+
+        JsonNode proposed = body(send("POST", "/api/v1/nlp/command", agent, "{\"command\":\"restart it\"}"));
+        long commandId = proposed.path("data").path("command_log_id").asLong();
+        assertEquals(true, proposed.path("data").path("requires_confirmation").asBoolean());
+
+        assertEquals(403, send("POST", "/api/v1/nlp/confirm", agent,
+                "{\"command_log_id\":" + commandId + ",\"confirmed\":true}").statusCode());
+        assertEquals(403, send("POST", "/api/v1/deployments/" + deployment.getId() + "/restart", agent, null).statusCode());
+        assertEquals(200, send("GET", "/api/v1/deployments/" + deployment.getId(), agent, null).statusCode());
+        verify(generator, never()).restart(org.mockito.ArgumentMatchers.anyString(), anyLong());
+
+        // 사람이 전체 권한(웹 JWT)으로 승인하면 실행된다
+        String webJwt = jwt.createAccessToken(owner.getId(), owner.getEmail(), owner.getRole());
+        assertEquals(200, send("POST", "/api/v1/nlp/confirm", webJwt,
+                "{\"command_log_id\":" + commandId + ",\"confirmed\":true}").statusCode());
+        verify(generator).restart(org.mockito.ArgumentMatchers.anyString(), anyLong());
+    }
+
+    @Test
+    void deployTokenCanOnlyCreateDeploymentsForItsRepository() throws Exception {
+        User owner = users.save(User.builder().name("ci").email("scope-ci@example.test").role(Role.USER).build());
+        SourceRepository bound = repository(owner, "ci-bound");
+        SourceRepository other = repository(owner, "ci-other");
+        Deployment existing = deployments.save(Deployment.builder().sourceRepository(bound)
+                .branchName("main").commitHash("abcdef0").build());
+        String ci = cliTokens.createToken(owner.getId(),
+                new CreateCliAccessTokenRequest("ci", 1, CliTokenScope.DEPLOY, bound.getId())).token();
+        RuntimeResourcePolicy.AllowedReferences allowed = new RuntimeResourcePolicy.AllowedReferences();
+        allowed.setImagePullSecrets(List.of("ncp-cr"));
+        resourcePolicy.setRepositories(Map.of(bound.getId(), allowed));
+        long deploymentsBefore = deployments.count();
+
+        HttpResponse<String> created = send("POST", "/api/v1/deployments", ci,
+                "{\"repository_id\":" + bound.getId() + ",\"branch_name\":\"main\",\"commit_hash\":\"abcdef1\"}");
+        assertEquals(201, created.statusCode(), created.body());
+        verify(pipeline).executePipeline(mapper.readTree(created.body()).path("data").path("id").asLong());
+
+        HttpResponse<String> foreign = send("POST", "/api/v1/deployments", ci,
+                "{\"repository_id\":" + other.getId() + ",\"branch_name\":\"main\",\"commit_hash\":\"abcdef1\"}");
+        assertEquals(403, foreign.statusCode());
+        assertEquals("CLI_005", mapper.readTree(foreign.body()).path("code").asText());
+        assertEquals(403, send("GET", "/api/v1/repositories", ci, null).statusCode());
+        assertEquals(403, send("POST", "/api/v1/deployments/" + existing.getId() + "/scale", ci, "{\"replicas\":2}").statusCode());
+        assertEquals(403, send("POST", "/api/v1/nlp/command", ci, "{\"command\":\"deploy\"}").statusCode());
+        assertEquals(deploymentsBefore + 1, deployments.count());
+
+        // 배포 전용 토큰은 저장소를 골라야 하므로 CLI 웹 로그인으로는 받을 수 없다
+        assertEquals(400, send("POST", "/api/v1/cli-auth/sessions", null, sessionBody("DEPLOY")).statusCode());
+    }
+
+    private SourceRepository repository(User owner, String name) {
+        SourceRepository repo = repositories.save(SourceRepository.builder().user(owner).owner("scope").repoName(name)
+                .gitUrl("https://example.test/scope/" + name + ".git").cloudVendor(CloudVendor.NCP).build());
+        configs.save(DeploymentConfig.builder().sourceRepository(repo).minReplicas(1).maxReplicas(2)
+                .containerPort(8080).domainUrl(name + ".example.test").build());
+        return repo;
     }
 
     private String sessionBody(String scope) {

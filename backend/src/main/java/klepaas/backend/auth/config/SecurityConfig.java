@@ -27,6 +27,9 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final String FULL = CliTokenScope.FULL.authority();
+    private static final String READ_ONLY = CliTokenScope.READ_ONLY.authority();
+    private static final String PROPOSE_ONLY = CliTokenScope.PROPOSE_ONLY.authority();
+    private static final String DEPLOY = CliTokenScope.DEPLOY.authority();
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -57,9 +60,11 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // READ_ONLY CLI 토큰은 조회와 비용 계산만 한다. 그 밖의 변경(토큰 발급·폐기 포함)은 FULL만 허용
-                        .requestMatchers(HttpMethod.GET, "/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/cost/**").authenticated()
+                        // CLI 토큰 scope: 아래에 없는 변경(토큰 발급·폐기 포함)은 FULL만 허용
+                        .requestMatchers(HttpMethod.POST, "/api/v1/deployments").hasAnyAuthority(FULL, DEPLOY) // 저장소는 컨트롤러에서 확인
+                        .requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/cost/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/nlp/command").hasAnyAuthority(PROPOSE_ONLY, FULL)
                         .anyRequest().hasAuthority(FULL)
                 )
                 .exceptionHandling(ex -> ex

@@ -125,7 +125,7 @@ async function handleAuthLogin(args, globalOptions, client) {
   );
 }
 
-const TOKEN_SCOPES = { "read-only": "READ_ONLY", full: "FULL" };
+const TOKEN_SCOPES = { "read-only": "READ_ONLY", "propose-only": "PROPOSE_ONLY", full: "FULL" };
 
 function parseScope(value) {
   if (!value) {
@@ -133,7 +133,7 @@ function parseScope(value) {
   }
   const scope = TOKEN_SCOPES[value];
   if (!scope) {
-    throw new CliError("`--scope`는 `read-only` 또는 `full`이어야 합니다.", EXIT_CODES.INPUT);
+    throw new CliError("`--scope`는 `read-only`, `propose-only`, `full` 중 하나여야 합니다.", EXIT_CODES.INPUT);
   }
   return scope;
 }
@@ -148,7 +148,7 @@ async function loginWithBrowser(globalOptions, client, scope) {
   });
 
   console.log("브라우저에서 KLEPaaS CLI 로그인을 승인하세요.");
-  console.log(`요청 권한: ${scope === "READ_ONLY" ? "조회 전용" : "전체 권한"}`);
+  console.log(`요청 권한: ${{ READ_ONLY: "조회 전용", PROPOSE_ONLY: "제안 전용", FULL: "전체 권한" }[scope]}`);
   console.log(`승인 URL: ${session.verification_url}`);
   console.log(`User Code: ${session.user_code}`);
   console.log("브라우저가 열리지 않으면 위 URL을 직접 열어 승인하세요.");
@@ -786,7 +786,7 @@ Usage:
 
 Commands:
   auth login --token <access-token> [--refresh-token <refresh-token>]
-  auth login --web [--scope read-only|full]
+  auth login --web [--scope read-only|propose-only|full]
   auth login --code <oauth-code> [--redirect-uri <uri>]
   auth whoami
   auth logout

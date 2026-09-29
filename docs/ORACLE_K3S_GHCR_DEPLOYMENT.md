@@ -65,6 +65,24 @@ Raw GitHub push webhooks are ignored for repositories configured with
 `GITHUB_ACTIONS_GHCR` or `PREBUILT_IMAGE`. They remain valid for the existing
 `KANIKO` path.
 
+## CI Deployment Token
+
+The workflow calls `POST /api/v1/deployments` with `Authorization: Bearer <token>`
+and `repository_id` in the body. Use a **deploy-only** CLI token for this secret:
+
+1. In the web console, open `Settings > CLI Tokens`, choose `배포 전용`, select the
+   target repository, and issue the token.
+2. Store it as the repository secret (for example `KLEPAAS_TOKEN`) together with
+   the matching `KLEPAAS_REPOSITORY_ID`.
+3. A deploy-only token can create deployments only for that repository. Requests
+   for another repository return HTTP 403 (`CLI_005`), and every other API,
+   including reads, is rejected.
+
+To replace an existing full-access CI token: issue the deploy-only token, update
+the repository secret, re-run the workflow once to confirm the deployment is
+accepted, then revoke the old token in the same settings screen. Rotate the token
+before its expiry date.
+
 ## Service Exposure
 
 The default Kubernetes Service type remains `CLUSTER_IP`, preserving the existing

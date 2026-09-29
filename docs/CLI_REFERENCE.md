@@ -44,7 +44,7 @@ klepaas --help
 
 ```bash
 klepaas auth login --token <access-token> [--refresh-token <refresh-token>]
-klepaas auth login --web [--scope read-only|full]
+klepaas auth login --web [--scope read-only|propose-only|full]
 klepaas auth whoami
 klepaas auth logout
 ```
@@ -55,9 +55,11 @@ klepaas auth logout
 - 사람 사용자는 `--web`, Jenkins/AI/스크립트는 `Settings > CLI Tokens`에서 발급한 전용 토큰으로 `--token` 로그인을 사용하는 것을 권장한다.
 - CLI 토큰은 권한 범위(scope)를 가진다. 서버가 모든 요청에서 검사하며 CLI에서 명령을 숨기는 방식이 아니다.
   - `read-only`(조회 전용): 조회(GET)와 비용 계산(`cost plan/diff/explain/check`)만 허용한다. 배포·스케일·재시작·설정 변경·자연어 명령·토큰 발급/폐기는 HTTP 403으로 거부된다.
+  - `propose-only`(제안 전용): `read-only`에 자연어 명령 생성(`ask`)이 더해진다. MEDIUM/HIGH 명령은 확인 대기로 기록될 뿐이고, `confirm`은 403이다. 사람이 웹 또는 전체 권한 토큰으로 승인해야 실행된다.
+  - 배포 전용(`DEPLOY`): 웹 `Settings > CLI Tokens`에서 저장소 1개를 골라 발급한다. 그 저장소의 `POST /api/v1/deployments`만 허용하며 조회를 포함한 다른 요청은 403이다. CI 배포 콜백용이며 `--web` 로그인으로는 받을 수 없다.
   - `full`(전체 권한): 발급한 사용자와 같은 권한. 기존 토큰과 `--scope`를 지정하지 않은 `--web` 로그인은 `full`이다.
   - CLI 로그인 승인과 토큰 발급은 전체 권한으로만 할 수 있어, 조회 전용 토큰으로 더 높은 권한의 토큰을 얻을 수 없다.
-- 에이전트나 모니터링 스크립트에는 `read-only` 토큰을 권장한다. 승인 화면에 요청 권한이 표시된다.
+- 모니터링 스크립트에는 `read-only`, AI agent에는 `propose-only`, CI에는 배포 전용 토큰을 권장한다. 승인 화면에 요청 권한이 표시된다.
 
 예시:
 
@@ -65,8 +67,11 @@ klepaas auth logout
 # 사람 사용자
 npm run cli -- auth login --web
 
-# 조회 전용 로그인 (에이전트·모니터링용)
+# 조회 전용 로그인 (모니터링용)
 npm run cli -- auth login --web --scope read-only
+
+# 제안 전용 로그인 (AI agent용: 변경은 사람이 confirm)
+npm run cli -- auth login --web --scope propose-only
 
 # 머신 사용자
 npm run cli -- auth login --token "kpa_cli_..."

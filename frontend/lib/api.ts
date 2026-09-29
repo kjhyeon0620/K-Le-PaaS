@@ -113,13 +113,14 @@ class ApiClient {
     return this.request<CliAccessTokenResponse[]>('/api/v1/cli-tokens')
   }
 
-  async createCliAccessToken(payload: { name: string; expiresInDays: number; scope: CliTokenScope }) {
+  async createCliAccessToken(payload: { name: string; expiresInDays: number; scope: CliTokenScope; repositoryId?: number }) {
     return this.request<CreateCliAccessTokenResponse>('/api/v1/cli-tokens', {
       method: 'POST',
       body: JSON.stringify({
         name: payload.name,
         expires_in_days: payload.expiresInDays,
         scope: payload.scope,
+        repository_id: payload.repositoryId,
       }),
     })
   }
@@ -860,13 +861,21 @@ export interface ScalingHistoryResponse {
   total_count: number
 }
 
-export type CliTokenScope = 'READ_ONLY' | 'FULL'
+export type CliTokenScope = 'READ_ONLY' | 'PROPOSE_ONLY' | 'DEPLOY' | 'FULL'
+
+export const CLI_TOKEN_SCOPE_LABELS: Record<CliTokenScope, string> = {
+  READ_ONLY: '조회 전용',
+  PROPOSE_ONLY: '제안 전용',
+  DEPLOY: '배포 전용',
+  FULL: '전체 권한',
+}
 
 export interface CliAccessTokenResponse {
   id: number
   name: string
   token_prefix: string
   scope: CliTokenScope
+  repository_id: number | null
   expires_at: string
   last_used_at: string | null
   revoked_at: string | null
