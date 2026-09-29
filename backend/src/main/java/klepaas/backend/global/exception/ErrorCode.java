@@ -45,6 +45,8 @@ public enum ErrorCode {
     INVALID_CLI_TOKEN(HttpStatus.UNAUTHORIZED, "CLI_002", "유효하지 않은 CLI 토큰입니다"),
     CLI_AUTH_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLI_003", "CLI 로그인 세션을 찾을 수 없습니다"),
     INVALID_CLI_AUTH_SESSION_STATE(HttpStatus.CONFLICT, "CLI_004", "CLI 로그인 세션 상태가 올바르지 않습니다"),
+    CLI_TOKEN_SCOPE_DENIED(HttpStatus.FORBIDDEN, "CLI_005", "CLI 토큰 권한 범위 밖의 요청입니다"),
+    INVALID_CLI_TOKEN_SCOPE(HttpStatus.BAD_REQUEST, "CLI_006", "CLI 토큰 권한 설정이 올바르지 않습니다"),
 
     // GitHub App
     GITHUB_APP_NOT_INSTALLED(HttpStatus.UNPROCESSABLE_ENTITY, "GH_001", "GitHub App이 저장소에 설치되지 않았습니다"),

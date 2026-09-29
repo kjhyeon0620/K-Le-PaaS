@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Copy, KeyRound, Trash2 } from "lucide-react"
 
-import api, { CliAccessTokenResponse, CliTokenScope, CreateCliAccessTokenResponse } from "@/lib/api"
+import api, { CLI_TOKEN_SCOPE_LABELS, CliAccessTokenResponse, CliTokenScope, CreateCliAccessTokenResponse } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,9 +21,15 @@ export function CliTokensSection() {
   const [expiresInDays, setExpiresInDays] = useState("30")
   // 자동화·에이전트에는 조회 전용을 기본으로 권장한다
   const [scope, setScope] = useState<CliTokenScope>("READ_ONLY")
+  const [repositoryId, setRepositoryId] = useState("")
+  const [repositories, setRepositories] = useState<{ id: number; fullName: string }[]>([])
 
   useEffect(() => {
     void loadTokens()
+    // 배포 전용 토큰의 대상 저장소 선택용
+    api.getProjectIntegrations()
+      .then((data) => setRepositories((data.repositories || []).map((r: any) => ({ id: r.id, fullName: r.fullName }))))
+      .catch(() => setRepositories([]))
   }, [])
 
   const loadTokens = async () => {
@@ -53,9 +59,19 @@ export function CliTokensSection() {
       return
     }
 
+    if (scope === "DEPLOY" && !repositoryId) {
+      toast({ title: "입력 오류", description: "배포 전용 토큰은 대상 저장소를 선택해야 합니다.", variant: "destructive" })
+      return
+    }
+
     try {
       setCreating(true)
-      const created = await api.createCliAccessToken({ name: name.trim(), expiresInDays: parsedDays, scope })
+      const created = await api.createCliAccessToken({
+        name: name.trim(),
+        expiresInDays: parsedDays,
+        scope,
+        repositoryId: scope === "DEPLOY" ? Number(repositoryId) : undefined,
+      })
       setNewToken(created)
       setTokens((current) => [created.metadata, ...current])
       toast({
@@ -102,7 +118,7 @@ export function CliTokensSection() {
       <CardHeader>
         <CardTitle>CLI Tokens</CardTitle>
         <CardDescription>
-          CLI, 스크립트, 에이전트용 전용 액세스 토큰을 발급합니다. 조회 전용 토큰은 조회와 비용 계산만 할 수 있고 배포·설정 변경은 서버에서 거부됩니다. 토큰 원문은 발급 직후 한 번만 표시됩니다.
+          CLI, 스크립트, 에이전트용 전용 액세스 토큰을 발급합니다. 조회 전용은 조회·비용 계산만, 제안 전용은 여기에 자연어 명령 제안이 더해지며(실행은 사람이 승인), 배포 전용은 선택한 저장소의 배포 요청만 할 수 있습니다. 그 밖의 요청은 서버에서 거부됩니다. 토큰 원문은 발급 직후 한 번만 표시됩니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -135,10 +151,27 @@ export function CliTokensSection() {
               onChange={(e) => setScope(e.target.value as CliTokenScope)}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
             >
-              <option value="READ_ONLY">조회 전용</option>
-              <option value="FULL">전체 권한</option>
+              {(Object.keys(CLI_TOKEN_SCOPE_LABELS) as CliTokenScope[]).map((value) => (
+                <option key={value} value={value}>{CLI_TOKEN_SCOPE_LABELS[value]}</option>
+              ))}
             </select>
           </div>
+          {scope === "DEPLOY" && (
+            <div className="space-y-2 md:col-span-3">
+              <Label htmlFor="cli-token-repository">배포 대상 저장소</Label>
+              <select
+                id="cli-token-repository"
+                value={repositoryId}
+                onChange={(e) => setRepositoryId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+              >
+                <option value="">저장소 선택</option>
+                {repositories.map((repo) => (
+                  <option key={repo.id} value={repo.id}>{repo.fullName}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex items-end">
             <Button onClick={createToken} disabled={creating}>
               <KeyRound className="mr-2 h-4 w-4" />
@@ -188,7 +221,10 @@ export function CliTokensSection() {
                       <Badge variant={revoked ? "secondary" : "default"}>
                         {revoked ? "폐기됨" : "활성"}
                       </Badge>
-                      <Badge variant="outline">{scopeLabel(token.scope)}</Badge>
+                      <Badge variant="outline">
+                        {CLI_TOKEN_SCOPE_LABELS[token.scope]}
+                        {token.repository_id ? ` · 저장소 #${token.repository_id}` : ""}
+                      </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Prefix: {token.token_prefix} | 생성: {formatDate(token.created_at)} | 만료: {formatDate(token.expires_at)}
@@ -214,10 +250,6 @@ export function CliTokensSection() {
       </CardContent>
     </Card>
   )
-}
-
-function scopeLabel(scope: CliTokenScope) {
-  return scope === "READ_ONLY" ? "조회 전용" : "전체 권한"
 }
 
 function formatDate(value: string) {

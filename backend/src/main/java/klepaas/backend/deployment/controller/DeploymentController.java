@@ -5,6 +5,8 @@ import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.global.dto.ApiResponse;
+import klepaas.backend.global.exception.BusinessException;
+import klepaas.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +30,9 @@ public class DeploymentController {
     public ApiResponse<DeploymentResponse> createDeployment(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody CreateDeploymentRequest request) {
+        if (!userDetails.canDeployTo(request.repositoryId())) {
+            throw new BusinessException(ErrorCode.CLI_TOKEN_SCOPE_DENIED);
+        }
         return ApiResponse.success(deploymentService.createDeployment(request, userDetails.getUserId()));
     }
 

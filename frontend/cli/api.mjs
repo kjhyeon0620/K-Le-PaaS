@@ -257,7 +257,7 @@ function mapApiError(status, payload) {
     (typeof payload === "string" ? payload : `HTTP ${status}`);
 
   if (status === 403) {
-    return new CliError(`권한이 없습니다(${message}). 조회 전용 토큰은 배포·설정 변경을 할 수 없습니다.`, 2, payload);
+    return new CliError(`권한이 없습니다(${message}). 토큰 권한 범위(scope)를 확인하세요.`, 2, payload);
   }
   if (status === 401) {
     return new CliError(message, 2, payload);

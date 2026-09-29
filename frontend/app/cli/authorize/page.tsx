@@ -5,7 +5,7 @@ import type { ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { CheckCircle2, Clock3, Laptop2, LogIn, ShieldX } from "lucide-react"
 
-import api, { CliAuthSessionResponse } from "@/lib/api"
+import api, { CLI_TOKEN_SCOPE_LABELS, CliAuthSessionResponse } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -166,12 +166,14 @@ function CliAuthorizePageContent() {
               <div className="rounded-lg border p-4 text-sm">
                 요청 권한:{" "}
                 <Badge variant={session.scope === "FULL" ? "destructive" : "secondary"}>
-                  {session.scope === "FULL" ? "전체 권한" : "조회 전용"}
+                  {CLI_TOKEN_SCOPE_LABELS[session.scope]}
                 </Badge>
                 <p className="mt-2 text-muted-foreground">
                   {session.scope === "FULL"
                     ? "승인하면 이 CLI가 배포·스케일·설정 변경 등 계정의 모든 작업을 할 수 있습니다."
-                    : "승인하면 이 CLI는 조회와 비용 계산만 할 수 있습니다."}
+                    : session.scope === "PROPOSE_ONLY"
+                      ? "승인하면 이 CLI는 조회와 자연어 명령 제안만 할 수 있습니다. 변경 명령은 웹에서 사람이 승인해야 실행됩니다."
+                      : "승인하면 이 CLI는 조회와 비용 계산만 할 수 있습니다."}
                 </p>
               </div>
 

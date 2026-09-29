@@ -2,6 +2,7 @@ package klepaas.backend.auth.weblogin.service;
 
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenRequest;
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenResponse;
+import klepaas.backend.auth.token.entity.CliTokenScope;
 import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.auth.weblogin.dto.CliAuthSessionResponse;
 import klepaas.backend.auth.weblogin.dto.CreateCliAuthSessionRequest;
@@ -47,6 +48,10 @@ public class CliAuthSessionService {
 
     @Transactional
     public CliAuthSessionResponse createSession(CreateCliAuthSessionRequest request) {
+        // 배포 전용 토큰은 저장소를 골라야 하므로 웹 설정 화면에서만 발급한다
+        if (request.scope() == CliTokenScope.DEPLOY) {
+            throw new InvalidRequestException(ErrorCode.INVALID_CLI_TOKEN_SCOPE, "배포 전용 토큰은 웹 설정에서 발급하세요");
+        }
         CliAuthSession session = CliAuthSession.builder()
                 .id(UUID.randomUUID().toString())
                 .userCode(generateUserCode())
