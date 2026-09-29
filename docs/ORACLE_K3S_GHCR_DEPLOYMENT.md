@@ -83,6 +83,12 @@ the repository secret, re-run the workflow once to confirm the deployment is
 accepted, then revoke the old token in the same settings screen. Rotate the token
 before its expiry date.
 
+GitHub Actions OIDC authentication is planned in
+[#65](https://github.com/kjhyeon0620/K-Le-PaaS/issues/65). It will accept the
+short-lived identity token GitHub issues to each workflow run, so repositories will
+no longer need a stored K-Le-PaaS token or manual rotation. Deploy-only tokens will
+remain for CI systems other than GitHub Actions.
+
 ## Service Exposure
 
 The default Kubernetes Service type remains `CLUSTER_IP`, preserving the existing
