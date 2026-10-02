@@ -65,13 +65,23 @@ public class DeploymentConfig extends BaseTimeEntity {
 
     private Integer nodePort;
 
+    // 모든 컬럼이 null이면 null: probe·자원 설정 없이 기존처럼 배포한다
+    @Embedded
+    private HealthProbe healthProbe;
+
+    @Embedded
+    private ContainerResources resources;
+
     @Builder
     public DeploymentConfig(SourceRepository sourceRepository, int minReplicas, int maxReplicas,
                             Map<String, String> envVars, int containerPort, String domainUrl,
                             BuildStrategy buildStrategy, String imageUriTemplate, String imagePullSecretName,
                             KubernetesServiceType serviceType, Integer nodePort,
-                            List<String> envFromConfigMaps, List<String> envFromSecrets) {
+                            List<String> envFromConfigMaps, List<String> envFromSecrets,
+                            HealthProbe healthProbe, ContainerResources resources) {
         this.sourceRepository = sourceRepository;
+        this.healthProbe = healthProbe;
+        this.resources = resources;
         this.minReplicas = minReplicas;
         this.maxReplicas = maxReplicas;
         this.envVars = envVars != null ? envVars : new HashMap<>();
@@ -110,6 +120,14 @@ public class DeploymentConfig extends BaseTimeEntity {
         this.imagePullSecretName = imagePullSecretName != null ? imagePullSecretName : this.imagePullSecretName;
         this.serviceType = serviceType != null ? serviceType : getServiceType();
         this.nodePort = nodePort;
+    }
+
+    public void updateHealthProbe(HealthProbe healthProbe) {
+        this.healthProbe = healthProbe;
+    }
+
+    public void updateResources(ContainerResources resources) {
+        this.resources = resources;
     }
 
     private List<String> normalizeEnvFromRefs(List<String> names) {

@@ -15,6 +15,16 @@ This workflow updates the K-Le-PaaS platform itself. User applications use their
 
 Releases restart services; they do not promise zero downtime. Database backups/restores, application environment changes, and inactive release cleanup are separate operator tasks. Schema changes ship as Flyway migrations in `backend/src/main/resources/db/migration` and are applied when the backend starts, before Hibernate validates the mappings (`ddl-auto=validate`). The first release containing Flyway registers the existing database as baseline version 1 without running `V1`; later releases apply only newer versions. Before merging a release that adds a migration, test it against a copy of the production database and take a stopped-backend backup. Migrations are not reversed by an application rollback, so keep each migration compatible with the previous release. Never treat application rollback as database rollback.
 
+### Writing schema migrations
+
+- Add at most one migration per PR, named `V<n>__<what_and_why>.sql`, where `<n>` is the latest merged version plus one. Versions are sequential integers.
+- If another PR takes the same number first, renumber yours before merging. Never edit or rename a migration that has been merged or applied: Flyway checksum validation then fails at startup.
+- Add columns as nullable or with a default so the previous release's JAR still reads and writes the table after an application rollback.
+- Test-only migrations live in `backend/src/test/resources/db/testmigration` with a `V9999__` prefix so they never collide with real versions.
+- Before merging, start the packaged JAR against an H2 file database created from the previous schema (and against a copy of the production database) with `--spring.jpa.hibernate.ddl-auto=validate`, and confirm the new version is applied, readiness returns `UP`, and existing rows remain.
+
+The rationale is recorded in [ADR-0004](adr/0004-flyway-forward-compatible-migrations.md).
+
 ## Initial installation
 
 Do this during a maintenance window before enabling the production deploy job. Record `systemctl cat <backend-unit>` and `systemctl cat <frontend-unit>` and test that both existing services still start from their original unit definitions. Keep those unit definitions: on the first failed release, the receiver removes only its own `90-klepaas-release.conf` drop-ins and restarts the original legacy JAR and `npm start` frontend. The original frontend does not need a standalone build for this fallback. The first automated release **must not run before** the explicit H2 schema/data migration described in [the migration procedure](../backend/src/main/resources/db/manual/README.md). Take the H2 backup only with the backend stopped and use it only for a separately planned restore, never as an automatic deploy rollback. The migration must permit old-version inserts during code rollback; check its exact SQL and run its validation queries first.

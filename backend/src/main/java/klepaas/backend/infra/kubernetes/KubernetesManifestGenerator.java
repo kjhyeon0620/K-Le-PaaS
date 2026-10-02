@@ -8,7 +8,9 @@ import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.service.RuntimeResourcePolicy;
 import klepaas.backend.global.exception.BusinessException;
@@ -197,8 +199,10 @@ public class KubernetesManifestGenerator {
         if (existing == null) {
             kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment).create();
         } else {
+            // 전체 spec을 교체한다. apply는 create·scale이 남긴 다른 field manager 때문에 변경 시 409가 나고,
+            // 설정에서 뺀 필드(probe, envFrom 등)를 지우지 못한다.
             deployment.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
-            kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment).serverSideApply();
+            replaceWithObservedVersion(deployment);
         }
     }
 
@@ -236,11 +240,48 @@ public class KubernetesManifestGenerator {
                                             .build())
                                     .withEnv(envVars)
                                     .withEnvFrom(envFromSources)
+                                    .withReadinessProbe(buildProbe(config, false))
+                                    .withStartupProbe(buildProbe(config, true))
+                                    .withResources(buildResources(config.getResources()))
                                     .build())
                         .endSpec()
                     .endTemplate()
                 .endSpec()
                 .build();
+    }
+
+    // 설정이 없으면 null을 반환해 기존 manifest와 동일하게 probe를 생략한다
+    private Probe buildProbe(DeploymentConfig config, boolean startup) {
+        HealthProbe probe = config.getHealthProbe();
+        if (probe == null || (startup && probe.startupFailureThreshold() == null)) {
+            return null;
+        }
+        return new ProbeBuilder()
+                .withNewHttpGet()
+                    .withPath(probe.path())
+                    .withNewPort(probe.port() != null ? probe.port() : config.getContainerPort())
+                .endHttpGet()
+                .withInitialDelaySeconds(probe.initialDelaySeconds())
+                .withPeriodSeconds(probe.periodSeconds())
+                .withFailureThreshold(startup ? probe.startupFailureThreshold() : probe.failureThreshold())
+                .build();
+    }
+
+    private ResourceRequirements buildResources(ContainerResources resources) {
+        if (resources == null) {
+            return null;
+        }
+        return new ResourceRequirementsBuilder()
+                .withRequests(quantities(resources.cpuRequest(), resources.memoryRequest()))
+                .withLimits(quantities(resources.cpuLimit(), resources.memoryLimit()))
+                .build();
+    }
+
+    private Map<String, Quantity> quantities(String cpu, String memory) {
+        Map<String, Quantity> quantities = new HashMap<>();
+        if (cpu != null) quantities.put("cpu", new Quantity(cpu));
+        if (memory != null) quantities.put("memory", new Quantity(memory));
+        return quantities.isEmpty() ? null : quantities;
     }
 
     private List<EnvFromSource> buildEnvFromSources(DeploymentConfig config) {
@@ -316,7 +357,7 @@ public class KubernetesManifestGenerator {
             kubernetesClient.services().inNamespace(namespace).resource(service).create();
         } else {
             service.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
-            kubernetesClient.services().inNamespace(namespace).resource(service).serverSideApply();
+            kubernetesClient.services().inNamespace(namespace).resource(service).forceConflicts().serverSideApply();
         }
     }
 
@@ -364,7 +405,7 @@ public class KubernetesManifestGenerator {
             kubernetesClient.network().v1().ingresses().inNamespace(namespace).resource(ingress).create();
         } else {
             ingress.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
-            kubernetesClient.network().v1().ingresses().inNamespace(namespace).resource(ingress).serverSideApply();
+            kubernetesClient.network().v1().ingresses().inNamespace(namespace).resource(ingress).forceConflicts().serverSideApply();
         }
     }
 }

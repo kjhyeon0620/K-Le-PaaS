@@ -78,6 +78,8 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
   └─ GITHUB_ACTIONS_GHCR / PREBUILT_IMAGE (외부 이미지)
        요청의 image_uri 또는 image_uri_template으로 이미지 결정 (빌드 단계 없음)
   → DEPLOYING: Deployment/Service/Ingress 적용 → Deployment Available 대기
+       (기존 Deployment는 관측한 resourceVersion으로 전체 교체, Service·Ingress는 강제 server-side apply.
+        설정한 readiness probe를 통과하지 못한 새 Pod는 Available이 되지 않아 타임아웃 시 FAILED)
   → SUCCESS / FAILED, Slack·WebSocket 알림
 ```
 
@@ -187,7 +189,6 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 
 | 격차 | 영향 | 이슈 |
 |---|---|---|
-| 앱별 readiness/startup probe와 requests/limits가 없다 | HTTP 앱이 준비되지 않아도 rollout 성공으로 판정될 수 있다 | #51 |
 | 같은 앱의 동시 배포와 webhook·callback 중복 접수를 막지 않는다 | 배포가 겹치거나 중복 실행된다 | #52 |
 | rollout 판정이 요청 단위가 아니라 앱 이름 기준이다 | 다른 배포의 완료를 성공으로 기록할 수 있다 | #53 |
 | `GET /deployments/{id}/logs`가 placeholder 응답이다 | 실패 원인을 API에서 볼 수 없다 | #54 |

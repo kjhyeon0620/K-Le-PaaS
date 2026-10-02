@@ -146,7 +146,8 @@ Deployment 생성
   -> initContainer가 source.zip을 emptyDir로 복사/해제
   -> Kaniko가 dir:///workspace context로 image build
   -> NCR에 {owner}-{repo}:{shortSha} push
-  -> Fabric8 server-side apply로 Deployment/Service/Ingress 반영
+  -> Fabric8로 Deployment 생성·전체 교체(resourceVersion 고정), Service/Ingress server-side apply
+  -> Deployment Available 대기 (설정한 readiness probe 통과 필요)
   -> Slack/WebSocket 알림과 deployment status update
 ```
 
@@ -157,7 +158,7 @@ Deployment 생성
 | GitHub OAuth / JWT | 구현 MVP | OAuth login, refresh, logout API 존재 |
 | GitHub App source access | 구현 MVP | installation token과 ZIP download 경로 존재 |
 | NCP Object Storage / Kaniko / NCR | 구현 MVP | NCP 중심 구현, AWS/ON_PREMISE provider는 예정 |
-| Kubernetes apply | 구현 MVP | Deployment, Service, Ingress apply 존재 |
+| Kubernetes apply | 구현 MVP | Deployment, Service, Ingress 반영, 앱별 health probe·requests/limits (`PUT /repositories/{id}/config`의 `health_probe`, `resources`) |
 | 자연어 명령 / risk confirmation | 구현 MVP | `ActionDispatcher`와 `NlpCommandService`에서 처리 |
 | CLI token / web login | 구현 MVP | CLI token과 browser approval flow 존재 |
 | Cost guardrails | 구현 MVP | spec 기반 추정과 budget check 존재 |

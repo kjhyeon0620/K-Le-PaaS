@@ -57,7 +57,7 @@
 | 3 | #48 | Flyway 도입, H2 baseline | 완료 (PR #62), 운영 V1 | - |
 | 4 | #49 | CLI 토큰 scope 서버 강제 | 완료 (PR #63), 운영 V2 | - |
 | 5 | #50 | propose-only, 저장소별 CI 배포 토큰 | 완료 (PR #64), 운영 V3 | - |
-| 6 | #51 | 앱별 readiness/startup probe, requests/limits | 구현·로컬 검증 완료, PR 전 | [0051](specs/0051-app-probes-resources/spec.md) |
+| 6 | #51 | 앱별 readiness/startup probe, requests/limits | 구현·검증 완료 (운영 DB 사본 V4 통과), 머지 대기 | [0051](specs/0051-app-probes-resources/spec.md) |
 | 7 | #52 | 동일 앱 배포 직렬화, 중복 접수 방지 | 미착수 | - |
 | 7-1 | #65 | GitHub Actions OIDC 기반 CI 배포 인증 | 미착수 | - |
 | 8 | #53 | 요청 단위 rollout 판정 | 미착수 | - |

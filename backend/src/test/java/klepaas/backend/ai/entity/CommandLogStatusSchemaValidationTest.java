@@ -16,7 +16,9 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
+import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.global.config.JpaConfig;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -81,5 +83,25 @@ class CommandLogStatusSchemaValidationTest {
         assertThat(reloaded.getEnvVars()).containsExactly(Map.entry("legacy", "한글\"quoted\""));
         assertThat(reloaded.getEnvFromConfigMaps()).containsExactly("legacy-config", "한글-config");
         assertThat(reloaded.getEnvFromSecrets()).isEmpty();
+    }
+
+    @Test
+    void probeAndResourceColumnsRoundTripAndStayNullForExistingApps() {
+        var probe = new HealthProbe("/health", 9090, 5, 10, 3, 30);
+        var resources = new ContainerResources("100m", "500m", null, "256Mi");
+        DeploymentConfig configured = DeploymentConfig.builder()
+                .domainUrl("probe.example.test").healthProbe(probe).resources(resources).build();
+        DeploymentConfig legacy = DeploymentConfig.builder().domainUrl("legacy.example.test").build();
+        entityManager.persist(configured);
+        entityManager.persist(legacy);
+        entityManager.flush();
+        entityManager.clear();
+
+        DeploymentConfig storedConfigured = entityManager.find(DeploymentConfig.class, configured.getId());
+        assertThat(storedConfigured.getHealthProbe()).isEqualTo(probe);
+        assertThat(storedConfigured.getResources()).isEqualTo(resources);
+        DeploymentConfig storedLegacy = entityManager.find(DeploymentConfig.class, legacy.getId());
+        assertThat(storedLegacy.getHealthProbe()).isNull();
+        assertThat(storedLegacy.getResources()).isNull();
     }
 }

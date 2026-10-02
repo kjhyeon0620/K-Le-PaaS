@@ -622,30 +622,7 @@ class ApiClient {
   }
 
   async updateDeploymentConfig(owner: string, repo: string, replicaCount: number): Promise<any> {
-    const currentConfig = await this.getDeploymentConfig(owner, repo)
-    const repos = await this.request<any[]>('/api/v1/repositories')
-    const targetRepo = (repos || []).find(
-      (r: any) => r.owner === owner && r.repo_name === repo
-    )
-    if (!targetRepo) throw new Error('Repository not found')
-
-    return this.request(`/api/v1/repositories/${targetRepo.id}/config`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        min_replicas: replicaCount,
-        max_replicas: replicaCount,
-        env_vars: currentConfig.env_vars,
-        env_from_config_maps: currentConfig.env_from_config_maps,
-        env_from_secrets: currentConfig.env_from_secrets,
-        container_port: currentConfig.container_port,
-        domain_url: currentConfig.domain_url,
-        build_strategy: currentConfig.build_strategy,
-        image_uri_template: currentConfig.image_uri_template,
-        image_pull_secret_name: currentConfig.image_pull_secret_name,
-        service_type: currentConfig.service_type,
-        node_port: currentConfig.node_port,
-      }),
-    })
+    return this.putDeploymentConfig(owner, repo, { min_replicas: replicaCount, max_replicas: replicaCount })
   }
 
   async updateDeploymentRuntimeEnvFrom(
@@ -653,6 +630,28 @@ class ApiClient {
     repo: string,
     envFromConfigMaps: readonly string[],
     envFromSecrets: readonly string[]
+  ): Promise<DeploymentConfigResponse> {
+    return this.putDeploymentConfig(owner, repo, {
+      env_from_config_maps: [...envFromConfigMaps],
+      env_from_secrets: [...envFromSecrets],
+    })
+  }
+
+  // health_probe·resources는 보낸 그룹 전체를 교체한다. probe path가 비어 있으면 probe를 해제한다.
+  async updateDeploymentProbeAndResources(
+    owner: string,
+    repo: string,
+    healthProbe: HealthProbe,
+    resources: ContainerResources
+  ): Promise<DeploymentConfigResponse> {
+    return this.putDeploymentConfig(owner, repo, { health_probe: healthProbe, resources })
+  }
+
+  // 현재 설정에 overrides를 덮어 PUT한다. health_probe·resources는 overrides에 있을 때만 보내 서버 값을 보존한다.
+  private async putDeploymentConfig(
+    owner: string,
+    repo: string,
+    overrides: Partial<DeploymentConfigResponse>
   ): Promise<DeploymentConfigResponse> {
     const currentConfig = await this.getDeploymentConfig(owner, repo)
     const repos = await this.request<any[]>('/api/v1/repositories')
@@ -667,8 +666,8 @@ class ApiClient {
         min_replicas: currentConfig.min_replicas,
         max_replicas: currentConfig.max_replicas,
         env_vars: currentConfig.env_vars,
-        env_from_config_maps: envFromConfigMaps,
-        env_from_secrets: envFromSecrets,
+        env_from_config_maps: currentConfig.env_from_config_maps,
+        env_from_secrets: currentConfig.env_from_secrets,
         container_port: currentConfig.container_port,
         domain_url: currentConfig.domain_url,
         build_strategy: currentConfig.build_strategy,
@@ -676,6 +675,7 @@ class ApiClient {
         image_pull_secret_name: currentConfig.image_pull_secret_name,
         service_type: currentConfig.service_type,
         node_port: currentConfig.node_port,
+        ...overrides,
       }),
     })
     return normalizeDeploymentConfigResponse(owner, repo, updatedConfig)
@@ -816,11 +816,29 @@ export interface DeploymentConfigResponse {
   image_pull_secret_name?: string | null
   service_type?: string | null
   node_port?: number | null
+  health_probe?: HealthProbe | null
+  resources?: ContainerResources | null
   is_default?: boolean
   last_scaled_at?: string | null
   last_scaled_by?: string | null
   created_at?: string | null
   updated_at?: string | null
+}
+
+export interface HealthProbe {
+  path: string
+  port: number | null
+  initial_delay_seconds: number | null
+  period_seconds: number | null
+  failure_threshold: number | null
+  startup_failure_threshold: number | null
+}
+
+export interface ContainerResources {
+  cpu_request: string | null
+  cpu_limit: string | null
+  memory_request: string | null
+  memory_limit: string | null
 }
 
 function normalizeDeploymentConfigResponse(

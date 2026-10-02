@@ -36,7 +36,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | GitHub App source access | 구현 MVP | Installation token과 source ZIP 다운로드 경로 구현 |
 | NCP Object Storage upload | 구현 MVP | AWS SDK v2 S3 호환 업로드 경로 구현 |
 | Kaniko image build | 구현 MVP | Kubernetes Job 기반 빌드 경로 구현 |
-| Kubernetes deploy | 구현 MVP | Fabric8 server-side apply로 Deployment, Service, Ingress 반영 |
+| Kubernetes deploy | 구현 MVP | Fabric8로 Deployment(관측한 버전으로 전체 교체), Service·Ingress(server-side apply) 반영, 앱별 readiness/startup probe·requests/limits 설정 |
 | External image deploy | 구현 MVP | GHCR/prebuilt 이미지 배포, envFrom·pull secret·Service 설정 지원 |
 | KLEPAAS CI/CD | 구현 | main 빌드 성공 후 Oracle ARM64 systemd 자동 배포, 버전·readiness 확인 및 실패 시 앱 버전 복구 |
 | Commit SHA image tags | 구현 | 짧은 commit SHA를 이미지 태그로 사용 |
@@ -54,7 +54,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | MCP connector | 예정 | frontend stub / 설계 방향만 존재 |
 | IaC / Terraform | 예정 | 현재 Terraform/OpenTofu 구현 없음, 향후 방향 |
 
-KLEPAAS 자체 CI/CD와 사용자 앱 배포는 별도입니다. 이 저장소의 `main` 머지는 플랫폼 backend/frontend를 갱신하며, 사용자 앱에는 별도의 이미지 빌드와 배포 callback 연결이 필요합니다. 앱별 probe·자원 설정, 여러 앱의 공통 workflow·도메인 연결, 배포 설정 snapshot을 이용한 복구는 아직 완성되지 않았습니다.
+KLEPAAS 자체 CI/CD와 사용자 앱 배포는 별도입니다. 이 저장소의 `main` 머지는 플랫폼 backend/frontend를 갱신하며, 사용자 앱에는 별도의 이미지 빌드와 배포 callback 연결이 필요합니다. 여러 앱의 공통 workflow·도메인 연결, 배포 설정 snapshot을 이용한 복구는 아직 완성되지 않았습니다.
 
 ## 구조
 

@@ -1,7 +1,7 @@
 ---
 issue: 51
 title: 앱별 readiness/startup probe와 CPU·메모리 자원 설정
-status: in-progress
+status: done
 size: L
 type: feat
 branch: feat/#51-app-probes-resources
@@ -9,7 +9,7 @@ branch: feat/#51-app-probes-resources
 
 # 앱별 readiness/startup probe와 CPU·메모리 자원 설정
 
-> SDD를 도입하기 전에 착수한 이슈를 GitHub 이슈 #51 본문과 로컬 검증 기록(2026-10-01)으로 역작성한 스펙이다. 구현은 `feat/#51-app-probes-resources` 브랜치에서 커밋 전 상태다.
+> SDD를 도입하기 전에 착수한 이슈를 GitHub 이슈 #51 본문과 로컬 검증 기록(2026-10-01)으로 역작성한 스펙이다.
 
 ## 목적 / 성공 조건
 - 목적: HTTP 앱이 실제로 요청을 처리할 수 있을 때만 rollout이 성공으로 판정된다. 기동 시간과 자원 요구가 다른 앱을 각자의 설정으로 실행한다.
@@ -46,6 +46,7 @@ branch: feat/#51-app-probes-resources
 - 2026-10-01 (구현 중 발견) 같은 앱 재배포가 `409 FieldManagerConflict`로 실패하는 기존 결함이 있었다. 최초 생성은 `create()`, 재배포는 server-side apply로 field manager가 달라서 값이 바뀐 필드마다 충돌했다.
   → 기존 Deployment는 관측한 resourceVersion으로 전체 교체(PUT, scale·restart와 같은 방식)한다. Service·Ingress는 `forceConflicts()` apply. 소유권 라벨과 resourceVersion 확인은 유지한다.
   → 강제 apply만으로는 공동 소유로 남은 필드(제거한 probe)가 지워지지 않아 전체 교체를 택했다.
+- 2026-10-01 (구현 중) 수정 요청의 계약 → `health_probe`·`resources`를 생략하면 기존 값 유지, 보내면 그룹 전체 교체. `path`가 비어 있으면 probe 해제, 자원 값이 모두 비어 있으면 requests/limits 해제. 시간·임계값을 비우면 Kubernetes 기본값. startup probe는 readiness와 같은 경로·주기를 쓰고 `startup_failure_threshold`가 있을 때만 만든다. (기존 콘솔·CLI의 전체 PUT이 새 필드를 몰라도 설정이 지워지지 않게 하기 위해)
 - 2026-10-01 (구현 중 발견) 콘솔이 설정 조회에 실패하면 기본값으로 저장해 기존 설정을 덮어쓸 수 있다 → 범위 밖, #66으로 분리
 
 ## 완료 증거
@@ -60,7 +61,7 @@ branch: feat/#51-app-probes-resources
 | 백엔드 전체 | `./gradlew test bootJar` (181개) | 로컬 | 통과 |
 | 프론트 타입 | `npx tsc --noEmit -p .` | 로컬 | 통과 |
 | 이력 없는 V1 DB에 V2~V4 적용, validate 기동, 기존 행 유지 | 패키징 JAR | 로컬 H2 | 통과 |
-| 운영 DB 사본(V3)에 V4 적용 후 validate 기동 | 패키징 JAR | 운영 DB 사본 | 대기 (사용자 실행) |
+| 운영 DB 사본(V3)에 V4 적용 후 validate 기동 | 패키징 JAR | 운영 DB 사본 | 통과 (2026-10-02, readiness `UP`, V4 1건 적용, 사본 삭제) |
 
 ## 운영 반영
 - 머지 후 배포 workflow와 운영 DB V4 적용 결과를 여기에 요약한다.

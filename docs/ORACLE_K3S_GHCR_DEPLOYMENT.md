@@ -106,6 +106,47 @@ Then route host Nginx to the selected node port, for example
 `NODE_PORT` requires an explicit `node_port` so the host Nginx upstream remains
 stable. Switching back to `CLUSTER_IP` clears the stored `node_port`.
 
+## Health Probe and Resources
+
+By default a deployed container has no probes and no CPU/memory requests or
+limits. For an HTTP app, set `health_probe` in the repository deployment
+config (`PUT /api/v1/repositories/{id}/config`) or in the console:
+
+```json
+{
+  "health_probe": {
+    "path": "/health",
+    "port": null,
+    "initial_delay_seconds": 5,
+    "period_seconds": 10,
+    "failure_threshold": 3,
+    "startup_failure_threshold": 30
+  },
+  "resources": {
+    "cpu_request": "100m",
+    "cpu_limit": "500m",
+    "memory_request": "128Mi",
+    "memory_limit": "256Mi"
+  }
+}
+```
+
+- `health_probe` becomes an HTTP readiness probe. A deployment is recorded as
+  successful only when the new pods pass it, so a wrong path makes the
+  deployment fail at the rollout timeout instead of succeeding.
+- `port` defaults to `container_port`. Omitted timing values use the Kubernetes
+  defaults.
+- `startup_failure_threshold` adds a startup probe on the same path for slow
+  starting apps. The app gets `period_seconds × startup_failure_threshold`
+  seconds to start (300 seconds with the default 10-second period and 30)
+  before the pod restarts. The deployment still fails if the app is not ready
+  within the rollout timeout.
+- `resources` values are Kubernetes quantities. Each value must be greater than
+  zero and a request cannot exceed its limit.
+- Omitting `health_probe` or `resources` in an update keeps the stored values.
+  Sending a group replaces all of its fields: an empty `path` removes the
+  probes, and empty resource values remove the requests/limits.
+
 ## Default Deployment Domain
 
 When a repository is registered without a custom `domain_url`, K-Le-PaaS creates
