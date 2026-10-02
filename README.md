@@ -240,6 +240,14 @@ kubectl rollout status deployment/<deployment-name> -n <namespace>
 
 ## 문서
 
+개발 방식과 설계:
+- [개발 절차 (Spec-Driven Development)](docs/specs/README.md)
+- [제품 목표와 실행 순서](docs/product.md)
+- [구조·권한·상태 모델·알려진 격차](docs/architecture.md)
+- [결정 기록 (ADR)](docs/adr/README.md)
+- [기여 가이드](CONTRIBUTING.md), [AI 에이전트 작업 규칙](AGENTS.md)
+
+사용과 운영:
 - [Backend README](backend/README.md)
 - [Frontend README](frontend/README.md)
 - [KLEPAAS 자체 CI/CD와 운영 복구](docs/CICD.md)
@@ -249,4 +257,4 @@ kubectl rollout status deployment/<deployment-name> -n <namespace>
 - [CLI 레퍼런스](docs/CLI_REFERENCE.md)
 - [CLI 비용 예시](docs/examples/cli-cost-spec.json)
 
-내부 계획, 상세 status matrix, 로컬 roadmap, 공개 전 설계 메모는 `.local/` 아래에서 관리하며 `.git/info/exclude`로 Git 추적에서 제외합니다.
+운영 검증 원자료, 개인 환경 메모, 공개하지 않는 설계 초안은 `.local/` 아래에서 관리하며 `.git/info/exclude`로 Git 추적에서 제외합니다.
