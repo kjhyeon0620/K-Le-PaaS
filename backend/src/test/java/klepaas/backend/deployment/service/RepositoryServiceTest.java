@@ -5,7 +5,9 @@ import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.CloudVendor;
+import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
@@ -491,7 +493,9 @@ class RepositoryServiceTest {
                     "ghcr.io/{owner}/{repoName}/backend:sha-{commitHash}",
                     "ghcr-pull-secret",
                     KubernetesServiceType.NODE_PORT,
-                    30080
+                    30080,
+                    null,
+                    null
             );
             given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
             given(deploymentConfigRepository.findBySourceRepositoryId(1L))
@@ -540,6 +544,8 @@ class RepositoryServiceTest {
                     null,
                     null,
                     KubernetesServiceType.CLUSTER_IP,
+                    null,
+                    null,
                     null
             );
             given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
@@ -759,6 +765,90 @@ class RepositoryServiceTest {
             assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, request, 1L))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("domain_url");
+        }
+    }
+
+    @Nested
+    @DisplayName("updateDeploymentConfig probe·자원 설정")
+    class UpdateProbeAndResources {
+
+        private final HealthProbe probe = new HealthProbe("/health", null, 5, 10, 3, 30);
+        private final ContainerResources resources = new ContainerResources("100m", "500m", "128Mi", "256Mi");
+
+        private UpdateDeploymentConfigRequest request(HealthProbe healthProbe, ContainerResources containerResources) {
+            return new UpdateDeploymentConfigRequest(1, 1, Map.of(), null, null, 8080, null,
+                    null, null, null, null, null, healthProbe, containerResources);
+        }
+
+        private DeploymentConfigResponse update(UpdateDeploymentConfigRequest request) {
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+            return repositoryService.updateDeploymentConfig(1L, request, 1L);
+        }
+
+        @Test
+        @DisplayName("성공: probe와 자원 설정을 저장한다")
+        void savesProbeAndResources() {
+            DeploymentConfigResponse response = update(request(probe, resources));
+
+            assertThat(response.healthProbe()).isEqualTo(probe);
+            assertThat(response.resources()).isEqualTo(resources);
+        }
+
+        @Test
+        @DisplayName("성공: probe·자원 필드를 생략한 수정은 기존 값을 유지한다")
+        void omittedGroupsKeepExistingValues() {
+            testConfig.updateHealthProbe(probe);
+            testConfig.updateResources(resources);
+
+            DeploymentConfigResponse response = update(new UpdateDeploymentConfigRequest(
+                    3, 3, Map.of(), 8080, null));
+
+            assertThat(response.minReplicas()).isEqualTo(3);
+            assertThat(response.healthProbe()).isEqualTo(probe);
+            assertThat(response.resources()).isEqualTo(resources);
+        }
+
+        @Test
+        @DisplayName("성공: 빈 path는 probe를, 빈 자원 값은 자원 설정을 해제한다")
+        void blankValuesClearSettings() {
+            testConfig.updateHealthProbe(probe);
+            testConfig.updateResources(resources);
+
+            DeploymentConfigResponse response = update(request(
+                    new HealthProbe("", null, null, null, null, null),
+                    new ContainerResources("", " ", null, null)));
+
+            assertThat(response.healthProbe()).isNull();
+            assertThat(response.resources()).isNull();
+        }
+
+        @Test
+        @DisplayName("실패: request가 limit보다 크면 거절한다")
+        void rejectsRequestAboveLimit() {
+            assertThatThrownBy(() -> update(request(null, new ContainerResources("1", "500m", null, null))))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("cpu_request");
+            assertThatThrownBy(() -> update(request(null, new ContainerResources(null, null, "1Gi", "512Mi"))))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("memory_request");
+        }
+
+        @Test
+        @DisplayName("실패: 0인 자원 값은 거절한다")
+        void rejectsZeroQuantity() {
+            assertThatThrownBy(() -> update(request(null, new ContainerResources(null, "0m", null, null))))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("cpu_limit");
+        }
+
+        @Test
+        @DisplayName("성공: 단위가 달라도 수량으로 비교한다")
+        void comparesQuantitiesAcrossUnits() {
+            DeploymentConfigResponse response = update(request(null,
+                    new ContainerResources("250m", "0.5", "1000Mi", "1Gi")));
+
+            assertThat(response.resources().cpuLimit()).isEqualTo("0.5");
         }
     }
 }

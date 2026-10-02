@@ -3,7 +3,9 @@ package klepaas.backend.infra.kubernetes;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentConditionBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.service.RuntimeResourcePolicy;
@@ -210,6 +212,70 @@ class KubernetesManifestGeneratorTest {
     }
 
     @Test
+    @DisplayName("probe·자원 설정이 없는 기존 앱 manifest에는 probe와 resources가 없다")
+    void buildDeployment_omitsProbesAndResourcesWhenUnset() {
+        DeploymentConfig config = DeploymentConfig.builder().minReplicas(1).maxReplicas(1).containerPort(8080).build();
+        ReflectionTestUtils.setField(generator, "namespace", "klepaas");
+
+        var container = generator.buildDeployment("app", "img", config, Map.of())
+                .getSpec().getTemplate().getSpec().getContainers().get(0);
+
+        assertThat(container.getReadinessProbe()).isNull();
+        assertThat(container.getStartupProbe()).isNull();
+        assertThat(container.getLivenessProbe()).isNull();
+        assertThat(container.getResources()).isNull();
+    }
+
+    @Test
+    @DisplayName("probe·자원 설정은 readiness/startup probe와 requests/limits로 반영된다")
+    void buildDeployment_includesProbesAndResources() {
+        DeploymentConfig config = DeploymentConfig.builder()
+                .minReplicas(1)
+                .maxReplicas(1)
+                .containerPort(3000)
+                .healthProbe(new HealthProbe("/health", null, 5, 10, 3, 30))
+                .resources(new ContainerResources("100m", "500m", null, "256Mi"))
+                .build();
+        ReflectionTestUtils.setField(generator, "namespace", "klepaas");
+
+        var container = generator.buildDeployment("app", "img", config, Map.of())
+                .getSpec().getTemplate().getSpec().getContainers().get(0);
+
+        var readiness = container.getReadinessProbe();
+        assertThat(readiness.getHttpGet().getPath()).isEqualTo("/health");
+        assertThat(readiness.getHttpGet().getPort().getIntVal()).isEqualTo(3000);
+        assertThat(readiness.getInitialDelaySeconds()).isEqualTo(5);
+        assertThat(readiness.getPeriodSeconds()).isEqualTo(10);
+        assertThat(readiness.getFailureThreshold()).isEqualTo(3);
+        var startup = container.getStartupProbe();
+        assertThat(startup.getHttpGet().getPath()).isEqualTo("/health");
+        assertThat(startup.getFailureThreshold()).isEqualTo(30);
+        assertThat(container.getResources().getRequests()).containsOnlyKeys("cpu");
+        assertThat(container.getResources().getRequests().get("cpu").toString()).isEqualTo("100m");
+        assertThat(container.getResources().getLimits()).containsOnlyKeys("cpu", "memory");
+        assertThat(container.getResources().getLimits().get("memory").toString()).isEqualTo("256Mi");
+    }
+
+    @Test
+    @DisplayName("startup 실패 임계값이 없으면 startup probe를 만들지 않고, probe 포트를 따로 지정할 수 있다")
+    void buildDeployment_readinessOnlyWithExplicitPort() {
+        DeploymentConfig config = DeploymentConfig.builder()
+                .minReplicas(1)
+                .maxReplicas(1)
+                .containerPort(3000)
+                .healthProbe(new HealthProbe("/ready", 9090, null, null, null, null))
+                .build();
+        ReflectionTestUtils.setField(generator, "namespace", "klepaas");
+
+        var container = generator.buildDeployment("app", "img", config, Map.of())
+                .getSpec().getTemplate().getSpec().getContainers().get(0);
+
+        assertThat(container.getReadinessProbe().getHttpGet().getPort().getIntVal()).isEqualTo(9090);
+        assertThat(container.getReadinessProbe().getPeriodSeconds()).isNull();
+        assertThat(container.getStartupProbe()).isNull();
+    }
+
+    @Test
     @DisplayName("envFrom ConfigMap이 namespace에 없으면 명확한 배포 오류를 반환한다")
     void validateEnvFromRefs_failsWhenConfigMapIsMissing() {
         KubernetesManifestGenerator missingRefGenerator = new KubernetesManifestGenerator(Mockito.mock(KubernetesClient.class), new RuntimeResourcePolicy()) {
@@ -322,8 +388,44 @@ class KubernetesManifestGeneratorTest {
         assertThatThrownBy(() -> subject.deploy("owner-repo", "image", config, 7L))
                 .isInstanceOf(BusinessException.class);
         Mockito.verify(resource, Mockito.never()).serverSideApply();
+        Mockito.verify(resource, Mockito.never()).forceConflicts();
         Mockito.verify(client.services().inNamespace("klepaas"), Mockito.never())
                 .resource(Mockito.any(io.fabric8.kubernetes.api.model.Service.class));
+    }
+
+    @Test
+    @DisplayName("기존 Deployment 재배포는 관측한 resourceVersion으로 전체 교체해 설정에서 뺀 probe도 제거한다")
+    void redeployReplacesWholeDeploymentWithObservedVersion() {
+        KubernetesClient client = mockScopedClient();
+        var own = new DeploymentBuilder().withNewMetadata().withName("owner-repo")
+                .withResourceVersion("42").addToLabels("klepaas.io/repository-id", "7")
+                .endMetadata().build();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(own);
+        Mockito.when(client.services().inNamespace("klepaas").withName("owner-repo").get()).thenReturn(null);
+        Mockito.when(client.network().v1().ingresses().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(null);
+        var policy = new RuntimeResourcePolicy();
+        var allowed = new RuntimeResourcePolicy.AllowedReferences();
+        allowed.setImagePullSecrets(List.of("ncp-cr"));
+        policy.setRepositories(Map.of(7L, allowed));
+        var repo = SourceRepository.builder().owner("owner").repoName("repo").build();
+        ReflectionTestUtils.setField(repo, "id", 7L);
+        var config = DeploymentConfig.builder().sourceRepository(repo).minReplicas(1).domainUrl("").build();
+        var deployments = client.apps().deployments().inNamespace("klepaas");
+        var resource = deployments.resource(own);
+        Mockito.clearInvocations(deployments, resource);
+        var subject = new KubernetesManifestGenerator(client, policy);
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+        subject.deploy("owner-repo", "image:v2", config, 7L);
+
+        Mockito.verify(deployments).resource(Mockito.argThat(d -> "42".equals(d.getMetadata().getResourceVersion())
+                && d.getSpec().getTemplate().getSpec().getContainers().get(0).getReadinessProbe() == null));
+        Mockito.verify(resource).lockResourceVersion("42");
+        Mockito.verify(resource.lockResourceVersion("42")).replace();
+        Mockito.verify(resource, Mockito.never()).serverSideApply();
+        Mockito.verify(resource, Mockito.never()).create();
     }
 
     @Test

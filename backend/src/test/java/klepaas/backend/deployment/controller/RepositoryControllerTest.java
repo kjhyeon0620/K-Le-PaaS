@@ -9,6 +9,9 @@ import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.deployment.dto.CreateRepositoryRequest;
 import klepaas.backend.deployment.dto.DeploymentConfigResponse;
 import klepaas.backend.deployment.dto.RepositoryResponse;
+import klepaas.backend.deployment.dto.UpdateDeploymentConfigRequest;
+import klepaas.backend.deployment.entity.ContainerResources;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.service.RepositoryService;
 import klepaas.backend.user.entity.Role;
@@ -123,7 +126,7 @@ class RepositoryControllerTest {
     @DisplayName("GET /api/v1/repositories/{id}/config - 배포 설정 조회")
     void getDeploymentConfig() throws Exception {
         var config = new DeploymentConfigResponse(1L, 1L, 1, 3, Map.of(), List.of("runtime-config"),
-                List.of("app-env"), 8080, "repo.klepaas.io", null, null, null, null, null);
+                List.of("app-env"), 8080, "repo.klepaas.io", null, null, null, null, null, null, null);
         given(repositoryService.getDeploymentConfig(1L, 1L)).willReturn(config);
 
         mockMvc.perform(get("/api/v1/repositories/1/config")
@@ -140,7 +143,7 @@ class RepositoryControllerTest {
     void updateDeploymentConfig() throws Exception {
         var updatedConfig = new DeploymentConfigResponse(1L, 1L, 2, 5, Map.of("ENV", "prod"),
                 List.of("runtime-config"), List.of("app-env"), 3000, "custom.klepaas.io",
-                null, null, null, null, null);
+                null, null, null, null, null, null, null);
         given(repositoryService.updateDeploymentConfig(anyLong(), any(), eq(1L))).willReturn(updatedConfig);
 
         mockMvc.perform(put("/api/v1/repositories/1/config")
@@ -160,6 +163,42 @@ class RepositoryControllerTest {
                 .andExpect(jsonPath("$.data.container_port").value(3000))
                 .andExpect(jsonPath("$.data.env_from_config_maps[0]").value("runtime-config"))
                 .andExpect(jsonPath("$.data.env_from_secrets[0]").value("app-env"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/repositories/{id}/config - health_probe·resources를 snake_case로 받는다")
+    void updateDeploymentConfigReadsProbeAndResources() throws Exception {
+        mockMvc.perform(put("/api/v1/repositories/1/config")
+                        .with(user(testUser))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"min_replicas":1,"max_replicas":1,"container_port":8080,
+                                 "health_probe":{"path":"/health","initial_delay_seconds":5,"startup_failure_threshold":30},
+                                 "resources":{"cpu_request":"100m","memory_limit":"256Mi"}}
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<UpdateDeploymentConfigRequest> captor = ArgumentCaptor.forClass(UpdateDeploymentConfigRequest.class);
+        verify(repositoryService).updateDeploymentConfig(eq(1L), captor.capture(), eq(1L));
+        assertThat(captor.getValue().healthProbe()).isEqualTo(new HealthProbe("/health", null, 5, null, null, 30));
+        assertThat(captor.getValue().resources()).isEqualTo(new ContainerResources("100m", null, null, "256Mi"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/repositories/{id}/config - 잘못된 probe 경로·포트·주기와 자원 형식은 400")
+    void updateDeploymentConfigRejectsInvalidProbeAndResources() throws Exception {
+        for (String invalid : List.of(
+                "\"health_probe\":{\"path\":\"health\"}",
+                "\"health_probe\":{\"path\":\"/health\",\"port\":0}",
+                "\"health_probe\":{\"path\":\"/health\",\"period_seconds\":0}",
+                "\"resources\":{\"cpu_limit\":\"1core\"}",
+                "\"resources\":{\"memory_limit\":\"-1Mi\"}")) {
+            mockMvc.perform(put("/api/v1/repositories/1/config")
+                            .with(user(testUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"min_replicas\":1,\"max_replicas\":1,\"container_port\":8080," + invalid + "}"))
+                    .andExpect(status().isBadRequest());
+        }
     }
 
     @Test

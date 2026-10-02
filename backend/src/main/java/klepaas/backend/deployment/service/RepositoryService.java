@@ -1,11 +1,14 @@
 package klepaas.backend.deployment.service;
 
+import io.fabric8.kubernetes.api.model.Quantity;
 import klepaas.backend.auth.config.GitHubAppConfig;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.CloudVendor;
+import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
@@ -26,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -166,10 +170,60 @@ public class RepositoryService {
                 envFromConfigMaps,
                 envFromSecrets
         );
+        if (request.healthProbe() != null) {
+            config.updateHealthProbe(normalizeHealthProbe(request.healthProbe()));
+        }
+        if (request.resources() != null) {
+            config.updateResources(normalizeResources(request.resources()));
+        }
         flushDeploymentConfigChanges();
 
         log.info("DeploymentConfig updated: repositoryId={}", repositoryId);
         return DeploymentConfigResponse.from(config);
+    }
+
+    private HealthProbe normalizeHealthProbe(HealthProbe probe) {
+        if (!StringUtils.hasText(probe.path())) {
+            return null;
+        }
+        return probe;
+    }
+
+    private ContainerResources normalizeResources(ContainerResources resources) {
+        String cpuRequest = blankToNull(resources.cpuRequest());
+        String cpuLimit = blankToNull(resources.cpuLimit());
+        String memoryRequest = blankToNull(resources.memoryRequest());
+        String memoryLimit = blankToNull(resources.memoryLimit());
+        requireRequestWithinLimit(cpuRequest, cpuLimit, "cpu");
+        requireRequestWithinLimit(memoryRequest, memoryLimit, "memory");
+        if (cpuRequest == null && cpuLimit == null && memoryRequest == null && memoryLimit == null) {
+            return null;
+        }
+        return new ContainerResources(cpuRequest, cpuLimit, memoryRequest, memoryLimit);
+    }
+
+    private void requireRequestWithinLimit(String request, String limit, String resource) {
+        BigDecimal requestAmount = positiveQuantity(request, resource + "_request");
+        BigDecimal limitAmount = positiveQuantity(limit, resource + "_limit");
+        if (requestAmount != null && limitAmount != null && requestAmount.compareTo(limitAmount) > 0) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST,
+                    resource + "_request는 " + resource + "_limit보다 클 수 없습니다");
+        }
+    }
+
+    private BigDecimal positiveQuantity(String value, String field) {
+        if (value == null) {
+            return null;
+        }
+        BigDecimal amount = Quantity.getAmountInBytes(new Quantity(value));
+        if (amount.signum() <= 0) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, field + "는 0보다 커야 합니다");
+        }
+        return amount;
+    }
+
+    private String blankToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private ServiceExposure resolveServiceExposure(DeploymentConfig config, UpdateDeploymentConfigRequest request) {

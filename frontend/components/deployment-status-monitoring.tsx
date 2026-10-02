@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,40 @@ interface DeploymentStatusMonitoringProps {
   onNavigateToPipelines?: () => void
 }
 
+const PROBE_FIELDS = [
+  ["path", "Health path", "/health"],
+  ["port", "Probe port", "container port"],
+  ["initial_delay_seconds", "Initial delay (s)", "0"],
+  ["period_seconds", "Period (s)", "10"],
+  ["failure_threshold", "Failure threshold", "3"],
+  ["startup_failure_threshold", "Startup failure threshold", "off"],
+] as const
+const RESOURCE_FIELDS = [
+  ["cpu_request", "CPU request", "100m"],
+  ["cpu_limit", "CPU limit", "500m"],
+  ["memory_request", "Memory request", "128Mi"],
+  ["memory_limit", "Memory limit", "256Mi"],
+] as const
+type RuntimeCheckField = (typeof PROBE_FIELDS)[number][0] | (typeof RESOURCE_FIELDS)[number][0]
+type RuntimeCheckInput = Record<RuntimeCheckField, string>
+
+function toRuntimeCheckInput(config: DeploymentConfigResponse | undefined): RuntimeCheckInput {
+  const values: Record<string, string | number | null | undefined> = {
+    ...config?.health_probe,
+    ...config?.resources,
+  }
+  const fields = [...PROBE_FIELDS, ...RESOURCE_FIELDS].map(([key]) => [key, String(values[key] ?? "")])
+  return Object.fromEntries(fields) as RuntimeCheckInput
+}
+
+function toNumberOrNull(value: string): number | null {
+  return value.trim() === "" ? null : Number(value)
+}
+
+function toTextOrNull(value: string): string | null {
+  return value.trim() === "" ? null : value.trim()
+}
+
 function parseEnvFromNames(value: string): string[] {
   const names = value
     .split(/[,\n]/)
@@ -112,6 +147,7 @@ export function DeploymentStatusMonitoring({
   const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, DeploymentConfigResponse>>({})
   const [envFromConfigMapsInput, setEnvFromConfigMapsInput] = useState("")
   const [envFromSecretsInput, setEnvFromSecretsInput] = useState("")
+  const [runtimeCheckInput, setRuntimeCheckInput] = useState<RuntimeCheckInput>(toRuntimeCheckInput(undefined))
   const [configSaving, setConfigSaving] = useState(false)
 
   // Dialog states for Rollback, Scale, Restart, Logs
@@ -178,6 +214,7 @@ export function DeploymentStatusMonitoring({
     const config = deploymentConfigs[selectedRepo.full_name]
     setEnvFromConfigMapsInput(config?.env_from_config_maps.join(", ") ?? "")
     setEnvFromSecretsInput(config?.env_from_secrets.join(", ") ?? "")
+    setRuntimeCheckInput(toRuntimeCheckInput(config))
   }, [deploymentConfigs, detailsOpen, selectedRepo])
 
   const getStatusBadge = (status: string | undefined) => {
@@ -264,6 +301,52 @@ export function DeploymentStatusMonitoring({
   const handleActionSuccess = () => {
     // Refresh repositories after successful action
     fetchRepositories()
+  }
+
+  const handleSaveProbeAndResources = async () => {
+    if (!selectedRepo) {
+      return
+    }
+
+    try {
+      setConfigSaving(true)
+      const input = runtimeCheckInput
+      const updatedConfig = await api.updateDeploymentProbeAndResources(
+        selectedRepo.owner,
+        selectedRepo.repo,
+        {
+          path: input.path.trim(),
+          port: toNumberOrNull(input.port),
+          initial_delay_seconds: toNumberOrNull(input.initial_delay_seconds),
+          period_seconds: toNumberOrNull(input.period_seconds),
+          failure_threshold: toNumberOrNull(input.failure_threshold),
+          startup_failure_threshold: toNumberOrNull(input.startup_failure_threshold),
+        },
+        {
+          cpu_request: toTextOrNull(input.cpu_request),
+          cpu_limit: toTextOrNull(input.cpu_limit),
+          memory_request: toTextOrNull(input.memory_request),
+          memory_limit: toTextOrNull(input.memory_limit),
+        }
+      )
+      setDeploymentConfigs((current) => ({
+        ...current,
+        [selectedRepo.full_name]: updatedConfig,
+      }))
+      toast({
+        title: "Health probe and resources saved",
+        description: "The settings apply on the next deployment.",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save health probe and resource settings."
+      toast({
+        title: "Save failed",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setConfigSaving(false)
+    }
   }
 
   const handleSaveRuntimeEnvFrom = async () => {
@@ -787,6 +870,43 @@ export function DeploymentStatusMonitoring({
                     <Button onClick={handleSaveRuntimeEnvFrom} disabled={configSaving}>
                       <Save className="mr-2 h-4 w-4" />
                       {configSaving ? "Saving..." : "Save runtime envFrom"}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Health probe &amp; resources</CardTitle>
+                    <CardDescription>
+                      An HTTP readiness probe keeps a deployment from succeeding until the app answers on this path.
+                      Leave the path empty for no probe and resource fields empty for no requests/limits.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {[PROBE_FIELDS, RESOURCE_FIELDS].map((fields, index) => (
+                      <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {fields.map(([key, label, placeholder]) => (
+                          <div key={key} className="space-y-1">
+                            <Label htmlFor={`runtime-check-${key}`}>{label}</Label>
+                            <Input
+                              id={`runtime-check-${key}`}
+                              value={runtimeCheckInput[key]}
+                              onChange={(event) =>
+                                setRuntimeCheckInput((current) => ({ ...current, [key]: event.target.value }))
+                              }
+                              placeholder={placeholder}
+                              className="font-mono text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      The startup probe uses the same path; it allows period × startup failure threshold seconds to boot.
+                    </p>
+                    <Button onClick={handleSaveProbeAndResources} disabled={configSaving}>
+                      <Save className="mr-2 h-4 w-4" />
+                      {configSaving ? "Saving..." : "Save probe & resources"}
                     </Button>
                   </CardContent>
                 </Card>

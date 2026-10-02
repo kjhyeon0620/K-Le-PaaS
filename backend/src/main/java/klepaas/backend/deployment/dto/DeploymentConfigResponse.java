@@ -1,7 +1,9 @@
 package klepaas.backend.deployment.dto;
 
 import klepaas.backend.deployment.entity.BuildStrategy;
+import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 
 import java.util.List;
@@ -21,12 +23,14 @@ public record DeploymentConfigResponse(
         String imageUriTemplate,
         String imagePullSecretName,
         KubernetesServiceType serviceType,
-        Integer nodePort
+        Integer nodePort,
+        HealthProbe healthProbe,
+        ContainerResources resources
 ) {
     public DeploymentConfigResponse(Long id, Long repositoryId, int minReplicas, int maxReplicas,
                                     Map<String, String> envVars, int containerPort, String domainUrl) {
         this(id, repositoryId, minReplicas, maxReplicas, envVars, List.of(), List.of(), containerPort, domainUrl,
-                BuildStrategy.KANIKO, null, null, KubernetesServiceType.CLUSTER_IP, null);
+                BuildStrategy.KANIKO, null, null, KubernetesServiceType.CLUSTER_IP, null, null, null);
     }
 
     public static DeploymentConfigResponse from(DeploymentConfig entity) {
@@ -44,7 +48,9 @@ public record DeploymentConfigResponse(
                 entity.getImageUriTemplate(),
                 entity.getImagePullSecretName(),
                 entity.getServiceType(),
-                entity.getNodePort()
+                entity.getNodePort(),
+                entity.getHealthProbe(),
+                entity.getResources()
         );
     }
 }
