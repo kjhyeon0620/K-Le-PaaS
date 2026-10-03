@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.service.DeploymentService;
+import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.global.dto.ApiResponse;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
@@ -25,15 +26,19 @@ import org.springframework.web.bind.annotation.*;
 public class DeploymentController {
 
     private final DeploymentService deploymentService;
+    private final ResourceAccessService resourceAccessService;
 
     @PostMapping("/deployments")
     public ResponseEntity<ApiResponse<DeploymentResponse>> createDeployment(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody CreateDeploymentRequest request) {
-        if (!userDetails.canDeployTo(request.repositoryId())) {
+        Long userId = userDetails.getUserId();
+        if (userDetails.isGitHubActions()) {
+            userId = resourceAccessService.requireGitHubActionsOwner(userDetails.getGitHubActions(), request);
+        } else if (!userDetails.canDeployTo(request.repositoryId())) {
             throw new BusinessException(ErrorCode.CLI_TOKEN_SCOPE_DENIED);
         }
-        CreateDeploymentResult result = deploymentService.createDeployment(request, userDetails.getUserId(), null);
+        CreateDeploymentResult result = deploymentService.createDeployment(request, userId, null);
         // 진행 중 배포와 같은 요청(재시도)이면 새로 만들지 않고 그 배포를 200으로 돌려준다
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.success(result.deployment()));

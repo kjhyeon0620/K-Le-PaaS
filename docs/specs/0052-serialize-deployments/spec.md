@@ -104,7 +104,7 @@ branch: fix/#52-serialize-deployments
 - `docs/architecture.md` (§3.2 흐름, §6 에러 코드, §9에서 #52 제거), `docs/ORACLE_K3S_GHCR_DEPLOYMENT.md` (CI 재시도와 409), `backend/README.md`, `docs/product.md`
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-03 PR #72 머지. main `Build and deploy`의 build·deploy 성공. 운영 백엔드는 `ddl-auto=validate`로 기동하므로 receiver readiness 통과로 운영 DB V5 적용을 확인했다.
 
 ## 회고
 - 어긋난 점: 스펙 범위 안에서 구현했다. 기존 권한 HTTP 테스트 2개가 진행 중(PENDING) 배포 fixture를 둔 채 같은 저장소에 배포를 요청하고 있어, 새 규칙에서 409가 됐다. 스펙 작성 중 실행 대기열 거절 시 배포가 PENDING으로 남는 기존 결함을 찾아 범위에 넣었다.

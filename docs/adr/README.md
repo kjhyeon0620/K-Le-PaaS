@@ -11,6 +11,7 @@
 | [0004](0004-flyway-forward-compatible-migrations.md) | Flyway와 이전 릴리스 호환 마이그레이션 | Accepted |
 | [0005](0005-platform-release-systemd-receiver.md) | 플랫폼 자체 배포는 systemd 릴리스와 SSH receiver | Accepted |
 | [0006](0006-resource-access-scope.md) | 리소스 접근은 namespace·저장소 라벨·운영자 허용 참조로 제한 | Accepted |
+| [0007](0007-github-actions-oidc.md) | GitHub Actions 배포는 OIDC 토큰으로 인증 | Accepted |
 
 ## 규칙
 

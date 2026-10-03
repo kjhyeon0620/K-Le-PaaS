@@ -30,6 +30,9 @@ public class SecurityConfig {
     private static final String READ_ONLY = CliTokenScope.READ_ONLY.authority();
     private static final String PROPOSE_ONLY = CliTokenScope.PROPOSE_ONLY.authority();
     private static final String DEPLOY = CliTokenScope.DEPLOY.authority();
+    private static final String GITHUB_ACTIONS = CustomUserDetails.GITHUB_ACTIONS_AUTHORITY;
+    // 사용자 계정이 있는 주체(Web JWT와 모든 CLI 토큰). GitHub Actions OIDC 주체는 제외한다
+    private static final String[] USER_SCOPES = {READ_ONLY, PROPOSE_ONLY, DEPLOY, FULL};
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -46,12 +49,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // sendError(401/403)의 /error 재디스패치는 필터 인증이 없으므로 원래 상태 코드를 유지하도록 허용
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers("/api/v1/auth/me").authenticated()
-                        .requestMatchers("/api/v1/auth/logout").authenticated()
+                        .requestMatchers("/api/v1/auth/me").hasAnyAuthority(USER_SCOPES)
+                        .requestMatchers("/api/v1/auth/logout").hasAnyAuthority(USER_SCOPES)
                         // CLI 로그인 승인은 토큰 발급과 같으므로 전체 권한만 허용한다(권한 상승 방지)
                         .requestMatchers("/api/v1/cli-auth/sessions/*/approve").hasAuthority(FULL)
                         .requestMatchers("/api/v1/cli-auth/sessions/*/reject").hasAuthority(FULL)
-                        .requestMatchers("/api/v1/users/me").authenticated()
+                        .requestMatchers("/api/v1/users/me").hasAnyAuthority(USER_SCOPES)
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/cli-auth/sessions/**").permitAll()
                         .requestMatchers("/api/v1/system/**").permitAll()
@@ -61,7 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // CLI 토큰 scope: 아래에 없는 변경(토큰 발급·폐기 포함)은 FULL만 허용
-                        .requestMatchers(HttpMethod.POST, "/api/v1/deployments").hasAnyAuthority(FULL, DEPLOY) // 저장소는 컨트롤러에서 확인
+                        .requestMatchers(HttpMethod.POST, "/api/v1/deployments").hasAnyAuthority(FULL, DEPLOY, GITHUB_ACTIONS) // 저장소는 컨트롤러에서 확인
                         .requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.POST, "/api/v1/cost/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.POST, "/api/v1/nlp/command").hasAnyAuthority(PROPOSE_ONLY, FULL)

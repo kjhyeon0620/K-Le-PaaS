@@ -16,7 +16,7 @@
 | 앱 소유자 | 저장소를 등록하고 설정을 바꾸고 배포 상태를 확인한다 | Web console (`/console`) |
 | 운영자 | 상태를 조회하고, 재시작·스케일·배포를 승인하고, 허용 참조를 관리한다 | Web, CLI, 서버 설정 |
 | AI agent | 조회하고, 변경을 **제안**한다. 실행은 사람이 승인한다 | CLI (`propose-only` 토큰), 자연어 API |
-| CI | 지정된 저장소의 이미지 배포를 요청한다 | `POST /api/v1/deployments` (저장소별 배포 전용 토큰, #65 이후 OIDC) |
+| CI | 지정된 저장소의 이미지 배포를 요청한다 | `POST /api/v1/deployments` (GitHub Actions는 OIDC 토큰, 그 밖의 CI는 저장소별 배포 전용 토큰) |
 
 ## 3. 성공 기준
 
@@ -58,8 +58,8 @@
 | 4 | #49 | CLI 토큰 scope 서버 강제 | 완료 (PR #63), 운영 V2 | - |
 | 5 | #50 | propose-only, 저장소별 CI 배포 토큰 | 완료 (PR #64), 운영 V3 | - |
 | 6 | #51 | 앱별 readiness/startup probe, requests/limits | 완료 (PR #71), 운영 V4 | [0051](specs/0051-app-probes-resources/spec.md) |
-| 7 | #52 | 동일 앱 배포 직렬화, 중복 접수 방지 | 구현·검증 완료 (운영 DB 사본 V5 통과), 머지 대기 | [0052](specs/0052-serialize-deployments/spec.md) |
-| 7-1 | #65 | GitHub Actions OIDC 기반 CI 배포 인증 | 미착수 | - |
+| 7 | #52 | 동일 앱 배포 직렬화, 중복 접수 방지 | 완료 (PR #72), 운영 V5 | [0052](specs/0052-serialize-deployments/spec.md) |
+| 7-1 | #65 | GitHub Actions OIDC 기반 CI 배포 인증 | 진행 중 | [0065](specs/0065-github-actions-oidc/spec.md) |
 | 8 | #53 | 요청 단위 rollout 판정 | 미착수 | - |
 | 9 | #54 | 배포 실패 원인, 배포 로그 API | 미착수 | - |
 | 10 | #55 | 두 번째 앱 배포·실패·복구 실증 | 미착수 | - |

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
+import klepaas.backend.auth.oidc.GitHubActionsTokenVerifier;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.deployment.dto.DeploymentResponse;
@@ -12,6 +13,7 @@ import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.dto.CreateDeploymentResult;
 import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.service.DeploymentService;
+import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.user.entity.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,13 +44,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(DeploymentController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, GitHubActionsTokenVerifier.class})
 class DeploymentControllerTest {
 
     private MockMvc mockMvc;
 
     @Autowired
     private WebApplicationContext context;
+
+    @MockitoBean
+    private ResourceAccessService resourceAccessService;
 
     @MockitoBean
     private DeploymentService deploymentService;

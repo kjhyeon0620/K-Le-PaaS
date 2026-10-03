@@ -56,6 +56,11 @@ github:
     app-slug: ${GITHUB_APP_SLUG}
   webhook:
     secret: ${GITHUB_WEBHOOK_SECRET:}
+  actions:
+    oidc:
+      # GitHub Actions OIDC 배포 인증 (#65). 워크플로가 요청하는 audience와 같아야 한다
+      audience: ${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}
+      allowed-refs: ${GITHUB_ACTIONS_OIDC_ALLOWED_REFS:refs/heads/main}
 
 cloud:
   ncp:
