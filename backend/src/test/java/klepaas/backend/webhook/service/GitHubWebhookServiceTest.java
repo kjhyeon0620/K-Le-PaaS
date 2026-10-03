@@ -79,9 +79,9 @@ class GitHubWebhookServiceTest {
                 .willReturn(Optional.of(repository));
         given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(config));
 
-        gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload));
+        gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload), null);
 
-        verify(deploymentService, never()).createDeployment(any(), any());
+        verify(deploymentService, never()).createDeployment(any(), any(), any());
     }
 
     @Test
@@ -103,9 +103,9 @@ class GitHubWebhookServiceTest {
                 .willReturn(Optional.of(repository));
         given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.empty());
 
-        gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload));
+        gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload), null);
 
-        verify(deploymentService, never()).createDeployment(any(), any());
+        verify(deploymentService, never()).createDeployment(any(), any(), any());
     }
 
     private SourceRepository repository(CloudVendor cloudVendor) {
@@ -137,14 +137,17 @@ class GitHubWebhookServiceTest {
                 .willReturn(Optional.of(repository));
         given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.empty());
 
-        org.assertj.core.api.Assertions.assertThat(gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload))).isTrue();
-        verify(deploymentService).createDeployment(any(), org.mockito.ArgumentMatchers.eq(7L));
+        org.assertj.core.api.Assertions.assertThat(gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload), "72d3162e-cc78-11e3-81ab-4c9367dc0958"))
+                .isEqualTo(GitHubWebhookService.PushResult.ACCEPTED);
+        verify(deploymentService).createDeployment(any(), org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq("72d3162e-cc78-11e3-81ab-4c9367dc0958"));
     }
 
     @Test
     void unsignedPushCannotResolveRepositoryOrDeploy() {
         ReflectionTestUtils.setField(gitHubWebhookService, "webhookSecret", "test-webhook-secret");
-        org.assertj.core.api.Assertions.assertThat(gitHubWebhookService.handleVerifiedPushEvent("{}", "sha256=00")).isFalse();
+        org.assertj.core.api.Assertions.assertThat(gitHubWebhookService.handleVerifiedPushEvent("{}", "sha256=00", null))
+                .isEqualTo(GitHubWebhookService.PushResult.UNAUTHORIZED);
         verifyNoInteractions(sourceRepositoryRepository, deploymentService);
     }
 

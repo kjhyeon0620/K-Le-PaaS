@@ -78,6 +78,17 @@ and `repository_id` in the body. Use a **deploy-only** CLI token for this secret
    for another repository return HTTP 403 (`CLI_005`), and every other API,
    including reads, is rejected.
 
+Only one deployment runs per repository. While one is in progress:
+
+- A retry of the same request (same `branch_name`, `commit_hash`, and `image_uri`)
+  returns the in-progress deployment with HTTP 200 instead of creating another one,
+  so CI retries are safe.
+- Any other request returns HTTP 409 (`DEPLOY_003`) with the in-progress deployment
+  ID in the message. Re-run the workflow after that deployment finishes.
+
+After a deployment finishes, the same request creates a new deployment (an
+intentional redeploy).
+
 To replace an existing full-access CI token: issue the deploy-only token, update
 the repository secret, re-run the workflow once to confirm the deployment is
 accepted, then revoke the old token in the same settings screen. Rotate the token

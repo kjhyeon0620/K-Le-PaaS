@@ -70,8 +70,11 @@ POST /api/v1/nlp/confirm
 
 ```text
 POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소만 허용)
+  → 저장소 행 잠금 후 진행 중 배포 확인 (webhook·자연어 DEPLOY/ROLLBACK도 같은 경로)
+       진행 중 배포와 같은 요청(branch·commit·image_uri) → 그 배포를 200으로 반환
+       다른 요청 → 409 DEPLOY_003 / 이미 배포를 만든 webhook delivery → 새 배포 없음
   → Deployment(PENDING) 저장
-  → 트랜잭션 커밋 후 비동기 파이프라인 시작
+  → 트랜잭션 커밋 후 비동기 파이프라인 시작 (실행 대기열이 가득 차면 FAILED)
   ├─ KANIKO (NCP)
   │    UPLOADING_SOURCE: GitHub ZIP 다운로드 → 재패키징 → NCP Object Storage
   │    BUILDING: Kaniko Job (initContainer가 소스 준비) → NCR {owner}-{repo}:{shortSha}
@@ -85,6 +88,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 
 - 빌드 경로 기본값: `NCP → KANIKO`, `ON_PREMISE → GITHUB_ACTIONS_GHCR` ([ADR-0001](adr/0001-external-image-build.md)).
 - 외부 이미지 경로의 저장소는 raw push webhook을 무시한다. 이미지 push가 끝난 뒤 CI가 배포 API를 호출한다.
+- "진행 중"은 `PENDING`~`DEPLOYING` 상태이면서 마지막 갱신 후 `빌드 타임아웃 + rollout 타임아웃 + 10분` 이내인 배포다. 재시작 등으로 그보다 오래 멈춘 배포는 새 배포를 막지 않고, 상태도 바꾸지 않는다(대조는 #57).
 - 생성하는 리소스에는 `klepaas.io/repository-id` 라벨을 붙이고, 조회와 변경도 이 라벨과 설정된 namespace 안으로 제한한다 ([ADR-0006](adr/0006-resource-access-scope.md)).
 
 ### 3.3 CLI 웹 로그인
@@ -135,7 +139,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | 영역 | 코드 예 |
 |---|---|
 | 공통 | `COMMON_001` 404, `COMMON_002` 409, `COMMON_003` 400, `COMMON_004` 500 |
-| 저장소·배포 | `REPO_001/002`, `DEPLOY_001/002` |
+| 저장소·배포 | `REPO_001/002`, `DEPLOY_001`~`DEPLOY_003` (`DEPLOY_003` 409: 같은 저장소 배포 진행 중) |
 | 인프라 | `INFRA_001`~`INFRA_006` (업로드, 빌드, 배포, NCP 실패) |
 | AI·명령 | `AI_001`~`AI_005` (`AI_005` 409: 명령을 승인할 수 없음) |
 | CLI | `CLI_001`~`CLI_006` (`CLI_005` 403: scope 밖 요청) |
@@ -189,7 +193,6 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 
 | 격차 | 영향 | 이슈 |
 |---|---|---|
-| 같은 앱의 동시 배포와 webhook·callback 중복 접수를 막지 않는다 | 배포가 겹치거나 중복 실행된다 | #52 |
 | rollout 판정이 요청 단위가 아니라 앱 이름 기준이다 | 다른 배포의 완료를 성공으로 기록할 수 있다 | #53 |
 | `GET /deployments/{id}/logs`가 placeholder 응답이다 | 실패 원인을 API에서 볼 수 없다 | #54 |
 | 승인한 뒤 실행 시점에 설정을 다시 조회한다 | 승인 대기 중에 바뀐 설정으로 실행될 수 있다 | #56 |

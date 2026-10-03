@@ -8,6 +8,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import klepaas.backend.deployment.entity.DeploymentStatus;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
@@ -23,6 +27,11 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
 
     @EntityGraph(attributePaths = {"sourceRepository"})
     Page<Deployment> findBySourceRepositoryUserId(Long userId, Pageable pageable);
+
+    Optional<Deployment> findByGithubDeliveryId(String githubDeliveryId);
+
+    Optional<Deployment> findFirstBySourceRepositoryIdAndStatusInAndUpdatedAtAfterOrderByIdDesc(
+            Long sourceRepositoryId, Collection<DeploymentStatus> statuses, LocalDateTime updatedAfter);
 
     @Query("SELECT s.user.id FROM Deployment d JOIN d.sourceRepository s WHERE d.id = :id")
     Optional<Long> findUserIdByDeploymentId(@Param("id") Long id);

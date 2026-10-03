@@ -191,8 +191,11 @@ class CliTokenScopeHttpTest {
         User owner = users.save(User.builder().name("ci").email("scope-ci@example.test").role(Role.USER).build());
         SourceRepository bound = repository(owner, "ci-bound");
         SourceRepository other = repository(owner, "ci-other");
-        Deployment existing = deployments.save(Deployment.builder().sourceRepository(bound)
-                .branchName("main").commitHash("abcdef0").build());
+        Deployment existing = Deployment.builder().sourceRepository(bound)
+                .branchName("main").commitHash("abcdef0").build();
+        // 끝난 배포로 둔다. 진행 중이면 같은 저장소의 새 배포 요청이 409가 된다 (#52)
+        existing.completeSuccess();
+        existing = deployments.save(existing);
         String ci = cliTokens.createToken(owner.getId(),
                 new CreateCliAccessTokenRequest("ci", 1, CliTokenScope.DEPLOY, bound.getId())).token();
         RuntimeResourcePolicy.AllowedReferences allowed = new RuntimeResourcePolicy.AllowedReferences();
