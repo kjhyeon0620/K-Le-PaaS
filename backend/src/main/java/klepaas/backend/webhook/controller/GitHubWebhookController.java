@@ -19,6 +19,7 @@ public class GitHubWebhookController {
     public ResponseEntity<Void> handleGitHubWebhook(
             @RequestHeader(value = "X-GitHub-Event", required = false) String event,
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
+            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestBody String payload) {
 
         if (!"push".equals(event)) {
@@ -26,11 +27,13 @@ public class GitHubWebhookController {
                     ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        if (!webhookService.handleVerifiedPushEvent(payload, signature)) {
-            log.warn("GitHub Webhook 서명 검증 실패");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        return ResponseEntity.ok().build();
+        return switch (webhookService.handleVerifiedPushEvent(payload, signature, deliveryId)) {
+            case UNAUTHORIZED -> {
+                log.warn("GitHub Webhook 서명 검증 실패");
+                yield ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            case CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT).build();
+            case ACCEPTED -> ResponseEntity.ok().build();
+        };
     }
 }

@@ -36,6 +36,10 @@ public class Deployment extends BaseTimeEntity {
     private String externalBuildId;
     private String imageUri;
 
+    // 이 배포를 만든 GitHub webhook delivery. 재전송된 push가 다시 배포하지 않게 unique로 둔다
+    @Column(length = 64, unique = true)
+    private String githubDeliveryId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeploymentStatus status;
@@ -77,6 +81,10 @@ public class Deployment extends BaseTimeEntity {
     public void markAsBuilding(String externalBuildId) {
         this.externalBuildId = externalBuildId;
         this.status = DeploymentStatus.BUILDING;
+    }
+
+    public void setGithubDeliveryId(String githubDeliveryId) {
+        this.githubDeliveryId = githubDeliveryId;
     }
 
     public void setImageUri(String imageUri) {

@@ -100,6 +100,8 @@ POST /api/v1/deployments/{id}/scale
 POST /api/v1/deployments/{id}/restart
 ```
 
+`POST /api/v1/deployments`는 같은 저장소에 진행 중인 배포가 있으면 409(`DEPLOY_003`)를 반환합니다. 진행 중 배포와 같은 요청(branch·commit·image_uri)을 다시 보내면 새로 만들지 않고 그 배포를 200으로 반환합니다.
+
 `/api/v1/deployments/{id}/logs`는 현재 endpoint만 있고 실제 Kaniko/app pod log streaming은 아직 일부 구현 상태입니다.
 
 ### 자연어 명령
@@ -163,7 +165,7 @@ Deployment 생성
 | CLI token / web login | 구현 MVP | CLI token과 browser approval flow 존재 |
 | Cost guardrails | 구현 MVP | spec 기반 추정과 budget check 존재 |
 | Slack / WebSocket | 구현 MVP | 운영 환경 설정과 frontend 정합성 확인 필요 |
-| GitHub webhook | 구현 MVP | global secret 기반 push auto deploy |
+| GitHub webhook | 구현 MVP | global secret 기반 push auto deploy, `X-GitHub-Delivery` 중복 제거, 진행 중 배포와 충돌 시 409 |
 | Scaling history | 구현 MVP | scale 이력 저장/조회 존재 |
 | Deployment logs | 일부 구현 | placeholder 응답, 실제 log 조회 필요 |
 | Monitoring metrics | 예정 | backend metrics API 없음 |

@@ -64,7 +64,8 @@ branch: feat/#51-app-probes-resources
 | 운영 DB 사본(V3)에 V4 적용 후 validate 기동 | 패키징 JAR | 운영 DB 사본 | 통과 (2026-10-02, readiness `UP`, V4 1건 적용, 사본 삭제) |
 
 ## 운영 반영
-- 머지 후 배포 workflow와 운영 DB V4 적용 결과를 여기에 요약한다.
+- 2026-10-02 PR #71 머지. main `Build and deploy`의 build·deploy 성공. 운영 백엔드는 `ddl-auto=validate`로 기동하므로 receiver readiness 통과로 운영 DB V4 적용을 확인했다.
+- 기존 앱(IoT) 재배포에서 Deployment 전체 교체 동작은 아직 확인하지 않았다. 다음 IoT 배포 때 확인한다.
 
 ## 회고
 - 어긋난 점: 이슈에 없던 재배포 409 결함을 실제 k3s 검증에서 처음 발견했다. 단위 테스트(mock client)로는 field manager 충돌이 드러나지 않았다.

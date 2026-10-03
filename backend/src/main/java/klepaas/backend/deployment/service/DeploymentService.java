@@ -2,6 +2,7 @@ package klepaas.backend.deployment.service;
 
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.Deployment;
+import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.entity.ScalingHistory;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
@@ -14,14 +15,21 @@ import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -38,10 +46,50 @@ public class DeploymentService {
     private final KubernetesManifestGenerator k8sGenerator;
     private final ResourceAccessService resourceAccessService;
     private final RuntimeResourcePolicy runtimeResourcePolicy;
+    private final DeploymentPipelineStepService pipelineStepService;
+
+    private static final List<DeploymentStatus> IN_PROGRESS_STATUSES = List.of(
+            DeploymentStatus.PENDING, DeploymentStatus.UPLOADING_SOURCE,
+            DeploymentStatus.BUILDING, DeploymentStatus.DEPLOYING);
+
+    @Value("${deployment.pipeline.build-timeout:1800000}")
+    private long buildTimeoutMs;
+
+    @Value("${kubernetes.rollout.timeout-ms:120000}")
+    private long rolloutTimeoutMs;
 
     @Transactional
     public DeploymentResponse createDeployment(CreateDeploymentRequest request, Long userId) {
+        return createDeployment(request, userId, null).deployment();
+    }
+
+    /**
+     * 같은 저장소의 배포는 하나씩만 진행한다. 진행 중 배포와 같은 요청(재시도)이면 그 배포를,
+     * 이미 배포를 만든 webhook delivery면 그 배포를 돌려주고, 다른 요청이면 DEPLOYMENT_IN_PROGRESS로 거절한다.
+     */
+    @Transactional
+    public CreateDeploymentResult createDeployment(CreateDeploymentRequest request, Long userId,
+                                                   String githubDeliveryId) {
         SourceRepository repository = resourceAccessService.requireRepository(request.repositoryId(), userId);
+        sourceRepositoryRepository.findByIdForUpdate(repository.getId());
+
+        if (githubDeliveryId != null) {
+            Optional<Deployment> delivered = deploymentRepository.findByGithubDeliveryId(githubDeliveryId);
+            if (delivered.isPresent()) {
+                return new CreateDeploymentResult(DeploymentResponse.from(delivered.get()), false);
+            }
+        }
+        String imageUri = StringUtils.hasText(request.imageUri()) ? request.imageUri() : null;
+        Optional<Deployment> inProgress = findInProgress(repository.getId());
+        if (inProgress.isPresent()) {
+            Deployment active = inProgress.get();
+            if (isSameRequest(active, request, imageUri)) {
+                return new CreateDeploymentResult(DeploymentResponse.from(active), false);
+            }
+            throw new BusinessException(ErrorCode.DEPLOYMENT_IN_PROGRESS,
+                    "같은 저장소의 배포가 진행 중입니다: deployment_id=" + active.getId());
+        }
+
         deploymentConfigRepository.findBySourceRepositoryId(repository.getId())
                 .ifPresent(config -> runtimeResourcePolicy.validateReferences(repository, config));
 
@@ -50,9 +98,10 @@ public class DeploymentService {
                 .branchName(request.branchName())
                 .commitHash(request.commitHash())
                 .build();
-        if (request.imageUri() != null && !request.imageUri().isBlank()) {
-            deployment.setImageUri(request.imageUri());
+        if (imageUri != null) {
+            deployment.setImageUri(imageUri);
         }
+        deployment.setGithubDeliveryId(githubDeliveryId);
         deploymentRepository.save(deployment);
 
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),
@@ -62,11 +111,32 @@ public class DeploymentService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                pipelineService.executePipeline(deploymentId);
+                try {
+                    pipelineService.executePipeline(deploymentId);
+                } catch (TaskRejectedException e) {
+                    // 실행되지 않은 배포가 PENDING으로 남아 저장소를 막지 않게 한다
+                    log.error("Deployment pipeline rejected: deploymentId={}", deploymentId, e);
+                    pipelineStepService.markFailed(deploymentId, "배포 실행 대기열이 가득 찼습니다");
+                }
             }
         });
 
-        return DeploymentResponse.from(deployment);
+        return new CreateDeploymentResult(DeploymentResponse.from(deployment), true);
+    }
+
+    // 마지막 갱신 후 파이프라인 최대 시간(빌드 + rollout + 여유)이 지난 미완료 배포는 재시작 등으로 멈춘 것으로 보고
+    // 막지 않는다. 상태는 바꾸지 않는다 (대조는 #57).
+    private Optional<Deployment> findInProgress(Long repositoryId) {
+        Duration window = Duration.ofMillis(buildTimeoutMs + rolloutTimeoutMs).plusMinutes(10);
+        return deploymentRepository.findFirstBySourceRepositoryIdAndStatusInAndUpdatedAtAfterOrderByIdDesc(
+                repositoryId, IN_PROGRESS_STATUSES, LocalDateTime.now().minus(window));
+    }
+
+    // image_uri가 없는 요청(webhook, 콘솔)은 branch·commit만 비교한다. 진행 중 배포의 image_uri는 빌드 후에 채워진다
+    private boolean isSameRequest(Deployment active, CreateDeploymentRequest request, String imageUri) {
+        return Objects.equals(active.getBranchName(), request.branchName())
+                && Objects.equals(active.getCommitHash(), request.commitHash())
+                && (imageUri == null || imageUri.equals(active.getImageUri()));
     }
 
     public Page<DeploymentResponse> getDeployments(Long repositoryId, Pageable pageable, Long userId) {

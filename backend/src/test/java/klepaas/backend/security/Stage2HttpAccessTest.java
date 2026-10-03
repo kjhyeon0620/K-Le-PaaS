@@ -106,8 +106,11 @@ class Stage2HttpAccessTest {
                 .repoName("service").gitUrl("https://example.test/a/service.git").cloudVendor(CloudVendor.NCP).build());
         configs.save(DeploymentConfig.builder().sourceRepository(repo).minReplicas(1).maxReplicas(2)
                 .containerPort(8080).domainUrl("a-stage2.example.test").build());
-        Deployment deployment = deployments.save(Deployment.builder().sourceRepository(repo).branchName("main")
-                .commitHash("abcdef0").build());
+        Deployment deployment = Deployment.builder().sourceRepository(repo).branchName("main")
+                .commitHash("abcdef0").build();
+        // 끝난 배포로 둔다. 진행 중이면 같은 저장소의 새 배포 요청이 409가 된다 (#52)
+        deployment.completeSuccess();
+        deployment = deployments.save(deployment);
 
         RuntimeResourcePolicy.AllowedReferences allowed = new RuntimeResourcePolicy.AllowedReferences();
         allowed.setConfigMaps(List.of("runtime"));

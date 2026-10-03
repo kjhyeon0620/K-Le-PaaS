@@ -9,6 +9,7 @@ import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.deployment.dto.DeploymentResponse;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
+import klepaas.backend.deployment.dto.CreateDeploymentResult;
 import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.user.entity.Role;
@@ -30,6 +31,7 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -78,7 +80,8 @@ class DeploymentControllerTest {
                 DeploymentStatus.PENDING, null,
                 LocalDateTime.now(), null, LocalDateTime.now());
 
-        given(deploymentService.createDeployment(any(), eq(1L))).willReturn(response);
+        given(deploymentService.createDeployment(any(), eq(1L), isNull()))
+                .willReturn(new CreateDeploymentResult(response, true));
 
         mockMvc.perform(post("/api/v1/deployments")
                         .with(user(testUser))
@@ -94,7 +97,7 @@ class DeploymentControllerTest {
                 .andExpect(jsonPath("$.data.image_uri").value(imageUri));
 
         ArgumentCaptor<CreateDeploymentRequest> requestCaptor = ArgumentCaptor.forClass(CreateDeploymentRequest.class);
-        verify(deploymentService).createDeployment(requestCaptor.capture(), eq(1L));
+        verify(deploymentService).createDeployment(requestCaptor.capture(), eq(1L), isNull());
         org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().imageUri()).isEqualTo(imageUri);
     }
 

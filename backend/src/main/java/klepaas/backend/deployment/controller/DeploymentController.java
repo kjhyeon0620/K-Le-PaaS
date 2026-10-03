@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,14 +27,16 @@ public class DeploymentController {
     private final DeploymentService deploymentService;
 
     @PostMapping("/deployments")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<DeploymentResponse> createDeployment(
+    public ResponseEntity<ApiResponse<DeploymentResponse>> createDeployment(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody CreateDeploymentRequest request) {
         if (!userDetails.canDeployTo(request.repositoryId())) {
             throw new BusinessException(ErrorCode.CLI_TOKEN_SCOPE_DENIED);
         }
-        return ApiResponse.success(deploymentService.createDeployment(request, userDetails.getUserId()));
+        CreateDeploymentResult result = deploymentService.createDeployment(request, userDetails.getUserId(), null);
+        // 진행 중 배포와 같은 요청(재시도)이면 새로 만들지 않고 그 배포를 200으로 돌려준다
+        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(ApiResponse.success(result.deployment()));
     }
 
     @GetMapping("/deployments")
