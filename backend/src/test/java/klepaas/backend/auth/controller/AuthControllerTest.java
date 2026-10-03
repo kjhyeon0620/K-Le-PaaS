@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import klepaas.backend.auth.config.SecurityConfig;
 import klepaas.backend.auth.dto.TokenResponse;
 import klepaas.backend.auth.jwt.JwtAuthenticationFilter;
+import klepaas.backend.auth.oidc.GitHubActionsTokenVerifier;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.auth.service.AuthService;
@@ -32,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, GitHubActionsTokenVerifier.class})
 class AuthControllerTest {
 
     private MockMvc mockMvc;

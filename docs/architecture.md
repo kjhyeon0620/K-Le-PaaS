@@ -113,6 +113,13 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 - 규칙은 `SecurityConfig`에서 강제한다. 요청 본문의 저장소 일치 여부만 `DeploymentController`에서 확인한다.
 - 범위를 벗어나면 403 `CLI_005`
 
+### 4.2 GitHub Actions OIDC ([ADR-0007](adr/0007-github-actions-oidc.md))
+
+- GitHub Actions 워크플로는 실행마다 발급받은 OIDC 토큰으로 `POST /deployments`를 호출한다. 저장 토큰이 필요 없다.
+- `JwtAuthenticationFilter`가 Web JWT, CLI 토큰 다음으로 OIDC 토큰을 검증한다: GitHub JWKS 서명, `iss`, `aud`, `exp`, 허용 `ref`. 실패하면 401.
+- 인증 주체에는 사용자가 없고 `SCOPE_GITHUB_ACTIONS` 권한만 있다. `POST /deployments` 외 API는 403.
+- `ResourceAccessService.requireGitHubActionsOwner`가 요청 `repository_id`의 등록 저장소 `owner/repo`·`branch_name`·`commit_hash`를 토큰 `repository`·`ref`·`sha`와 대조하고, 맞으면 그 저장소 소유자로 배포를 만든다. 다르거나 저장소가 없으면 403 `CLI_005`.
+
 ### 4.2 리소스 접근 ([ADR-0006](adr/0006-resource-access-scope.md), [STAGE2_RESOURCE_ACCESS.md](STAGE2_RESOURCE_ACCESS.md))
 
 - 사용자는 본인 저장소와, 그 저장소 라벨이 붙은 설정 namespace 안의 Kubernetes 리소스만 조회하고 변경할 수 있다.
@@ -170,6 +177,8 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | `deployment.pipeline.poll-initial-interval` / `poll-max-interval` / `build-timeout` | 10s / 60s / 30m | 빌드 상태 polling |
 | `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | 자연어 해석 모델 |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
+| `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |
+| `github.actions.oidc.allowed-refs` | `${GITHUB_ACTIONS_OIDC_ALLOWED_REFS:refs/heads/main}` | OIDC 배포를 허용할 ref (쉼표 구분) |
 | `app.base-url`, `cors.allowed-origins` | localhost | Web console 주소 |
 
 비밀값(`JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`, `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
@@ -200,6 +209,5 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | 콘솔이 설정 조회에 실패하면 기본값으로 저장할 수 있다 | 기존 설정을 덮어쓴다 | #66 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면이 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 | #59 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
-| CI 배포 토큰이 저장소별 장기 Secret이다 | 수동 재발급, 유출 위험 | #65 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |

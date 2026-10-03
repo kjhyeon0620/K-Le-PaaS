@@ -65,18 +65,75 @@ Raw GitHub push webhooks are ignored for repositories configured with
 `GITHUB_ACTIONS_GHCR` or `PREBUILT_IMAGE`. They remain valid for the existing
 `KANIKO` path.
 
-## CI Deployment Token
+## CI Deployment Authentication
 
 The workflow calls `POST /api/v1/deployments` with `Authorization: Bearer <token>`
-and `repository_id` in the body. Use a **deploy-only** CLI token for this secret:
+and `repository_id` in the body.
+
+### GitHub Actions (OIDC, recommended)
+
+GitHub Actions workflows do not need a stored K-Le-PaaS token. The workflow asks
+GitHub for a short-lived OIDC token for each run and sends it as the bearer token.
+K-Le-PaaS verifies the GitHub signature, issuer, audience, expiry, and branch, then
+accepts the deployment only when:
+
+- the registered repository for `repository_id` is the same `owner/repo` as the
+  token's `repository` claim,
+- `branch_name` is the branch of the token's `ref` (only `refs/heads/main` is
+  allowed by default), and
+- `commit_hash` matches the token's `sha` (a prefix is allowed).
+
+An invalid, expired, or wrong-audience token, or a token from another branch, gets
+HTTP 401. A token that does not match the request gets HTTP 403 (`CLI_005`). The
+token can only create deployments; every other API returns 403.
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+  id-token: write   # lets the job request an OIDC token
+
+# ... build and push the image, then:
+      - name: Trigger K-Le-PaaS deployment
+        env:
+          KLEPAAS_DEPLOY_URL: ${{ vars.KLEPAAS_DEPLOY_URL }}       # https://<host>/api/v1/deployments
+          KLEPAAS_REPOSITORY_ID: ${{ vars.KLEPAAS_REPOSITORY_ID }}
+          IMAGE_URI: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        run: |
+          OIDC_TOKEN=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=k-le-paas" | jq -r .value)
+          echo "::add-mask::$OIDC_TOKEN"
+          curl --fail-with-body -X POST "$KLEPAAS_DEPLOY_URL" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"repository_id\": ${KLEPAAS_REPOSITORY_ID}, \"branch_name\": \"${GITHUB_REF_NAME}\",
+                 \"commit_hash\": \"${GITHUB_SHA}\", \"image_uri\": \"${IMAGE_URI}\"}"
+```
+
+The deploy URL and repository ID are not secrets; store them as repository
+variables (or secrets). The audience must match the server setting
+`github.actions.oidc.audience` (`GITHUB_ACTIONS_OIDC_AUDIENCE`, default `k-le-paas`).
+Operators can allow more branches with `github.actions.oidc.allowed-refs`
+(`GITHUB_ACTIONS_OIDC_ALLOWED_REFS`, comma-separated full refs).
+
+To move a workflow from a stored token to OIDC: add `id-token: write`, switch the
+deploy step to the OIDC token, run the workflow once to confirm the deployment is
+accepted, then delete the `KLEPAAS_TOKEN` secret and revoke that token in
+`Settings > CLI Tokens`.
+
+### Other CI systems (deploy-only token)
+
+For CI systems other than GitHub Actions, use a **deploy-only** CLI token:
 
 1. In the web console, open `Settings > CLI Tokens`, choose `배포 전용`, select the
    target repository, and issue the token.
-2. Store it as the repository secret (for example `KLEPAAS_TOKEN`) together with
-   the matching `KLEPAAS_REPOSITORY_ID`.
+2. Store it as a CI secret (for example `KLEPAAS_TOKEN`) together with the matching
+   `KLEPAAS_REPOSITORY_ID`.
 3. A deploy-only token can create deployments only for that repository. Requests
    for another repository return HTTP 403 (`CLI_005`), and every other API,
-   including reads, is rejected.
+   including reads, is rejected. Rotate the token before its expiry date.
+
+### Concurrent and repeated requests
 
 Only one deployment runs per repository. While one is in progress:
 
@@ -88,17 +145,6 @@ Only one deployment runs per repository. While one is in progress:
 
 After a deployment finishes, the same request creates a new deployment (an
 intentional redeploy).
-
-To replace an existing full-access CI token: issue the deploy-only token, update
-the repository secret, re-run the workflow once to confirm the deployment is
-accepted, then revoke the old token in the same settings screen. Rotate the token
-before its expiry date.
-
-GitHub Actions OIDC authentication is planned in
-[#65](https://github.com/kjhyeon0620/K-Le-PaaS/issues/65). It will accept the
-short-lived identity token GitHub issues to each workflow run, so repositories will
-no longer need a stored K-Le-PaaS token or manual rotation. Deploy-only tokens will
-remain for CI systems other than GitHub Actions.
 
 ## Service Exposure
 

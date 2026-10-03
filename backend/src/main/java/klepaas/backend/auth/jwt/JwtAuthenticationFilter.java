@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import klepaas.backend.auth.config.CustomUserDetails;
+import klepaas.backend.auth.oidc.GitHubActionsIdentity;
+import klepaas.backend.auth.oidc.GitHubActionsTokenVerifier;
 import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.user.entity.Role;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CliAccessTokenService cliAccessTokenService;
+    private final GitHubActionsTokenVerifier gitHubActionsTokenVerifier;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -63,7 +66,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return cliAccessTokenService.authenticate(token);
         } catch (Exception e) {
             log.debug("Token authentication failed: {}", e.getMessage());
-            return null;
         }
+
+        // CLI 토큰은 JWT 형식이 아니므로, JWT 형식일 때만 GitHub Actions OIDC 토큰으로 검증한다
+        if (token.chars().filter(c -> c == '.').count() == 2) {
+            GitHubActionsIdentity identity = gitHubActionsTokenVerifier.verify(token);
+            if (identity != null) {
+                return CustomUserDetails.gitHubActions(identity);
+            }
+        }
+        return null;
     }
 }
