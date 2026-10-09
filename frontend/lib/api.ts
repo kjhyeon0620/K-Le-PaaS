@@ -390,13 +390,24 @@ class ApiClient {
     return { connected: false }
   }
 
-  async getRepositoriesLatestDeployments(): Promise<{ repositories: any[] }> {
-    try {
-      const data = await this.request<any[]>('/api/v1/repositories')
-      return { repositories: data || [] }
-    } catch {
-      return { repositories: [] }
-    }
+  // 등록 저장소와 저장소별 최신 배포 1건. 조회 실패는 빈 목록이 아니라 오류로 전달한다.
+  async getRepositoriesLatestDeployments(): Promise<{ repositories: RepositoryWorkload[] }> {
+    const repos = await this.request<any[]>('/api/v1/repositories')
+    const repositories = await Promise.all(
+      (repos || []).map(async (r: any): Promise<RepositoryWorkload> => {
+        const page = await this.request<{ content?: DeploymentSummary[] }>(
+          `/api/v1/deployments?repositoryId=${r.id}&size=1`
+        )
+        return {
+          id: r.id,
+          owner: r.owner,
+          repo: r.repo_name,
+          full_name: `${r.owner}/${r.repo_name}`,
+          latest_deployment: page?.content?.[0] ?? null,
+        }
+      })
+    )
+    return { repositories }
   }
 
   // ─── Deployment logs/pods (not fully in Java backend) ────────────────────
@@ -595,30 +606,27 @@ class ApiClient {
 
   // ─── Deployment Config → /api/v1/repositories/{id}/config ────────────────
 
+  // 조회 실패를 기본값으로 바꾸지 않는다. 기본값으로 PUT하면 기존 설정을 덮어쓴다 (#66).
   async getDeploymentConfig(owner: string, repo: string): Promise<DeploymentConfigResponse> {
-    try {
-      const repos = await this.request<any[]>('/api/v1/repositories')
-      const targetRepo = (repos || []).find(
-        (r: any) => r.owner === owner && r.repo_name === repo
-      )
-      if (!targetRepo) throw new Error('Repository not found')
-      const config = await this.request<DeploymentConfigResponse>(
-        `/api/v1/repositories/${targetRepo.id}/config`
-      )
-      return normalizeDeploymentConfigResponse(owner, repo, config)
-    } catch {
-      return normalizeDeploymentConfigResponse(owner, repo, {
-        owner,
-        repo,
-        min_replicas: 1,
-        max_replicas: 1,
-        env_vars: {},
-        env_from_config_maps: [],
-        env_from_secrets: [],
-        container_port: 8080,
-        domain_url: null,
-      })
-    }
+    const repos = await this.request<any[]>('/api/v1/repositories')
+    const targetRepo = (repos || []).find(
+      (r: any) => r.owner === owner && r.repo_name === repo
+    )
+    if (!targetRepo) throw new Error('Repository not found')
+    const config = await this.request<DeploymentConfigResponse>(
+      `/api/v1/repositories/${targetRepo.id}/config`
+    )
+    return normalizeDeploymentConfigResponse(owner, repo, config)
+  }
+
+  // 빌드·이미지·서비스 설정. 보내지 않은 항목(replica, envFrom, probe 등)은 현재 값을 유지한다.
+  async updateDeploymentBuildAndService(
+    owner: string,
+    repo: string,
+    settings: Pick<DeploymentConfigResponse,
+      'build_strategy' | 'image_uri_template' | 'image_pull_secret_name' | 'service_type' | 'node_port' | 'container_port' | 'domain_url'>
+  ): Promise<DeploymentConfigResponse> {
+    return this.putDeploymentConfig(owner, repo, settings)
   }
 
   async updateDeploymentConfig(owner: string, repo: string, replicaCount: number): Promise<any> {
@@ -805,6 +813,32 @@ export interface RollbackListResponse {
     rollback_from_id: number | null
   }>
   total_rollbacks: number
+}
+
+export type DeploymentStatus =
+  | 'PENDING' | 'UPLOADING_SOURCE' | 'BUILDING' | 'DEPLOYING' | 'SUCCESS' | 'FAILED' | 'CANCELED'
+
+// GET /api/v1/deployments 응답 항목 (DeploymentResponse)
+export interface DeploymentSummary {
+  id: number
+  repository_id: number
+  repository_name: string
+  branch_name: string
+  commit_hash: string
+  image_uri: string | null
+  status: DeploymentStatus
+  fail_reason: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+export interface RepositoryWorkload {
+  id: number
+  owner: string
+  repo: string
+  full_name: string
+  latest_deployment: DeploymentSummary | null
 }
 
 export interface DeploymentConfigResponse {
