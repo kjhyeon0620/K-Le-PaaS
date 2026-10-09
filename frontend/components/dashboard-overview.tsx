@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye, Zap, GitPullRequest, Settings } from "lucide-react"
-import { apiClient, api } from "@/lib/api"
+import { apiClient, api, type RepositoryWorkload } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
 import { formatImageDisplay } from "@/lib/utils/image-formatter"
@@ -46,39 +46,6 @@ interface DashboardData {
   pullRequests: PullRequest[]
 }
 
-interface RepositoryWorkload {
-  owner: string
-  repo: string
-  full_name: string
-  branch: string
-  latest_deployment: {
-    id: number
-    status: "running" | "success" | "failed"
-    image: {
-      tag: string
-    }
-    commit: {
-      short_sha: string
-    }
-    cluster: {
-      replicas: {
-        desired: number
-        ready: number
-      }
-      resources: {
-        cpu: number
-        memory: number
-      }
-    }
-    timing: {
-      started_at: string
-      completed_at: string | null
-      total_duration: number | null
-    }
-  } | null
-  auto_deploy_enabled: boolean
-}
-
 interface DashboardOverviewProps {
   onNavigateToDeployments?: () => void
   onNavigateToChat?: (commandId: number) => void
@@ -92,7 +59,6 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
-  const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
   const [loadError, setLoadError] = useState(false)
   // null = 수집된 값 없음. 0%로 표시하지 않는다.
   const [cpuUsage, setCpuUsage] = useState<number | null>(null)
@@ -114,20 +80,6 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
           const repoResponse = await api.getRepositoriesLatestDeployments()
           const repos = repoResponse.repositories?.slice(0, 4) || []
           setRepositories(repos)
-
-          // Fetch deployment configs for each repository
-          const configs: Record<string, { replica_count: number }> = {}
-          await Promise.all(
-            repos.map(async (repo) => {
-              try {
-                const config = await api.getDeploymentConfig(repo.owner, repo.repo)
-                configs[repo.full_name] = { replica_count: config.replica_count }
-              } catch (error) {
-                console.error(`Failed to fetch config for ${repo.full_name}:`, error)
-              }
-            })
-          )
-          setDeploymentConfigs(configs)
         } catch (repoError) {
           console.error('Failed to fetch repositories:', repoError)
           setRepositories([])
@@ -459,22 +411,26 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                     return <Badge variant="outline" className="text-xs">No Deploy</Badge>
                   }
 
+                  // 배포 기록의 상태다 (Pod 실행 여부는 관측하지 않음)
                   switch (status) {
-                    case "success":
+                    case "SUCCESS":
                       return (
                         <Badge className="bg-green-500 text-xs">
                           <CheckCircle className="mr-1 h-2 w-2" />
-                          Running
+                          Succeeded
                         </Badge>
                       )
-                    case "running":
+                    case "PENDING":
+                    case "UPLOADING_SOURCE":
+                    case "BUILDING":
+                    case "DEPLOYING":
                       return (
                         <Badge className="bg-blue-500 text-xs">
                           <Clock className="mr-1 h-2 w-2" />
                           Deploying
                         </Badge>
                       )
-                    case "failed":
+                    case "FAILED":
                       return (
                         <Badge variant="destructive" className="text-xs">
                           <AlertTriangle className="mr-1 h-2 w-2" />
@@ -503,26 +459,10 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap overflow-hidden">
                             <span className="font-mono bg-muted px-1 rounded truncate max-w-[180px]">
-                              {formatImageDisplay(repo.owner, repo.repo, repo.latest_deployment.image.tag)}
+                              {repo.latest_deployment.commit_hash.slice(0, 7)}
                             </span>
                             <span>•</span>
-                            <span>
-                              <span className="font-medium text-foreground">
-                                {repo.latest_deployment.cluster.replicas.ready}/
-                                {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired}
-                              </span> pods ready
-                            </span>
-                            <span>•</span>
-                            <span className="truncate">{formatTimeAgo(repo.latest_deployment.timing.started_at)}</span>
-                            {repo.auto_deploy_enabled && (
-                              <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1 text-green-600">
-                                  <Zap className="h-3 w-3" />
-                                  Auto Deploy
-                                </span>
-                              </>
-                            )}
+                            <span>{repo.latest_deployment.branch_name}</span>
                           </div>
                         </div>
                       ) : (

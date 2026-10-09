@@ -15,6 +15,7 @@ import { SettingsPage } from "@/components/settings/SettingsPage"
 export default function HomePage() {
   const [activeView, setActiveView] = useState("dashboard")
   const [githubInitialTab, setGithubInitialTab] = useState("repositories")
+  const [configureRepo, setConfigureRepo] = useState<string | null>(null)
   const [monitoringInitialTab, setMonitoringInitialTab] = useState<'nodes' | 'details' | 'alerts' | 'resources'>('nodes')
   const [scrollToMessageId, setScrollToMessageId] = useState<number | undefined>(undefined)
   const { toast } = useToast()
@@ -90,6 +91,8 @@ export default function HomePage() {
         />
       case "deployments":
         return <DeploymentStatusMonitoring 
+          configureRepo={configureRepo}
+          onConfigureRepoHandled={() => setConfigureRepo(null)}
           onNavigateToMonitoring={() => setActiveView("monitoring")}
           onNavigateToPipelines={() => {
             setGithubInitialTab("pipelines")
@@ -100,6 +103,10 @@ export default function HomePage() {
         return <GitHubIntegrationPanel 
           onNavigateToPipelines={() => setActiveView("github")} 
           initialTab={githubInitialTab}
+          onConfigureRepository={(fullName) => {
+            setConfigureRepo(fullName)
+            setActiveView("deployments")
+          }}
         />
       case "monitoring":
         return <RealTimeMonitoringDashboard initialTab={monitoringInitialTab} />

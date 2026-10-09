@@ -189,9 +189,11 @@ interface Pipeline {
 interface GitHubIntegrationPanelProps {
   onNavigateToPipelines?: () => void
   initialTab?: string
+  // 배포 설정 편집은 Deployments 화면에 모은다 (owner/repo)
+  onConfigureRepository?: (fullName: string) => void
 }
 
-export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "repositories" }: GitHubIntegrationPanelProps = {}) {
+export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "repositories", onConfigureRepository }: GitHubIntegrationPanelProps = {}) {
   // slackConnected는 DB 조회로 최종 결정
   const [newRepoOwner, setNewRepoOwner] = useState("")
   const [newRepoName, setNewRepoName] = useState("")
@@ -1334,7 +1336,11 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
                           View on GitHub
                         </a>
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleConfigure(repo.id, 'general')}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onConfigureRepository ? onConfigureRepository(repo.fullName) : handleConfigure(repo.id, 'general')}
+                      >
                         <Settings className="w-4 h-4 mr-1" />
                         Configure
                       </Button>
