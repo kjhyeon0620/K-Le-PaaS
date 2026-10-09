@@ -76,7 +76,8 @@ branch: fix/#78-console-deployments-api-contract
 | 운영 콘솔에서 IoT 저장소 표시·설정 확인 | 머지 후 확인 | 운영 | 머지 후 `운영 반영`에 기록 |
 
 ## 운영 반영
-- 2026-10-09 PR #82 머지(`c83c13c`). Build and deploy의 build·deploy 성공, 백엔드 revision과 프론트 `release.txt`가 머지 커밋과 일치. #66 함께 닫힘. 운영 콘솔 화면 확인은 사용자 로그인이 필요해 사용자 확인 결과를 받아 기록한다.
+- 2026-10-09 PR #82 머지(`c83c13c`). Build and deploy의 build·deploy 성공, 백엔드 revision과 프론트 `release.txt`가 머지 커밋과 일치. #66 함께 닫힘. 
+- 2026-10-10 사용자가 운영 콘솔에서 확인: Deployments 화면에 IoT 저장소와 최신 배포(Succeeded, 브랜치, 커밋, 이미지, 도메인, 시작 시각, 소요 시간)가 표시된다. 같은 화면의 Rollback·Logs 버튼은 stub임을 확인해 architecture.md §9에 기록했다(#81 PR).
 
 ## 회고
 - 어긋난 점: 화면이 백엔드에 없는 필드를 읽어 저장소 이름과 배포가 표시되지 않았고, #74의 토글은 타입 검사만으로 완료 처리됐다. 실패 시 기본값을 돌려주는 함수가 빈 화면과 잘못된 저장을 가렸다.
