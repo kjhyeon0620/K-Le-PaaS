@@ -1,11 +1,7 @@
 spring:
   main:
     allow-bean-definition-overriding: true
-  datasource:
-    url: jdbc:h2:mem:klepaas_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  # datasource는 PostgresTestDatabase(Testcontainers)가 컨텍스트마다 새 데이터베이스로 채운다.
   jpa:
     hibernate:
       ddl-auto: validate

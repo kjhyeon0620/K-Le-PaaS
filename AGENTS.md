@@ -65,8 +65,8 @@ GitHub 이슈 본문(배경, 작업, 완료 조건)도 함께 읽는다.
 
 | 목적 | 명령 |
 |---|---|
-| 백엔드 실행 | `cd backend && ./gradlew bootRun` (H2 console: `--args='--spring.profiles.active=dev'`) |
-| 백엔드 테스트 | `cd backend && ./gradlew test` (단일: `--tests '<FQCN>'`) |
+| 백엔드 실행 | `docker compose up -d` 후 `cd backend && ./gradlew bootRun` (`DB_PASSWORD` 필요, SQL 로그: `--args='--spring.profiles.active=dev'`) |
+| 백엔드 테스트 | `cd backend && ./gradlew test` (단일: `--tests '<FQCN>'`, Docker 필요) |
 | 백엔드 패키징 | `cd backend && ./gradlew bootJar` |
 | 프론트 | `cd frontend && npm ci && npm run build`, 타입만: `npx tsc --noEmit -p .` |
 | CLI | `cd frontend && npm run cli -- doctor` |

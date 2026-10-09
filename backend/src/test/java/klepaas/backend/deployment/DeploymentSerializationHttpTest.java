@@ -24,8 +24,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -51,7 +49,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 
 /**
- * 같은 저장소의 배포 직렬화와 webhook·CI 재시도 중복 제거를 실제 HTTP와 H2로 확인한다 (#52).
+ * 같은 저장소의 배포 직렬화와 webhook·CI 재시도 중복 제거를 실제 HTTP와 PostgreSQL로 확인한다 (#52).
  * 파이프라인은 실행하지 않으므로 생성된 배포는 PENDING(진행 중)으로 남는다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -61,13 +59,6 @@ import static org.mockito.Mockito.doThrow;
 })
 @ActiveProfiles("test")
 class DeploymentSerializationHttpTest {
-
-    private static final String DATABASE_ID = UUID.randomUUID().toString().replace("-", "");
-
-    @DynamicPropertySource
-    static void isolatedDatabase(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", () -> "jdbc:h2:mem:serialize_http_" + DATABASE_ID + ";DB_CLOSE_DELAY=-1");
-    }
 
     @Value("${local.server.port}") private int port;
     @Autowired private ObjectMapper mapper;

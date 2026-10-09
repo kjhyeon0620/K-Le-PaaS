@@ -44,7 +44,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,7 +59,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 class GitHubActionsOidcHttpTest {
 
-    private static final String DATABASE_ID = UUID.randomUUID().toString().replace("-", "");
     private static final String SHA = "0123456789abcdef0123456789abcdef01234567";
     private static final RSAKey KEY = generateKey("github-test-key");
     private static final RSAKey FORGED_KEY = generateKey("github-test-key");
@@ -68,7 +66,6 @@ class GitHubActionsOidcHttpTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", () -> "jdbc:h2:mem:oidc_http_" + DATABASE_ID + ";DB_CLOSE_DELAY=-1");
         properties.add("github.actions.oidc.jwks-uri",
                 () -> "http://127.0.0.1:" + JWKS_SERVER.getAddress().getPort() + "/jwks");
     }

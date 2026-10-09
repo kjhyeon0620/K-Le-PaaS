@@ -6,13 +6,8 @@ import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import jakarta.persistence.EntityManagerFactory;
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
@@ -29,22 +24,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CommandLogStatusSchemaValidationTest {
 
     @Autowired
-    private DataSource dataSource;
-
-    @Autowired
     private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private EntityManager entityManager;
 
     @Test
-    void migratedStatusColumnValidatesAtStartup() throws Exception {
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-            statement.execute("ALTER TABLE command_log DROP COLUMN status");
-            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/command-log-status.sql"));
-        }
-
+    void flywaySchemaValidatesAgainstMappings() {
         assertThatCode(entityManagerFactory.unwrap(SessionFactory.class).getSchemaManager()::validateMappedObjects)
                 .doesNotThrowAnyException();
     }

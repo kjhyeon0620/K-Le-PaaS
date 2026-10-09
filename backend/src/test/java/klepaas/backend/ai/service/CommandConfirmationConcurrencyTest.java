@@ -20,11 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import java.time.LocalDateTime;
-import java.sql.DriverManager;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -115,33 +112,6 @@ class CommandConfirmationConcurrencyTest {
         jdbc.update("update command_log set status = ? where id = ?", CommandStatus.UNKNOWN.name(), legacy);
         assertThat(confirmations.claim(legacy, owner)).isNull();
         assertThat(logs.findById(legacy).orElseThrow().getStatus()).isEqualTo(CommandStatus.UNKNOWN);
-    }
-
-    @Test
-    void migrationBackfillsLegacyCombinationsAndIsIdempotent() throws Exception {
-        try (var db = DriverManager.getConnection("jdbc:h2:mem:command_migration;DB_CLOSE_DELAY=-1")) {
-            try (var statement = db.createStatement()) {
-                statement.execute("create table command_log (id int primary key, is_executed boolean, error_message varchar(255), confirmed boolean)");
-                statement.execute("insert into command_log values (1, true, null, false), (2, false, 'broken', true), (3, false, null, false), (4, true, 'broken', true), (5, null, null, false)");
-            }
-            var script = new ClassPathResource("db/manual/command-log-status.sql");
-            ScriptUtils.executeSqlScript(db, script);
-            db.createStatement().execute("update command_log set status = 'PENDING' where id = 5");
-            ScriptUtils.executeSqlScript(db, script);
-            try (var rows = db.createStatement().executeQuery("select status from command_log order by id")) {
-                assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("SUCCEEDED");
-                assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("FAILED");
-                assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("UNKNOWN");
-                assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("UNKNOWN");
-                assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("PENDING");
-                assertThat(rows.next()).isFalse();
-            }
-        }
-        try (var empty = DriverManager.getConnection("jdbc:h2:mem:command_migration_empty;DB_CLOSE_DELAY=-1")) {
-            empty.createStatement().execute("create table command_log (id int primary key, is_executed boolean, error_message varchar(255))");
-            ScriptUtils.executeSqlScript(empty, new ClassPathResource("db/manual/command-log-status.sql"));
-            assertThat(empty.createStatement().executeQuery("select status from command_log").next()).isFalse();
-        }
     }
 
     private Long pending(Long userId) {

@@ -179,6 +179,10 @@ K-Le-PaaS는 운영 명령을 실행하기 전에 위험도를 분류합니다.
 백엔드 환경변수는 보통 `backend/.env`에 설정합니다.
 
 ```env
+DB_URL=jdbc:postgresql://localhost:5432/klepaas
+DB_USERNAME=klepaas
+DB_PASSWORD=
+
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 GITHUB_REDIRECT_URI=http://localhost:3000/console/auth/callback

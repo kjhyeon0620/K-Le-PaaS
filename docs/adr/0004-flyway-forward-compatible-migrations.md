@@ -1,7 +1,7 @@
 # ADR-0004: Flyway와 이전 릴리스 호환 마이그레이션
 
 ## Status
-Accepted (#48 PR #62, 운영 DB V1 baseline 등록)
+Accepted (#48 PR #62, 운영 DB V1 baseline 등록). 기준선과 H2 baseline 등록은 [ADR-0008](0008-postgresql-production-database.md)로 대체. 나머지 규칙은 유지
 
 ## Context
 - 운영은 `ddl-auto=validate`로 기동한다. 스키마 변경을 수동 SQL로 적용해 왔고, 컬럼 추가가 반복될 예정이었다 (#49 이후).
