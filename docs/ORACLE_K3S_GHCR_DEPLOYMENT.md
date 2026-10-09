@@ -152,8 +152,8 @@ intentional redeploy).
 By default every deployment references an image pull secret: the configured
 `image_pull_secret_name`, or the server default `kubernetes.image-pull-secret`.
 If that secret holds an expired or revoked credential, the registry rejects the
-pull (GHCR answers 403) even for a public image, and the deployment fails at the
-rollout timeout.
+pull (GHCR answers 403) even for a public image, and the deployment fails as
+soon as the new pod reports `ImagePullBackOff`.
 
 For a public image, set `image_pull_secret_enabled: false` in the repository
 deployment config (`PUT /api/v1/repositories/{id}/config`) or turn off "Use image
@@ -164,6 +164,22 @@ value; existing repositories keep using their pull secret.
 
 For a private image, keep it on and keep the referenced secret valid. A read-only
 registry token (for GHCR, `read:packages` only) limits the impact if it leaks.
+
+## Rollout Result
+
+A deployment request is judged only by the Deployment generation it applied.
+The applied request ID is kept in the Deployment annotation
+`klepaas.io/deployment-id`.
+
+| Result | When | `fail_reason` example |
+|---|---|---|
+| `SUCCESS` | That generation is observed and all desired replicas are updated and available | - |
+| `FAILED` (immediately) | A new pod waits with `ImagePullBackOff`, `InvalidImageName`, `ErrImageNeverPull`, `CreateContainerConfigError`, or `CrashLoopBackOff`, or the Deployment reports `ProgressDeadlineExceeded` | `rollout 실패: ImagePullBackOff (pod=..., generation=5): Back-off pulling image ...` |
+| `FAILED` (timeout) | No result within `kubernetes.rollout.timeout-ms` (120 seconds), e.g. a failing readiness probe or an unschedulable pod | `rollout 타임아웃(120초, generation=8): observedGeneration=8, updated=1, available=1, unavailable=1` |
+| `CANCELED` | Another apply, restart, or scale changed the Deployment while waiting | `다른 변경으로 대체됨: generation 6 → 7` |
+
+On failure the previous pods keep serving. A canceled request is not retried;
+the newer change is judged on its own.
 
 ## Service Exposure
 
@@ -210,6 +226,7 @@ config (`PUT /api/v1/repositories/{id}/config`) or in the console:
 - `health_probe` becomes an HTTP readiness probe. A deployment is recorded as
   successful only when the new pods pass it, so a wrong path makes the
   deployment fail at the rollout timeout instead of succeeding.
+  See [Rollout Result](#rollout-result).
 - `port` defaults to `container_port`. Omitted timing values use the Kubernetes
   defaults.
 - `startup_failure_threshold` adds a startup probe on the same path for slow

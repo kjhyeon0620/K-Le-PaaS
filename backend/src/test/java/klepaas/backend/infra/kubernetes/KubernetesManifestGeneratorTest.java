@@ -155,6 +155,119 @@ class KubernetesManifestGeneratorTest {
         assertThat(generator.isDeploymentRolloutComplete(null)).isFalse();
     }
 
+    private io.fabric8.kubernetes.api.model.apps.Deployment rollout(long generation, long observed, int updated,
+                                                                   int available, int unavailable,
+                                                                   io.fabric8.kubernetes.api.model.apps.DeploymentCondition... conditions) {
+        return new DeploymentBuilder()
+                .withNewMetadata().withName("owner-repo").withGeneration(generation).endMetadata()
+                .withNewSpec().withReplicas(1).endSpec()
+                .withNewStatus()
+                .withObservedGeneration(observed)
+                .withUpdatedReplicas(updated)
+                .withAvailableReplicas(available)
+                .withUnavailableReplicas(unavailable)
+                .withConditions(conditions)
+                .endStatus()
+                .build();
+    }
+
+    private io.fabric8.kubernetes.api.model.apps.DeploymentCondition condition(String type, String status, String reason) {
+        return new DeploymentConditionBuilder().withType(type).withStatus(status).withReason(reason)
+                .withMessage(reason + " message").build();
+    }
+
+    @Test
+    @DisplayName("이 요청의 generation이 완료되면 성공이다")
+    void evaluateDeployment_succeedsForAppliedGeneration() {
+        var done = rollout(3, 3, 1, 1, 0, condition("Available", "True", "MinimumReplicasAvailable"));
+
+        assertThat(generator.evaluateDeployment(done, 3).outcome()).isEqualTo(RolloutResult.Outcome.SUCCEEDED);
+    }
+
+    @Test
+    @DisplayName("다른 변경으로 generation이 바뀌면 그 rollout이 완료돼도 이 요청의 성공이 아니라 대체다")
+    void evaluateDeployment_isSupersededWhenGenerationChanged() {
+        var otherCompleted = rollout(4, 4, 1, 1, 0, condition("Available", "True", "MinimumReplicasAvailable"));
+
+        RolloutResult result = generator.evaluateDeployment(otherCompleted, 3);
+
+        assertThat(result.outcome()).isEqualTo(RolloutResult.Outcome.SUPERSEDED);
+        assertThat(result.reason()).contains("generation 3 → 4");
+    }
+
+    @Test
+    @DisplayName("이 generation을 아직 관측하지 못했으면 이전 상태로 판정하지 않는다")
+    void evaluateDeployment_waitsUntilGenerationObserved() {
+        var stale = rollout(3, 2, 1, 1, 0, condition("Available", "True", "MinimumReplicasAvailable"),
+                condition("Progressing", "False", "ProgressDeadlineExceeded"));
+
+        assertThat(generator.evaluateDeployment(stale, 3)).isNull();
+    }
+
+    @Test
+    @DisplayName("ProgressDeadlineExceeded는 즉시 실패다")
+    void evaluateDeployment_failsOnProgressDeadlineExceeded() {
+        var stuck = rollout(3, 3, 1, 0, 1, condition("Available", "True", "MinimumReplicasAvailable"),
+                condition("Progressing", "False", "ProgressDeadlineExceeded"));
+
+        RolloutResult result = generator.evaluateDeployment(stuck, 3);
+
+        assertThat(result.outcome()).isEqualTo(RolloutResult.Outcome.FAILED);
+        assertThat(result.reason()).contains("ProgressDeadlineExceeded");
+    }
+
+    @Test
+    @DisplayName("진행 중이면 결론을 내지 않고, Deployment가 없으면 실패다")
+    void evaluateDeployment_inProgressOrMissing() {
+        var progressing = rollout(3, 3, 1, 0, 1, condition("Progressing", "True", "ReplicaSetUpdated"));
+
+        assertThat(generator.evaluateDeployment(progressing, 3)).isNull();
+        assertThat(generator.evaluateDeployment(null, 3).outcome()).isEqualTo(RolloutResult.Outcome.FAILED);
+    }
+
+    private io.fabric8.kubernetes.api.model.Pod waitingPod(String reason) {
+        return new io.fabric8.kubernetes.api.model.PodBuilder()
+                .withNewMetadata().withName("owner-repo-abc").endMetadata()
+                .withNewStatus()
+                .addNewContainerStatus()
+                .withNewState().withNewWaiting().withReason(reason).withMessage("x".repeat(400)).endWaiting().endState()
+                .endContainerStatus()
+                .endStatus()
+                .build();
+    }
+
+    @Test
+    @DisplayName("새 Pod가 이미지 pull·설정 오류·반복 종료로 대기하면 즉시 실패, 일시적인 대기는 기다린다")
+    void evaluatePods_failsOnUnrecoverableWaitingReasons() {
+        for (String reason : List.of("ImagePullBackOff", "InvalidImageName", "ErrImageNeverPull",
+                "CreateContainerConfigError", "CrashLoopBackOff")) {
+            RolloutResult result = generator.evaluatePods(List.of(waitingPod(reason)), 3);
+            assertThat(result.outcome()).isEqualTo(RolloutResult.Outcome.FAILED);
+            assertThat(result.reason()).contains(reason, "pod=owner-repo-abc", "generation=3");
+            assertThat(result.reason().length()).isLessThan(400);
+        }
+        assertThat(generator.evaluatePods(List.of(waitingPod("ErrImagePull")), 3)).isNull();
+        assertThat(generator.evaluatePods(List.of(waitingPod("ContainerCreating")), 3)).isNull();
+        assertThat(generator.evaluatePods(List.of(new io.fabric8.kubernetes.api.model.Pod()), 3)).isNull();
+    }
+
+    @Test
+    @DisplayName("시간 안에 결론이 없으면 타임아웃 실패로 마지막 관측 상태를 남긴다")
+    void waitForRollout_timesOutWithLastObservedStatus() {
+        KubernetesClient client = mockScopedClient();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(rollout(3, 3, 1, 0, 1, condition("Progressing", "True", "ReplicaSetUpdated")));
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+        ReflectionTestUtils.setField(subject, "rolloutTimeoutMs", 0L);
+        ReflectionTestUtils.setField(subject, "rolloutPollIntervalMs", 0L);
+
+        RolloutResult result = subject.waitForRollout("owner-repo", 3);
+
+        assertThat(result.outcome()).isEqualTo(RolloutResult.Outcome.FAILED);
+        assertThat(result.reason()).startsWith("rollout 타임아웃(0초, generation=3)").contains("unavailable=1");
+    }
+
     @Test
     @DisplayName("NODE_PORT 서비스 포트에는 configured nodePort를 포함한다")
     void buildServicePort_includesConfiguredNodePort_whenServiceTypeIsNodePort() {
@@ -327,7 +440,7 @@ class KubernetesManifestGeneratorTest {
         var subject = new KubernetesManifestGenerator(client, policy);
         ReflectionTestUtils.setField(subject, "namespace", "klepaas");
 
-        assertThatThrownBy(() -> subject.deploy("owner-repo", "image", config, 7L))
+        assertThatThrownBy(() -> subject.deploy("owner-repo", "image", config, 7L, 1L))
                 .isInstanceOf(BusinessException.class);
         Mockito.verifyNoInteractions(client);
     }
@@ -365,13 +478,18 @@ class KubernetesManifestGeneratorTest {
                 .thenReturn(null);
         Mockito.when(client.network().v1().ingresses().inNamespace("klepaas").withName("owner-repo").get())
                 .thenReturn(null);
+        Mockito.when(client.apps().deployments().inNamespace("klepaas")
+                        .resource(new io.fabric8.kubernetes.api.model.apps.Deployment()).create())
+                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(1L).endMetadata().build());
+        Mockito.clearInvocations(client.apps().deployments().inNamespace("klepaas"));
         var subject = new KubernetesManifestGenerator(client, policy);
         ReflectionTestUtils.setField(subject, "namespace", "klepaas");
 
-        subject.deploy("owner-repo", "image", config, 7L);
+        assertThat(subject.deploy("owner-repo", "image", config, 7L, 1L)).isEqualTo(1L);
 
         Mockito.verify(client.apps().deployments().inNamespace("klepaas"))
-                .resource(Mockito.argThat(d -> "7".equals(d.getMetadata().getLabels().get("klepaas.io/repository-id"))));
+                .resource(Mockito.argThat(d -> "7".equals(d.getMetadata().getLabels().get("klepaas.io/repository-id"))
+                        && "1".equals(d.getMetadata().getAnnotations().get("klepaas.io/deployment-id"))));
     }
 
     @Test
@@ -400,7 +518,7 @@ class KubernetesManifestGeneratorTest {
         var subject = new KubernetesManifestGenerator(client, policy);
         ReflectionTestUtils.setField(subject, "namespace", "klepaas");
 
-        assertThatThrownBy(() -> subject.deploy("owner-repo", "image", config, 7L))
+        assertThatThrownBy(() -> subject.deploy("owner-repo", "image", config, 7L, 1L))
                 .isInstanceOf(BusinessException.class);
         Mockito.verify(resource, Mockito.never()).serverSideApply();
         Mockito.verify(resource, Mockito.never()).forceConflicts();
@@ -429,11 +547,13 @@ class KubernetesManifestGeneratorTest {
         var config = DeploymentConfig.builder().sourceRepository(repo).minReplicas(1).domainUrl("").build();
         var deployments = client.apps().deployments().inNamespace("klepaas");
         var resource = deployments.resource(own);
+        Mockito.when(resource.lockResourceVersion("42").replace())
+                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(5L).endMetadata().build());
         Mockito.clearInvocations(deployments, resource);
         var subject = new KubernetesManifestGenerator(client, policy);
         ReflectionTestUtils.setField(subject, "namespace", "klepaas");
 
-        subject.deploy("owner-repo", "image:v2", config, 7L);
+        assertThat(subject.deploy("owner-repo", "image:v2", config, 7L, 1L)).isEqualTo(5L);
 
         Mockito.verify(deployments).resource(Mockito.argThat(d -> "42".equals(d.getMetadata().getResourceVersion())
                 && d.getSpec().getTemplate().getSpec().getContainers().get(0).getReadinessProbe() == null));

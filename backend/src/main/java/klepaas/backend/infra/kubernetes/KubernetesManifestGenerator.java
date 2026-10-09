@@ -8,6 +8,7 @@ import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.HealthProbe;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -43,10 +45,19 @@ public class KubernetesManifestGenerator {
     @Value("${kubernetes.rollout.poll-interval-ms:2000}")
     private long rolloutPollIntervalMs;
 
+    static final String DEPLOYMENT_ID_ANNOTATION = "klepaas.io/deployment-id";
+    private static final String REVISION_ANNOTATION = "deployment.kubernetes.io/revision";
+    // 시간이 지나도 회복되지 않을 가능성이 높아 타임아웃 전에 실패로 보는 컨테이너 대기 사유.
+    // ErrImagePull은 첫 시도의 일시 오류일 수 있어 제외한다 (곧 ImagePullBackOff로 바뀐다)
+    private static final Set<String> FAILED_WAITING_REASONS = Set.of(
+            "ImagePullBackOff", "InvalidImageName", "ErrImageNeverPull",
+            "CreateContainerConfigError", "CrashLoopBackOff");
+    private static final int MAX_REASON_MESSAGE_LENGTH = 300;
+
     /**
-     * K8s Deployment + Service + Ingress 생성/업데이트
+     * K8s Deployment + Service + Ingress 생성/업데이트. 적용한 Deployment의 metadata.generation을 반환한다.
      */
-    public void deploy(String appName, String imageUri, DeploymentConfig config, Long repoId) {
+    public long deploy(String appName, String imageUri, DeploymentConfig config, Long repoId, Long deploymentId) {
         Map<String, String> labels = Map.of(
                 "app.kubernetes.io/name", appName,
                 "app.kubernetes.io/managed-by", "klepaas",
@@ -66,14 +77,15 @@ public class KubernetesManifestGenerator {
             rejectForeignResource(existingService, repoId);
             rejectForeignResource(existingIngress, repoId);
             validateEnvFromRefs(config);
-            createOrUpdateDeployment(appName, imageUri, config, labels, existingDeployment);
+            long generation = createOrUpdateDeployment(appName, imageUri, config, labels, existingDeployment, deploymentId);
             createOrUpdateService(appName, config, labels, existingService);
 
             if (config.getDomainUrl() != null && !config.getDomainUrl().isBlank()) {
                 createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels, existingIngress);
             }
 
-            log.info("K8s resources deployed: app={}, namespace={}", appName, namespace);
+            log.info("K8s resources deployed: app={}, namespace={}, generation={}", appName, namespace, generation);
+            return generation;
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -117,8 +129,8 @@ public class KubernetesManifestGenerator {
         return existing;
     }
 
-    private void replaceWithObservedVersion(Deployment deployment) {
-        kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment)
+    private Deployment replaceWithObservedVersion(Deployment deployment) {
+        return kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment)
                 .lockResourceVersion(deployment.getMetadata().getResourceVersion()).replace();
     }
 
@@ -130,23 +142,107 @@ public class KubernetesManifestGenerator {
         }
     }
 
-    public void waitForDeploymentAvailable(String appName) {
+    /**
+     * 이 요청이 적용한 generation의 rollout만 판정한다. 다른 변경으로 generation이 바뀌면 SUPERSEDED,
+     * 새 Pod가 회복되기 어려운 사유로 대기하면 즉시 FAILED, 시간 안에 결론이 없으면 타임아웃 FAILED.
+     */
+    public RolloutResult waitForRollout(String appName, long generation) {
         long deadline = System.currentTimeMillis() + rolloutTimeoutMs;
+        Deployment last = null;
         while (System.currentTimeMillis() <= deadline) {
-            Deployment deployment = kubernetesClient.apps().deployments()
-                    .inNamespace(namespace)
-                    .withName(appName)
-                    .get();
-            if (isDeploymentRolloutComplete(deployment)) {
-                log.info("Deployment rollout available: app={}, namespace={}", appName, namespace);
-                return;
+            try {
+                last = kubernetesClient.apps().deployments().inNamespace(namespace).withName(appName).get();
+                RolloutResult result = evaluateDeployment(last, generation);
+                if (result == null && isObserved(last, generation)) {
+                    result = evaluatePods(findNewReplicaSetPods(last), generation);
+                }
+                if (result != null) {
+                    log.info("Rollout judged: app={}, generation={}, outcome={}, reason={}",
+                            appName, generation, result.outcome(), result.reason());
+                    return result;
+                }
+            } catch (KubernetesClientException e) {
+                log.warn("Rollout status read failed, retrying: app={}, error={}", appName, e.getMessage());
             }
             sleepBeforeNextRolloutCheck(appName);
         }
-        throw new BusinessException(
-                ErrorCode.DEPLOY_FAILED,
-                "K8s rollout 타임아웃: " + appName + " Deployment가 Available 상태가 아닙니다"
-        );
+        return RolloutResult.failed("rollout 타임아웃(" + rolloutTimeoutMs / 1000 + "초, generation=" + generation + "): "
+                + describeReplicas(last));
+    }
+
+    /** Deployment 수준에서 결론이 나면 결과를, 아직 진행 중이면 null을 반환한다. */
+    RolloutResult evaluateDeployment(Deployment deployment, long generation) {
+        if (deployment == null || deployment.getMetadata() == null) {
+            return RolloutResult.failed("rollout 실패: Deployment를 찾을 수 없음 (generation=" + generation + ")");
+        }
+        long current = valueOrZero(deployment.getMetadata().getGeneration());
+        if (current != generation) {
+            return RolloutResult.superseded("다른 변경으로 대체됨: generation " + generation + " → " + current);
+        }
+        if (!isObserved(deployment, generation)) {
+            return null;
+        }
+        if (isDeploymentRolloutComplete(deployment)) {
+            return RolloutResult.succeeded();
+        }
+        return deployment.getStatus().getConditions() == null ? null : deployment.getStatus().getConditions().stream()
+                .filter(c -> "Progressing".equals(c.getType()) && "False".equals(c.getStatus()))
+                .findFirst()
+                .map(c -> RolloutResult.failed("rollout 실패: " + c.getReason() + " (generation=" + generation + "): "
+                        + truncate(c.getMessage())))
+                .orElse(null);
+    }
+
+    /** 새 ReplicaSet의 Pod 중 하나라도 회복되기 어려운 사유로 대기 중이면 FAILED, 아니면 null. */
+    RolloutResult evaluatePods(List<Pod> pods, long generation) {
+        for (Pod pod : pods) {
+            if (pod.getStatus() == null || pod.getStatus().getContainerStatuses() == null) continue;
+            for (ContainerStatus status : pod.getStatus().getContainerStatuses()) {
+                ContainerStateWaiting waiting = status.getState() == null ? null : status.getState().getWaiting();
+                if (waiting != null && FAILED_WAITING_REASONS.contains(waiting.getReason())) {
+                    return RolloutResult.failed("rollout 실패: " + waiting.getReason() + " (pod=" + pod.getMetadata().getName()
+                            + ", generation=" + generation + "): " + truncate(waiting.getMessage()));
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isObserved(Deployment deployment, long generation) {
+        return deployment.getStatus() != null && valueOrZero(deployment.getStatus().getObservedGeneration()) >= generation;
+    }
+
+    // 현재 revision의 ReplicaSet(= 이 generation의 Pod template)이 만든 Pod만 본다. 이전 ReplicaSet의 Pod는 제외한다
+    private List<Pod> findNewReplicaSetPods(Deployment deployment) {
+        String revision = annotation(deployment.getMetadata(), REVISION_ANNOTATION);
+        if (revision == null) return List.of();
+        String appName = deployment.getMetadata().getName();
+        return kubernetesClient.apps().replicaSets().inNamespace(namespace)
+                .withLabel("app.kubernetes.io/name", appName).list().getItems().stream()
+                .filter(rs -> revision.equals(annotation(rs.getMetadata(), REVISION_ANNOTATION)))
+                .filter(rs -> rs.getMetadata().getOwnerReferences() != null && rs.getMetadata().getOwnerReferences().stream()
+                        .anyMatch(owner -> owner.getUid() != null && owner.getUid().equals(deployment.getMetadata().getUid())))
+                .findFirst()
+                .map(rs -> kubernetesClient.pods().inNamespace(namespace)
+                        .withLabels(rs.getSpec().getSelector().getMatchLabels()).list().getItems())
+                .orElse(List.of());
+    }
+
+    private String annotation(ObjectMeta metadata, String key) {
+        return metadata == null || metadata.getAnnotations() == null ? null : metadata.getAnnotations().get(key);
+    }
+
+    private String describeReplicas(Deployment deployment) {
+        if (deployment == null || deployment.getStatus() == null) return "상태를 관측하지 못함";
+        var status = deployment.getStatus();
+        return "observedGeneration=" + status.getObservedGeneration() + ", updated=" + valueOrZero(status.getUpdatedReplicas())
+                + ", available=" + valueOrZero(status.getAvailableReplicas())
+                + ", unavailable=" + valueOrZero(status.getUnavailableReplicas());
+    }
+
+    private String truncate(String message) {
+        if (message == null) return "";
+        return message.length() <= MAX_REASON_MESSAGE_LENGTH ? message : message.substring(0, MAX_REASON_MESSAGE_LENGTH) + "…";
     }
 
     boolean isDeploymentRolloutComplete(Deployment deployment) {
@@ -193,17 +289,24 @@ public class KubernetesManifestGenerator {
         }
     }
 
-    private void createOrUpdateDeployment(String appName, String imageUri,
-                                           DeploymentConfig config, Map<String, String> labels, Deployment existing) {
+    private long createOrUpdateDeployment(String appName, String imageUri, DeploymentConfig config,
+                                          Map<String, String> labels, Deployment existing, Long deploymentId) {
         Deployment deployment = buildDeployment(appName, imageUri, config, labels);
+        // 이 spec을 적용한 배포 요청. Pod template이 아닌 metadata에 두어 새 rollout을 만들지 않는다 (#57 대조용)
+        deployment.getMetadata().setAnnotations(Map.of(DEPLOYMENT_ID_ANNOTATION, String.valueOf(deploymentId)));
+        Deployment applied;
         if (existing == null) {
-            kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment).create();
+            applied = kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment).create();
         } else {
             // 전체 spec을 교체한다. apply는 create·scale이 남긴 다른 field manager 때문에 변경 시 409가 나고,
             // 설정에서 뺀 필드(probe, envFrom 등)를 지우지 못한다.
             deployment.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
-            replaceWithObservedVersion(deployment);
+            applied = replaceWithObservedVersion(deployment);
         }
+        if (applied == null || applied.getMetadata() == null || applied.getMetadata().getGeneration() == null) {
+            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: 적용한 Deployment의 generation을 알 수 없습니다");
+        }
+        return applied.getMetadata().getGeneration();
     }
 
     Deployment buildDeployment(String appName, String imageUri,

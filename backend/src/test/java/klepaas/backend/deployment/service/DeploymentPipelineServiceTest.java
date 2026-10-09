@@ -10,6 +10,7 @@ import klepaas.backend.infra.CloudInfraProvider;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.dto.BuildResult;
 import klepaas.backend.infra.dto.BuildStatusResult;
+import klepaas.backend.infra.kubernetes.RolloutResult;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +50,10 @@ class DeploymentPipelineServiceTest {
 
     @InjectMocks
     private DeploymentPipelineService deploymentPipelineService;
+
+    private static final DeploymentPipelineStepService.AppliedRollout APPLIED =
+            new DeploymentPipelineStepService.AppliedRollout("app", 3L);
+    private static final RolloutResult SUCCEEDED = new RolloutResult(RolloutResult.Outcome.SUCCEEDED, null);
 
     private Deployment ncpDeployment;
     private Deployment onPremiseDeployment;
@@ -112,6 +117,8 @@ class DeploymentPipelineServiceTest {
         given(infraProviderFactory.getProvider(CloudVendor.NCP)).willReturn(cloudInfraProvider);
         given(cloudInfraProvider.getBuildStatus("default", "klepaas-build-1"))
                 .willReturn(new BuildStatusResult(true, true, null, "success"));
+        given(stepService.applyK8sManifests(1L, "registry.example.com/testowner-testrepo:abcdef1")).willReturn(APPLIED);
+        given(stepService.awaitK8sRollout(APPLIED)).willReturn(SUCCEEDED);
 
         // When
         deploymentPipelineService.executePipeline(1L);
@@ -119,7 +126,9 @@ class DeploymentPipelineServiceTest {
         // Then
         verify(stepService).executeUpload(1L);
         verify(stepService).executeBuildTrigger(1L, "builds/1/source.zip");
-        verify(stepService).executeK8sDeploy(1L, "registry.example.com/testowner-testrepo:abcdef1");
+        verify(stepService).startK8sDeploy(1L, "registry.example.com/testowner-testrepo:abcdef1");
+        verify(stepService).applyK8sManifests(1L, "registry.example.com/testowner-testrepo:abcdef1");
+        verify(stepService).awaitK8sRollout(APPLIED);
         verify(stepService).markSuccess(1L);
     }
 
@@ -131,6 +140,8 @@ class DeploymentPipelineServiceTest {
         given(deploymentRepository.findUserIdByDeploymentId(2L)).willReturn(Optional.of(10L));
         given(stepService.getBuildStrategy(2L)).willReturn(BuildStrategy.GITHUB_ACTIONS_GHCR);
         given(stepService.resolveExternalImage(2L)).willReturn(imageUri);
+        given(stepService.applyK8sManifests(2L, imageUri)).willReturn(APPLIED);
+        given(stepService.awaitK8sRollout(APPLIED)).willReturn(SUCCEEDED);
 
         // When
         deploymentPipelineService.executePipeline(2L);
@@ -139,7 +150,29 @@ class DeploymentPipelineServiceTest {
         verify(stepService, never()).executeUpload(2L);
         verify(stepService, never()).executeBuildTrigger(eq(2L), anyString());
         verify(stepService).resolveExternalImage(2L);
-        verify(stepService).executeK8sDeploy(2L, imageUri);
+        verify(stepService).startK8sDeploy(2L, imageUri);
+        verify(stepService).applyK8sManifests(2L, imageUri);
+        verify(stepService).awaitK8sRollout(APPLIED);
         verify(stepService).markSuccess(2L);
+    }
+
+    @Test
+    @DisplayName("대체된 rollout은 CANCELED, 실패·타임아웃은 사유와 함께 FAILED로 기록하고 성공으로 기록하지 않는다")
+    void executePipeline_recordsSupersededAndFailedRollouts() {
+        String imageUri = "ghcr.io/o/r:sha-1";
+        given(deploymentRepository.findUserIdByDeploymentId(2L)).willReturn(Optional.of(10L));
+        given(stepService.getBuildStrategy(2L)).willReturn(BuildStrategy.PREBUILT_IMAGE);
+        given(stepService.resolveExternalImage(2L)).willReturn(imageUri);
+        given(stepService.applyK8sManifests(2L, imageUri)).willReturn(APPLIED);
+        given(stepService.awaitK8sRollout(APPLIED))
+                .willReturn(new RolloutResult(RolloutResult.Outcome.SUPERSEDED, "다른 변경으로 대체됨: generation 3 → 4"))
+                .willReturn(new RolloutResult(RolloutResult.Outcome.FAILED, "rollout 실패: ImagePullBackOff"));
+
+        deploymentPipelineService.executePipeline(2L);
+        deploymentPipelineService.executePipeline(2L);
+
+        verify(stepService).markCanceled(2L, "다른 변경으로 대체됨: generation 3 → 4");
+        verify(stepService).markFailed(2L, "rollout 실패: ImagePullBackOff");
+        verify(stepService, never()).markSuccess(2L);
     }
 }
