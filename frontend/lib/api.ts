@@ -647,6 +647,15 @@ class ApiClient {
     return this.putDeploymentConfig(owner, repo, { health_probe: healthProbe, resources })
   }
 
+  // false면 Pod에 imagePullSecrets를 넣지 않는다 (공개 이미지)
+  async updateDeploymentImagePullSecretEnabled(
+    owner: string,
+    repo: string,
+    enabled: boolean
+  ): Promise<DeploymentConfigResponse> {
+    return this.putDeploymentConfig(owner, repo, { image_pull_secret_enabled: enabled })
+  }
+
   // 현재 설정에 overrides를 덮어 PUT한다. health_probe·resources는 overrides에 있을 때만 보내 서버 값을 보존한다.
   private async putDeploymentConfig(
     owner: string,
@@ -818,6 +827,7 @@ export interface DeploymentConfigResponse {
   node_port?: number | null
   health_probe?: HealthProbe | null
   resources?: ContainerResources | null
+  image_pull_secret_enabled?: boolean
   is_default?: boolean
   last_scaled_at?: string | null
   last_scaled_by?: string | null

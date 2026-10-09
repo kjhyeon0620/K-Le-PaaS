@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -339,6 +340,38 @@ export function DeploymentStatusMonitoring({
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save health probe and resource settings."
+      toast({
+        title: "Save failed",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setConfigSaving(false)
+    }
+  }
+
+  const handleToggleImagePullSecret = async (enabled: boolean) => {
+    if (!selectedRepo) {
+      return
+    }
+
+    try {
+      setConfigSaving(true)
+      const updatedConfig = await api.updateDeploymentImagePullSecretEnabled(
+        selectedRepo.owner,
+        selectedRepo.repo,
+        enabled
+      )
+      setDeploymentConfigs((current) => ({
+        ...current,
+        [selectedRepo.full_name]: updatedConfig,
+      }))
+      toast({
+        title: enabled ? "Image pull secret enabled" : "Image pull secret disabled",
+        description: "The setting applies on the next deployment.",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save the image pull secret setting."
       toast({
         title: "Save failed",
         description: message,
@@ -871,6 +904,32 @@ export function DeploymentStatusMonitoring({
                       <Save className="mr-2 h-4 w-4" />
                       {configSaving ? "Saving..." : "Save runtime envFrom"}
                     </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Image pull secret</CardTitle>
+                    <CardDescription>
+                      Turn this off for public images. Deployments then run without imagePullSecrets, so an
+                      expired registry credential cannot block them.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="image-pull-secret-enabled">Use image pull secret</Label>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {selectedRepo && deploymentConfigs[selectedRepo.full_name]?.image_pull_secret_name
+                          ? deploymentConfigs[selectedRepo.full_name]?.image_pull_secret_name
+                          : "server default"}
+                      </p>
+                    </div>
+                    <Switch
+                      id="image-pull-secret-enabled"
+                      checked={selectedRepo ? deploymentConfigs[selectedRepo.full_name]?.image_pull_secret_enabled !== false : true}
+                      onCheckedChange={handleToggleImagePullSecret}
+                      disabled={configSaving || !selectedRepo || !deploymentConfigs[selectedRepo.full_name]}
+                    />
                   </CardContent>
                 </Card>
 

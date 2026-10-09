@@ -27,6 +27,7 @@ GHCR image to an Oracle Free Tier k3s target through K-Le-PaaS.
 - K-Le-PaaS runs with a kubeconfig that can reach that k3s cluster.
 - `K8S_NAMESPACE` points to the target namespace.
 - A GHCR image pull secret exists in that namespace when the GHCR image is private.
+  For a public image, turn the pull secret off (see "Image Pull Secret").
 - For the Oracle MVP, configure the service as `NODE_PORT` when host Nginx is
   the public edge.
 - Secrets such as kubeconfig, GHCR tokens, SSH keys, and production env vars must
@@ -145,6 +146,24 @@ Only one deployment runs per repository. While one is in progress:
 
 After a deployment finishes, the same request creates a new deployment (an
 intentional redeploy).
+
+## Image Pull Secret
+
+By default every deployment references an image pull secret: the configured
+`image_pull_secret_name`, or the server default `kubernetes.image-pull-secret`.
+If that secret holds an expired or revoked credential, the registry rejects the
+pull (GHCR answers 403) even for a public image, and the deployment fails at the
+rollout timeout.
+
+For a public image, set `image_pull_secret_enabled: false` in the repository
+deployment config (`PUT /api/v1/repositories/{id}/config`) or turn off "Use image
+pull secret" in the console. Deployments then run without `imagePullSecrets`, and
+no registry credential needs to be kept valid. The stored secret name is kept and
+is used again if you turn the setting back on. Omitting the field keeps the current
+value; existing repositories keep using their pull secret.
+
+For a private image, keep it on and keep the referenced secret valid. A read-only
+registry token (for GHCR, `read:packages` only) limits the impact if it leaks.
 
 ## Service Exposure
 

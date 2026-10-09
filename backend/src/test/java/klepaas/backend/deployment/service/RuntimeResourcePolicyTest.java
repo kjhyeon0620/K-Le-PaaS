@@ -9,6 +9,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -40,5 +41,10 @@ class RuntimeResourcePolicyTest {
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> policy.validateReferences(repository, List.of("runtime"), List.of(), "ghcr-pull"))
                 .isInstanceOf(BusinessException.class);
+        // pull secret을 끈 설정은 기본 pull secret도 참조하지 않으므로 허용이 없어도 통과한다 (#74)
+        var configWithoutPullSecret = DeploymentConfig.builder().sourceRepository(repository)
+                .imagePullSecretName("ghcr-pull").imagePullSecretEnabled(false).build();
+        assertThat(policy.resolveImagePullSecretName(configWithoutPullSecret)).isNull();
+        assertThatCode(() -> policy.validateReferences(repository, configWithoutPullSecret)).doesNotThrowAnyException();
     }
 }

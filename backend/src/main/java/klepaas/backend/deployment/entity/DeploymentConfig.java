@@ -60,6 +60,10 @@ public class DeploymentConfig extends BaseTimeEntity {
 
     private String imagePullSecretName;
 
+    // false면 Pod에 imagePullSecrets를 넣지 않는다 (공개 이미지). 이름은 다시 켤 때를 위해 보관한다
+    @Column(nullable = false)
+    private boolean imagePullSecretEnabled = true;
+
     @Enumerated(EnumType.STRING)
     private KubernetesServiceType serviceType;
 
@@ -78,10 +82,11 @@ public class DeploymentConfig extends BaseTimeEntity {
                             BuildStrategy buildStrategy, String imageUriTemplate, String imagePullSecretName,
                             KubernetesServiceType serviceType, Integer nodePort,
                             List<String> envFromConfigMaps, List<String> envFromSecrets,
-                            HealthProbe healthProbe, ContainerResources resources) {
+                            HealthProbe healthProbe, ContainerResources resources, Boolean imagePullSecretEnabled) {
         this.sourceRepository = sourceRepository;
         this.healthProbe = healthProbe;
         this.resources = resources;
+        this.imagePullSecretEnabled = imagePullSecretEnabled == null || imagePullSecretEnabled;
         this.minReplicas = minReplicas;
         this.maxReplicas = maxReplicas;
         this.envVars = envVars != null ? envVars : new HashMap<>();
@@ -128,6 +133,10 @@ public class DeploymentConfig extends BaseTimeEntity {
 
     public void updateResources(ContainerResources resources) {
         this.resources = resources;
+    }
+
+    public void updateImagePullSecretEnabled(boolean imagePullSecretEnabled) {
+        this.imagePullSecretEnabled = imagePullSecretEnabled;
     }
 
     private List<String> normalizeEnvFromRefs(List<String> names) {

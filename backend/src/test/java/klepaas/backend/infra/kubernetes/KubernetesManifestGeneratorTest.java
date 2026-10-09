@@ -212,6 +212,21 @@ class KubernetesManifestGeneratorTest {
     }
 
     @Test
+    @DisplayName("pull secret을 끈 설정은 imagePullSecrets 없이, 기본 설정은 기본 pull secret으로 manifest를 만든다")
+    void buildDeployment_omitsImagePullSecretsWhenDisabled() {
+        ReflectionTestUtils.setField(generator, "namespace", "klepaas");
+        DeploymentConfig disabled = DeploymentConfig.builder().minReplicas(1).maxReplicas(1)
+                .imagePullSecretName("ghcr-pull-secret").imagePullSecretEnabled(false).build();
+        DeploymentConfig existing = DeploymentConfig.builder().minReplicas(1).maxReplicas(1).build();
+
+        var withoutSecret = generator.buildDeployment("app", "img", disabled, Map.of()).getSpec().getTemplate().getSpec();
+        var withDefault = generator.buildDeployment("app", "img", existing, Map.of()).getSpec().getTemplate().getSpec();
+
+        assertThat(withoutSecret.getImagePullSecrets()).isEmpty();
+        assertThat(withDefault.getImagePullSecrets()).extracting(ref -> ref.getName()).containsExactly("ncp-cr");
+    }
+
+    @Test
     @DisplayName("probe·자원 설정이 없는 기존 앱 manifest에는 probe와 resources가 없다")
     void buildDeployment_omitsProbesAndResourcesWhenUnset() {
         DeploymentConfig config = DeploymentConfig.builder().minReplicas(1).maxReplicas(1).containerPort(8080).build();

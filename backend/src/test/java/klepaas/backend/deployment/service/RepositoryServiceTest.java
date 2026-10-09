@@ -495,6 +495,7 @@ class RepositoryServiceTest {
                     KubernetesServiceType.NODE_PORT,
                     30080,
                     null,
+                    null,
                     null
             );
             given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
@@ -544,6 +545,7 @@ class RepositoryServiceTest {
                     null,
                     null,
                     KubernetesServiceType.CLUSTER_IP,
+                    null,
                     null,
                     null,
                     null
@@ -777,7 +779,7 @@ class RepositoryServiceTest {
 
         private UpdateDeploymentConfigRequest request(HealthProbe healthProbe, ContainerResources containerResources) {
             return new UpdateDeploymentConfigRequest(1, 1, Map.of(), null, null, 8080, null,
-                    null, null, null, null, null, healthProbe, containerResources);
+                    null, null, null, null, null, healthProbe, containerResources, null);
         }
 
         private DeploymentConfigResponse update(UpdateDeploymentConfigRequest request) {
@@ -840,6 +842,22 @@ class RepositoryServiceTest {
             assertThatThrownBy(() -> update(request(null, new ContainerResources(null, "0m", null, null))))
                     .isInstanceOf(InvalidRequestException.class)
                     .hasMessageContaining("cpu_limit");
+        }
+
+        @Test
+        @DisplayName("성공: pull secret을 끄면 저장하고 허용 검사에 pull secret을 넘기지 않으며, 생략하면 유지한다")
+        void imagePullSecretCanBeDisabledAndIsKeptWhenOmitted() {
+            DeploymentConfigResponse disabled = update(new UpdateDeploymentConfigRequest(1, 1, Map.of(), null, null, 8080,
+                    null, null, null, "ghcr-pull-secret", null, null, null, null, false));
+
+            assertThat(disabled.imagePullSecretEnabled()).isFalse();
+            assertThat(disabled.imagePullSecretName()).isEqualTo("ghcr-pull-secret");
+            org.mockito.Mockito.verify(runtimeResourcePolicy).validateReferences(
+                    org.mockito.ArgumentMatchers.eq(testRepo), any(), any(), org.mockito.ArgumentMatchers.isNull());
+
+            assertThat(update(request(null, null)).imagePullSecretEnabled()).isFalse();
+            assertThat(update(new UpdateDeploymentConfigRequest(1, 1, Map.of(), null, null, 8080,
+                    null, null, null, null, null, null, null, null, true)).imagePullSecretEnabled()).isTrue();
         }
 
         @Test
