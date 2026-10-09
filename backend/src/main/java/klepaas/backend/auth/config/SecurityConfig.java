@@ -45,7 +45,6 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())) // H2 Console
                 .authorizeHttpRequests(auth -> auth
                         // sendError(401/403)의 /error 재디스패치는 필터 인증이 없으므로 원래 상태 코드를 유지하도록 허용
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -60,7 +59,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/system/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
                         .requestMatchers("/api/v1/ws/**").permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // CLI 토큰 scope: 아래에 없는 변경(토큰 발급·폐기 포함)은 FULL만 허용

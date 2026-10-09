@@ -30,8 +30,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -41,7 +39,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,13 +57,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 })
 @ActiveProfiles("test")
 class CliTokenScopeHttpTest {
-
-    private static final String DATABASE_ID = UUID.randomUUID().toString().replace("-", "");
-
-    @DynamicPropertySource
-    static void isolatedDatabase(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", () -> "jdbc:h2:mem:scope_http_" + DATABASE_ID + ";DB_CLOSE_DELAY=-1");
-    }
 
     @Value("${local.server.port}") private int port;
     @Autowired private ObjectMapper mapper;

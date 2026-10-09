@@ -31,7 +31,7 @@ K-Le-PaaS 백엔드는 자연어/CLI/Web 요청을 감사 가능하고 위험도
 |---|---|
 | Language | Java 17 |
 | Framework | Spring Boot 4.0.2 |
-| Persistence | Spring Data JPA, Hibernate, H2 개발 DB, PostgreSQL 운영 DB 가능 |
+| Persistence | Spring Data JPA, Hibernate, PostgreSQL 16, Flyway |
 | HTTP client | Spring RestClient |
 | Kubernetes | Fabric8 Kubernetes Client |
 | Cloud SDK | AWS SDK v2, NCP Object Storage S3 호환 API |
@@ -210,12 +210,15 @@ GEMINI_MODEL=gemini-2.5-flash
 
 ## 로컬 실행
 
+로컬 PostgreSQL은 저장소 루트의 `compose.yaml`로 띄웁니다. 같은 `DB_PASSWORD`를 백엔드에도 설정합니다 (`backend/.env`).
+
 ```bash
+DB_PASSWORD=<로컬 비밀번호> docker compose up -d
 cd backend
 ./gradlew bootRun
 ```
 
-개발 프로파일에서 H2 console을 쓰려면 `dev` profile을 사용합니다.
+SQL 로그를 보려면 `dev` profile을 사용합니다.
 
 ```bash
 cd backend

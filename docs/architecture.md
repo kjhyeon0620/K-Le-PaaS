@@ -17,7 +17,7 @@
                                               ├─ webhook: GitHub push
                                               └─ global: 에러, WebSocket, Slack, system(health/ready/version)
                                                      │
-                                              H2 파일 DB (운영) · Flyway
+                                              PostgreSQL 16 (운영) · Flyway
                                                      │
                                               Oracle k3s (사용자 앱) / NCP NKS
 ```
@@ -28,7 +28,7 @@
 | Frontend | Next.js 15, React 19, TypeScript 5, Tailwind 4, shadcn/ui ([DESIGN.md](../frontend/DESIGN.md)) |
 | CLI | `frontend/cli/*.mjs` (Node) |
 | AI | Gemini 2.5 Flash (`gemini.api.model`), 시스템 프롬프트 `backend/src/main/resources/prompts/system-prompt.txt` |
-| DB | H2 파일 DB (운영), `ddl-auto=validate`, Flyway `db/migration` |
+| DB | PostgreSQL 16 (운영, 백엔드와 같은 호스트), `ddl-auto=validate`, Flyway `db/migration` ([ADR-0008](adr/0008-postgresql-production-database.md)) |
 | 플랫폼 배포 | GitHub Actions ARM64 빌드 → SSH receiver → systemd 릴리스 ([ADR-0005](adr/0005-platform-release-systemd-receiver.md)) |
 
 ## 2. 모듈 책임 (`klepaas.backend`)
@@ -180,15 +180,16 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |
 | `github.actions.oidc.allowed-refs` | `${GITHUB_ACTIONS_OIDC_ALLOWED_REFS:refs/heads/main}` | OIDC 배포를 허용할 ref (쉼표 구분) |
 | `app.base-url`, `cors.allowed-origins` | localhost | Web console 주소 |
+| `spring.datasource.url` / `username` / `password` | `${DB_URL:jdbc:postgresql://localhost:5432/klepaas}` / `${DB_USERNAME:klepaas}` / `${DB_PASSWORD}` | DB 접속. 비밀번호는 기본값 없음 |
 
-비밀값(`JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`, `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
+비밀값(`DB_PASSWORD`, `JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`, `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
 
 ## 8. 테스트와 검증 층위
 
 | 층위 | 방법 |
 |---|---|
-| 단위·통합 | `cd backend && ./gradlew test` (컨트롤러는 실제 HTTP 테스트 포함) |
-| 패키징 | `./gradlew bootJar` 후 JAR를 H2 파일 DB로 기동, `ddl-auto=validate`, readiness `UP` |
+| 단위·통합 | `cd backend && ./gradlew test` (컨트롤러는 실제 HTTP 테스트 포함). DB는 Testcontainers PostgreSQL이라 Docker가 필요하다 |
+| 패키징 | `./gradlew bootJar` 후 JAR를 PostgreSQL(`compose.yaml`)로 기동, `ddl-auto=validate`, readiness `UP` |
 | 운영 DB 사본 | 스키마 변경 시 머지 전에 필수 |
 | 실제 클러스터 | k3s 임시 컨테이너 등 격리 환경. 운영 앱에 실패를 주입하지 않는다 |
 | 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit` |

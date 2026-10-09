@@ -1,0 +1,16 @@
+# 로컬 개발용 PostgreSQL. `docker compose up -d` 후 backend를 DB_PASSWORD와 함께 실행한다 (README 환경변수 참고).
+# 운영 DB는 이 파일을 쓰지 않는다 (docs/CICD.md).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: klepaas
+      POSTGRES_USER: klepaas
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD를 설정하세요}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

@@ -12,6 +12,7 @@
 | [0005](0005-platform-release-systemd-receiver.md) | 플랫폼 자체 배포는 systemd 릴리스와 SSH receiver | Accepted |
 | [0006](0006-resource-access-scope.md) | 리소스 접근은 namespace·저장소 라벨·운영자 허용 참조로 제한 | Accepted |
 | [0007](0007-github-actions-oidc.md) | GitHub Actions 배포는 OIDC 토큰으로 인증 | Accepted |
+| [0008](0008-postgresql-production-database.md) | 운영 DB를 PostgreSQL로 전환하고 마이그레이션 기준선을 다시 잡는다 | Accepted |
 
 ## 규칙
 

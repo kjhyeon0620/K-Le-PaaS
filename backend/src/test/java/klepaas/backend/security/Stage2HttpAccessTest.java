@@ -29,8 +29,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.net.URI;
@@ -42,7 +40,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -65,13 +62,6 @@ import static org.mockito.Mockito.*;
 class Stage2HttpAccessTest {
     private static final Path EVIDENCE = Path.of("../.local/evidence/multi-project-deploy/2/2026-09-20/http-stage2-access.txt");
 
-    @DynamicPropertySource
-    static void isolatedDatabase(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", () -> "jdbc:h2:mem:stage2_http_" + DATABASE_ID + ";DB_CLOSE_DELAY=-1");
-    }
-
-    private static final String DATABASE_ID = UUID.randomUUID().toString().replace("-", "");
-
     @Value("${local.server.port}") private int port;
     @Autowired private ObjectMapper mapper;
     @Autowired private UserRepository users;
@@ -90,7 +80,7 @@ class Stage2HttpAccessTest {
     @MockitoBean private S3Client s3;
 
     private final HttpClient http = HttpClient.newHttpClient();
-    private final StringBuilder evidence = new StringBuilder("Stage 2: RANDOM_PORT real HTTP -> Spring Security -> controllers -> services -> in-memory H2\n");
+    private final StringBuilder evidence = new StringBuilder("Stage 2: RANDOM_PORT real HTTP -> Spring Security -> controllers -> services -> PostgreSQL (Testcontainers)\n");
 
     @AfterEach
     void captureEvidence() throws Exception {
