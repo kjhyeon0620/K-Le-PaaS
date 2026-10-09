@@ -26,12 +26,14 @@ public record UpdateDeploymentConfigRequest(
         @Min(30000) @Max(32767) Integer nodePort,
         // 생략(null)하면 기존 값을 유지하고, 보내면 그룹 전체를 교체한다. path가 비어 있으면 probe를 해제한다.
         @Valid HealthProbe healthProbe,
-        @Valid ContainerResources resources
+        @Valid ContainerResources resources,
+        // 생략(null)하면 기존 값 유지. false면 imagePullSecrets 없이 배포한다 (공개 이미지)
+        Boolean imagePullSecretEnabled
 ) {
     public UpdateDeploymentConfigRequest(int minReplicas, int maxReplicas, Map<String, String> envVars,
                                          int containerPort, String domainUrl) {
         this(minReplicas, maxReplicas, envVars, null, null, containerPort, domainUrl,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     public UpdateDeploymentConfigRequest(int minReplicas, int maxReplicas, Map<String, String> envVars,
@@ -40,6 +42,6 @@ public record UpdateDeploymentConfigRequest(
                                          String imagePullSecretName, KubernetesServiceType serviceType,
                                          Integer nodePort) {
         this(minReplicas, maxReplicas, envVars, null, null, containerPort, domainUrl,
-                buildStrategy, imageUriTemplate, imagePullSecretName, serviceType, nodePort, null, null);
+                buildStrategy, imageUriTemplate, imagePullSecretName, serviceType, nodePort, null, null, null);
     }
 }

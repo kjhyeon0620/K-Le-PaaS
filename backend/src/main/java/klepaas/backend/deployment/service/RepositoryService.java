@@ -154,8 +154,11 @@ public class RepositoryService {
         ServiceExposure serviceExposure = resolveServiceExposure(config, request);
         List<String> envFromConfigMaps = normalizeEnvFromRefs(request.envFromConfigMaps(), "env_from_config_maps");
         List<String> envFromSecrets = normalizeEnvFromRefs(request.envFromSecrets(), "env_from_secrets");
-        runtimeResourcePolicy.validateReferences(repository, envFromConfigMaps, envFromSecrets,
-                request.imagePullSecretName() != null ? request.imagePullSecretName() : config.getImagePullSecretName());
+        boolean imagePullSecretEnabled = request.imagePullSecretEnabled() != null
+                ? request.imagePullSecretEnabled() : config.isImagePullSecretEnabled();
+        // 끈 pull secret은 참조하지 않으므로 허용 검사 대상이 아니다
+        runtimeResourcePolicy.validateReferences(repository, envFromConfigMaps, envFromSecrets, !imagePullSecretEnabled ? null
+                : request.imagePullSecretName() != null ? request.imagePullSecretName() : config.getImagePullSecretName());
         config.updateConfig(
                 request.minReplicas(),
                 request.maxReplicas(),
@@ -170,6 +173,7 @@ public class RepositoryService {
                 envFromConfigMaps,
                 envFromSecrets
         );
+        config.updateImagePullSecretEnabled(imagePullSecretEnabled);
         if (request.healthProbe() != null) {
             config.updateHealthProbe(normalizeHealthProbe(request.healthProbe()));
         }

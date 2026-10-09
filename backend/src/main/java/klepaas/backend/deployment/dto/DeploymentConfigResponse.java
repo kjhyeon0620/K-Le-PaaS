@@ -25,12 +25,13 @@ public record DeploymentConfigResponse(
         KubernetesServiceType serviceType,
         Integer nodePort,
         HealthProbe healthProbe,
-        ContainerResources resources
+        ContainerResources resources,
+        boolean imagePullSecretEnabled
 ) {
     public DeploymentConfigResponse(Long id, Long repositoryId, int minReplicas, int maxReplicas,
                                     Map<String, String> envVars, int containerPort, String domainUrl) {
         this(id, repositoryId, minReplicas, maxReplicas, envVars, List.of(), List.of(), containerPort, domainUrl,
-                BuildStrategy.KANIKO, null, null, KubernetesServiceType.CLUSTER_IP, null, null, null);
+                BuildStrategy.KANIKO, null, null, KubernetesServiceType.CLUSTER_IP, null, null, null, true);
     }
 
     public static DeploymentConfigResponse from(DeploymentConfig entity) {
@@ -50,7 +51,8 @@ public record DeploymentConfigResponse(
                 entity.getServiceType(),
                 entity.getNodePort(),
                 entity.getHealthProbe(),
-                entity.getResources()
+                entity.getResources(),
+                entity.isImagePullSecretEnabled()
         );
     }
 }

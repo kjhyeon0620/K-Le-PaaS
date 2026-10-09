@@ -212,6 +212,9 @@ public class KubernetesManifestGenerator {
                 .map(e -> new EnvVarBuilder().withName(e.getKey()).withValue(e.getValue()).build())
                 .collect(Collectors.toList());
         List<EnvFromSource> envFromSources = buildEnvFromSources(config);
+        String imagePullSecretName = runtimeResourcePolicy.resolveImagePullSecretName(config);
+        List<LocalObjectReference> imagePullSecrets = imagePullSecretName == null
+                ? List.of() : List.of(new LocalObjectReferenceBuilder().withName(imagePullSecretName).build());
 
         return new DeploymentBuilder()
                 .withNewMetadata()
@@ -229,9 +232,7 @@ public class KubernetesManifestGenerator {
                             .withLabels(labels)
                         .endMetadata()
                         .withNewSpec()
-                            .withImagePullSecrets(new LocalObjectReferenceBuilder()
-                                    .withName(runtimeResourcePolicy.resolveImagePullSecretName(config))
-                                    .build())
+                            .withImagePullSecrets(imagePullSecrets)
                             .withContainers(new ContainerBuilder()
                                     .withName(appName)
                                     .withImage(imageUri)

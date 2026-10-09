@@ -127,7 +127,7 @@ class RepositoryControllerTest {
     @DisplayName("GET /api/v1/repositories/{id}/config - 배포 설정 조회")
     void getDeploymentConfig() throws Exception {
         var config = new DeploymentConfigResponse(1L, 1L, 1, 3, Map.of(), List.of("runtime-config"),
-                List.of("app-env"), 8080, "repo.klepaas.io", null, null, null, null, null, null, null);
+                List.of("app-env"), 8080, "repo.klepaas.io", null, null, null, null, null, null, null, true);
         given(repositoryService.getDeploymentConfig(1L, 1L)).willReturn(config);
 
         mockMvc.perform(get("/api/v1/repositories/1/config")
@@ -144,7 +144,7 @@ class RepositoryControllerTest {
     void updateDeploymentConfig() throws Exception {
         var updatedConfig = new DeploymentConfigResponse(1L, 1L, 2, 5, Map.of("ENV", "prod"),
                 List.of("runtime-config"), List.of("app-env"), 3000, "custom.klepaas.io",
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, true);
         given(repositoryService.updateDeploymentConfig(anyLong(), any(), eq(1L))).willReturn(updatedConfig);
 
         mockMvc.perform(put("/api/v1/repositories/1/config")

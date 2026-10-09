@@ -99,7 +99,10 @@ branch: feat/#65-github-actions-oidc
 - IoT 저장소 `deploy-klepaas-oracle.yml`: `permissions: id-token: write`, OIDC 토큰 요청, `KLEPAAS_TOKEN` 제거. PR 생성까지. 머지·Secret 삭제·기존 토큰 폐기는 사용자
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-03 PR #73 머지. main `Build and deploy`의 build·deploy 성공 (마이그레이션 없음).
+- IoT 저장소 워크플로를 OIDC로 전환(smart-sousvide-iot-platform PR #69). 머지 후 실행에서 `KLEPAAS_TOKEN` 없이 OIDC 토큰으로 배포가 접수됐다(배포 #8, branch main, commit 84b385f).
+- 배포 #8의 rollout은 실패했다. 클러스터 `ghcr-pull-secret`의 토큰이 만료돼 GHCR이 403을 반환했고 새 Pod가 `ImagePullBackOff`였다. 이미지는 공개이고 Pod 템플릿은 이미지 태그 외에 바뀌지 않았다(#51 전체 교체 정상). 기존 Pod는 계속 서비스했다. 공개 이미지에서 pull secret을 끄는 작업은 #74.
+- 기존 CI용 전체 권한 토큰 폐기와 `KLEPAAS_TOKEN` Secret 삭제는 사용자가 진행한다.
 
 ## 회고
 - 어긋난 점: 인증 필터에 검증기 의존성을 추가하자 필터를 직접 import하는 `@WebMvcTest` 슬라이스 5개가 컨텍스트를 만들지 못했다. 동작 문제는 아니고 테스트 구성 문제였다.

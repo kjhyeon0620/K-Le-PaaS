@@ -36,7 +36,11 @@ public class RuntimeResourcePolicy {
                 resolveImagePullSecretName(config));
     }
 
+    /** pull secret을 끈 설정이면 null (Pod에 imagePullSecrets를 넣지 않음). */
     public String resolveImagePullSecretName(DeploymentConfig config) {
+        if (!config.isImagePullSecretEnabled()) {
+            return null;
+        }
         String name = config.getImagePullSecretName();
         return name != null && !name.isBlank() ? name : defaultImagePullSecretName;
     }

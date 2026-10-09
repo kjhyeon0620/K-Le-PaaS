@@ -65,7 +65,7 @@ branch: feat/#51-app-probes-resources
 
 ## 운영 반영
 - 2026-10-02 PR #71 머지. main `Build and deploy`의 build·deploy 성공. 운영 백엔드는 `ddl-auto=validate`로 기동하므로 receiver readiness 통과로 운영 DB V4 적용을 확인했다.
-- 기존 앱(IoT) 재배포에서 Deployment 전체 교체 동작은 아직 확인하지 않았다. 다음 IoT 배포 때 확인한다.
+- 2026-10-03 IoT 재배포(배포 #8)에서 Deployment 전체 교체가 운영 클러스터에 처음 적용됐다. 새 ReplicaSet의 Pod 템플릿은 이미지 태그 외에 이전과 같았다(envFrom, pull secret, port 유지). rollout은 만료된 pull secret 때문에 실패했다(#74).
 
 ## 회고
 - 어긋난 점: 이슈에 없던 재배포 409 결함을 실제 k3s 검증에서 처음 발견했다. 단위 테스트(mock client)로는 field manager 충돌이 드러나지 않았다.

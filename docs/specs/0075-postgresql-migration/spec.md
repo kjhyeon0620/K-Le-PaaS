@@ -130,7 +130,10 @@ branch: feat/#75-postgresql-migration
 
 ## 운영 반영
 - 2026-10-09 머지 전 준비 (사용자 수행, 에이전트가 읽기 전용으로 확인): 운영 호스트에 PostgreSQL 16 OS 패키지 설치. `listen_addresses` 기본값(localhost)이고 5432는 127.0.0.1에서만 열려 있음. host 접속은 `scram-sha-256`. `klepaas` 역할(superuser 아님)과 그 역할이 소유한 `klepaas` DB 생성. 백엔드 `EnvironmentFile`에 `DB_URL`·`DB_USERNAME`·`DB_PASSWORD` 3개 추가. 비밀번호로 `select 1` 접속 확인.
-- 머지 후: 배포 workflow 결과, Flyway 적용 버전, H2 `data/` 삭제, 재설정 결과를 기록한다.
+- 2026-10-09 PR #76 머지(`88991d5`). Build and deploy workflow의 build(Testcontainers 테스트 포함)·deploy 성공. 운영 readiness `UP`, revision 일치, 운영 PostgreSQL의 Flyway 이력 `1 baseline schema` 성공.
+- 2026-10-09 H2 `data/` 삭제(사용자 수행). GitHub 로그인과 IoT 저장소 재등록(새 저장소 ID 1로 기존과 같아 GitHub Actions 설정 변경 없음), 배포 설정은 운영 중인 k3s Deployment 값으로 API를 통해 다시 입력.
+- 2026-10-09 재설정 후 IoT 배포 workflow 재실행: OIDC 인증·배포 접수·기록은 정상, rollout은 `FAILED`. 원인은 이 전환과 무관한 만료된 `ghcr-pull-secret`(공개 이미지에도 인증 실패, 10월 3일 배포부터 같은 상태)로 #74에서 다룬다.
+- 범위 밖 발견: 콘솔 저장소 카드의 Configure 버튼이 "곧 구현될 예정" 알림만 띄운다 (architecture.md §9에 기록).
 
 ## 회고
 - 어긋난 점: 이 이슈의 출발점이었던 인덱스 최적화 요청이 운영 DB를 PostgreSQL로 전제했지만 실제 운영은 H2였다. 비밀번호 누락 시 실패 방식(placeholder 오류가 아닌 인증 실패)도 스펙 전제와 달랐다.
