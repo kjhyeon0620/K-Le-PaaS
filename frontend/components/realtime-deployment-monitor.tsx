@@ -9,6 +9,7 @@ import { CheckCircle, XCircle, Clock, Zap, Wifi, WifiOff, RefreshCw } from "luci
 import { useGlobalWebSocket } from "@/hooks/use-global-websocket"
 import { DeploymentProgress } from "./deployment-progress"
 import { apiClient } from "@/lib/api"
+import { formatKstTime } from "@/lib/time"
 
 interface RealtimeDeploymentMonitorProps {
   deploymentId: string | number
@@ -285,15 +286,7 @@ export function RealtimeDeploymentMonitor({
   }
 
   const formatKST = (iso?: string | null) => {
-    if (!iso) return "-"
-    try {
-      // 강건한 파싱: 타임존 표기가 없으면 UTC로 간주하여 'Z'를 붙여 파싱
-      const hasTz = /Z|[+\-]\d{2}:?\d{2}$/.test(iso)
-      const normalized = hasTz ? iso : `${iso.replace(' ', 'T')}Z`
-      return new Date(normalized).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })
-    } catch {
-      return "-"
-    }
+    return formatKstTime(iso)
   }
 
   // update elapsed while running
@@ -399,7 +392,7 @@ export function RealtimeDeploymentMonitor({
                 <div className="text-blue-600">🔄 Deployment in progress...</div>
               )}
               {currentStatus === "running" && lastUpdate && (
-                <div className="text-blue-600">🔄 Deployment in progress... (Last update: {lastUpdate.toLocaleTimeString()})</div>
+                <div className="text-blue-600">🔄 Deployment in progress... (Last update: {formatKstTime(lastUpdate)})</div>
               )}
               {!currentStatus && (
                 <div className="text-gray-600">⏳ Initializing deployment...</div>

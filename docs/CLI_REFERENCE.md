@@ -25,8 +25,10 @@ klepaas --help
 
 - `--profile <name>`: 저장할 인증 프로필 선택
 - `--base-url <url>`: API base URL override
-- `--json`: 구조화된 JSON 출력
+- `--json`: 구조화된 JSON 출력 (시각은 API 값 그대로 UTC, 예: `2026-10-09T09:09:30.682Z`)
 - `--quiet`: 성공 메시지 최소화
+
+표 출력의 시각은 한국 시간으로 표시한다 (예: `2026-10-09 18:09:30 KST`).
 
 기본 API URL은 `http://localhost:8080`이다.
 

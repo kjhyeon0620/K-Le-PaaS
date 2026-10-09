@@ -47,6 +47,7 @@ import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
 import { DeploymentLogsDialog } from "@/components/deployment-logs-dialog"
 import { formatDuration } from "@/lib/utils"
+import { formatKst, formatTimeAgo, parseServerTime } from "@/lib/time"
 import { formatImageDisplay } from "@/lib/utils/image-formatter"
 
 interface DeploymentStatusMonitoringProps {
@@ -79,12 +80,6 @@ function toBuildServiceInput(config: DeploymentConfigResponse | undefined): Buil
     container_port: config ? String(config.container_port) : "",
     domain_url: config?.domain_url ?? "",
   }
-}
-
-// 백엔드 LocalDateTime은 시간대 없이 서버 시각(UTC)으로 직렬화된다
-function parseServerTime(value: string | null | undefined): Date | null {
-  if (!value) return null
-  return new Date(/[zZ]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`)
 }
 
 function deploymentDurationSeconds(startedAt: string | null, finishedAt: string | null): number | null {
@@ -259,19 +254,6 @@ export function DeploymentStatusMonitoring({
       )
     }
     return <Badge variant="outline">{status}</Badge>
-  }
-
-  const formatTime = (value: string | null) => {
-    const date = parseServerTime(value)
-    if (!date) return "-"
-    const diffMins = Math.floor((Date.now() - date.getTime()) / 60000)
-
-    if (diffMins < 1) return "Just now"
-    if (diffMins < 60) return `${diffMins}m ago`
-    const diffHours = Math.floor(diffMins / 60)
-    if (diffHours < 24) return `${diffHours}h ago`
-    const diffDays = Math.floor(diffHours / 24)
-    return `${diffDays}d ago`
   }
 
   const handleViewDetails = (repo: RepositoryWorkload) => {
@@ -595,7 +577,7 @@ export function DeploymentStatusMonitoring({
                       <div className="space-y-3">
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Started</p>
-                          <p className="text-sm font-medium">{formatTime(deployment.started_at ?? deployment.created_at)}</p>
+                          <p className="text-sm font-medium">{formatTimeAgo(deployment.started_at ?? deployment.created_at)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Duration</p>
@@ -690,7 +672,7 @@ export function DeploymentStatusMonitoring({
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Started</p>
-                        <p className="mt-1 text-sm">{formatTime(selectedRepo.latest_deployment.started_at)}</p>
+                        <p className="mt-1 text-sm">{formatKst(selectedRepo.latest_deployment.started_at)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Duration</p>

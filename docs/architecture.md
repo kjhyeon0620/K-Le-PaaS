@@ -142,6 +142,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 ### 6.1 API
 
 - 경로 prefix는 `/api/v1`, JSON 필드는 `snake_case`다.
+- 시각은 UTC로 저장하고, 응답에는 `Z`가 붙은 ISO 8601(`2026-10-09T09:09:30.682Z`)로 보낸다 (`JacksonTimeConfig`, 애플리케이션 시간대는 UTC 고정). 콘솔·CLI 사람용 출력은 한국 시간(KST)으로 표시하고, 콘솔은 `frontend/lib/time.ts`만 쓴다 (#81).
 - 에러는 `ErrorCode` enum(`backend/.../global/exception/ErrorCode.java`)이 기준이다. 코드 체계는 `<영역>_<번호>`다.
 
 | 영역 | 코드 예 |
@@ -209,6 +210,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | 승인한 뒤 실행 시점에 설정을 다시 조회한다 | 승인 대기 중에 바뀐 설정으로 실행될 수 있다 | #56 |
 | 백엔드 재시작 후 진행 중이던 배포·명령 상태를 대조하지 않는다 | 영원히 진행 중으로 남는다 | #57 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
+| 콘솔 Deployments 화면의 Rollback·Logs 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환하고, `getDeploymentLogs()`는 빈 로그를 반환한다 (Config·Scale·Restart는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다. 추후 구현: 로그는 #54, 롤백은 이전 성공 배포 목록·롤백 API 이슈 후보 | #54, 이슈 후보 |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | 이슈 후보 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |

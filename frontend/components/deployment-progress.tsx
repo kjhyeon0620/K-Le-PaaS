@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Clock, Zap, GitBranch, Package, Rocket } from "lucide-react"
 import { formatDuration } from "@/lib/utils"
+import { formatKst } from "@/lib/time"
 
 interface DeploymentProgressProps {
   deploymentId: string | number
@@ -431,10 +432,10 @@ export function DeploymentProgress({
         {/* Timing Information */}
         <div className="text-xs text-muted-foreground space-y-1">
           {timing?.started_at && (
-            <div>Started: {(parseIsoAsUtc(timing.started_at) || new Date(timing.started_at)).toLocaleString()}</div>
+            <div>Started: {formatKst(timing.started_at, true)}</div>
           )}
           {timing?.completed_at && (
-            <div>Completed: {(parseIsoAsUtc(timing.completed_at) || new Date(timing.completed_at)).toLocaleString()}</div>
+            <div>Completed: {formatKst(timing.completed_at, true)}</div>
           )}
           {timing?.total_duration && (
             <div>Total Duration: {formatDuration(timing.total_duration)}</div>

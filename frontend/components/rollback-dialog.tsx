@@ -24,6 +24,7 @@ import {
 import { AlertCircle, CheckCircle, Clock, RotateCcw, GitCommit } from "lucide-react"
 import { api, RollbackListResponse, RollbackCandidate } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { formatKst } from "@/lib/time"
 
 interface RollbackDialogProps {
   open: boolean
@@ -103,23 +104,7 @@ export function RollbackDialog({
     }
   }
 
-  const formatTime = (isoString: string | null) => {
-    if (!isoString) return "-"
-    
-    // 한국 시간대 설정
-    const koreaTimeZone = 'Asia/Seoul'
-    
-    // 입력된 날짜를 한국 시간으로 변환
-    const date = new Date(isoString)
-    const koreaDate = new Date(date.toLocaleString("en-US", { timeZone: koreaTimeZone }))
-    
-    const year = koreaDate.getFullYear()
-    const month = String(koreaDate.getMonth() + 1).padStart(2, '0')
-    const day = String(koreaDate.getDate()).padStart(2, '0')
-    const hours = String(koreaDate.getHours()).padStart(2, '0')
-    const minutes = String(koreaDate.getMinutes()).padStart(2, '0')
-    return `${year}.${month}.${day} ${hours}:${minutes}`
-  }
+  const formatTime = (isoString: string | null) => formatKst(isoString)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

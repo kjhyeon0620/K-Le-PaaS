@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Network, Copy, Tag, ListTree, Server } from "lucide-react"
 import { NLPResponse } from "@/lib/types/nlp-response"
 import { copyToClipboard } from "@/lib/utils/clipboard"
+import { formatKst } from "@/lib/time"
 
 interface ServiceDetailRendererProps {
   response: NLPResponse
@@ -95,7 +96,7 @@ export function ServiceDetailRenderer({ response }: ServiceDetailRendererProps) 
           {creationTimestamp && (
             <div className="grid grid-cols-[160px_1fr] gap-2 text-sm">
               <div className="font-medium text-muted-foreground whitespace-nowrap">CreationTimestamp:</div>
-              <div className="font-mono">{new Date(creationTimestamp).toLocaleString()}</div>
+              <div className="font-mono">{formatKst(creationTimestamp)}</div>
             </div>
           )}
         </div>

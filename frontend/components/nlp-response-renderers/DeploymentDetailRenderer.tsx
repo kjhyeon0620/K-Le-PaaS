@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Layers, Copy, CalendarClock, Tag, FileText, Boxes, Settings, ListTree, Package, HardDrive, Server, Activity } from "lucide-react"
 import { DeploymentDetailResponse, NLPResponse } from "@/lib/types/nlp-response"
 import { copyToClipboard } from "@/lib/utils/clipboard"
+import { formatKst } from "@/lib/time"
 
 interface DeploymentDetailRendererProps {
   response: DeploymentDetailResponse | NLPResponse
@@ -224,7 +225,7 @@ export function DeploymentDetailRenderer({ response }: DeploymentDetailRendererP
           {creationTimestamp && (
             <div className="grid grid-cols-[160px_1fr] gap-2 text-sm">
               <div className="font-medium text-muted-foreground whitespace-nowrap">CreationTimestamp:</div>
-              <div className="font-mono">{new Date(creationTimestamp).toLocaleString()}</div>
+              <div className="font-mono">{formatKst(creationTimestamp)}</div>
             </div>
           )}
         </div>
