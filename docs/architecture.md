@@ -210,7 +210,9 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | 백엔드 재시작 후 진행 중이던 배포·명령 상태를 대조하지 않는다 | 영원히 진행 중으로 남는다 | #57 |
 | 콘솔이 설정 조회에 실패하면 기본값으로 저장할 수 있다 | 기존 설정을 덮어쓴다 | #66 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면이 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 | #59 |
-| 콘솔 GitHub 화면의 저장소 Configure 버튼이 알림만 띄운다. 빌드 방식·이미지 템플릿·pull secret·서비스 타입은 콘솔에서 바꿀 수 없다 | 배포 설정은 `PUT /api/v1/repositories/{id}/config`로만 바꿀 수 있다 | 이슈 후보 |
+| 콘솔 GitHub 화면의 저장소 Configure 버튼이 알림만 띄운다. 빌드 방식·이미지 템플릿·pull secret·서비스 타입은 콘솔에서 바꿀 수 없다 | 배포 설정은 `PUT /api/v1/repositories/{id}/config`로만 바꿀 수 있다 | #78 |
+| 콘솔 Deployments 화면과 대시보드가 `/repositories` 응답에 없는 필드(`repo`, `full_name`, `latest_deployment`)를 읽는다 | 저장소 이름이 비고 배포가 있어도 "No deployments yet"가 표시된다. 같은 화면의 설정 편집(probe·자원, envFrom, pull secret)도 저장소를 찾지 못한다 | #78 |
+| `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | 이슈 후보 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |
