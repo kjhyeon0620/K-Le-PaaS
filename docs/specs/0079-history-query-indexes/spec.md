@@ -66,7 +66,7 @@ branch: feat/#79-history-query-indexes
 | 운영 V3 적용 | 머지 후 배포 결과 | 운영 | 머지 후 `운영 반영`에 기록 |
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-09 PR #80 머지(`28f9032`). Build and deploy의 build·deploy 성공, 운영 readiness `UP`, revision 일치, 운영 PostgreSQL Flyway `3 history query indexes` 성공, 인덱스 `idx_command_log_user_id_created_at`·`idx_deployments_repository_id_created_at` 생성 확인.
 
 ## 회고
 - 어긋난 점: 대량 적재 직후 측정에서 count가 인덱스 후 더 느려졌다. 측정 조건(VACUUM 여부)이 결과를 뒤집을 수 있었다. 대상 쿼리 중 하나(Q3)는 호출하는 코드가 없었다.

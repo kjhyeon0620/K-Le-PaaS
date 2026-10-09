@@ -30,6 +30,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
+import java.time.Instant;
+import java.time.Duration;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -115,6 +117,10 @@ class DeploymentSerializationHttpTest {
 
         long firstId = id(first);
         assertThat(first.statusCode()).isEqualTo(201);
+        // 응답 시각은 Z가 붙은 UTC이고 실제 시각과 같다 (#81)
+        String createdAt = mapper.readTree(first.body()).path("data").path("created_at").asText();
+        assertThat(createdAt).endsWith("Z");
+        assertThat(Duration.between(Instant.parse(createdAt), Instant.now()).abs()).isLessThan(Duration.ofMinutes(1));
         assertThat(retry.statusCode()).isEqualTo(200);
         assertThat(id(retry)).isEqualTo(firstId);
         assertThat(different.statusCode()).isEqualTo(409);

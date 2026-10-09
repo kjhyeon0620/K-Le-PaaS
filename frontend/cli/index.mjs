@@ -16,7 +16,7 @@ import {
   saveConfig,
   upsertProfile,
 } from "./config.mjs";
-import { formatCurrency, printJson, printKeyValues, printRows, printYaml } from "./output.mjs";
+import { formatCurrency, formatKst, printJson, printKeyValues, printRows, printYaml } from "./output.mjs";
 
 const EXIT_CODES = {
   SUCCESS: 0,
@@ -306,7 +306,7 @@ async function handleHistory(args, globalOptions, client) {
     { key: "intent", label: "Intent" },
     { key: "risk_level", label: "Risk" },
     { key: "is_executed", label: "Executed" },
-    { key: "created_at", label: "Created At" },
+    { key: (row) => formatKst(row.created_at), label: "Created At" },
     { key: (row) => truncate(row.raw_command, 32), label: "Command" },
   ]);
 }
@@ -343,7 +343,7 @@ async function handleDeployments(args, globalOptions, client) {
         { key: "status", label: "Status" },
         { key: "branch_name", label: "Branch" },
         { key: "commit_hash", label: "Commit" },
-        { key: "created_at", label: "Created At" },
+        { key: (row) => formatKst(row.created_at), label: "Created At" },
       ]);
       return;
     }
@@ -367,8 +367,8 @@ async function handleDeployments(args, globalOptions, client) {
         ["Branch", response.branch_name],
         ["Commit", response.commit_hash],
         ["Image", response.image_uri || "-"],
-        ["Started", response.started_at || "-"],
-        ["Finished", response.finished_at || "-"],
+        ["Started", formatKst(response.started_at)],
+        ["Finished", formatKst(response.finished_at)],
         ["Fail Reason", response.fail_reason || "-"],
       ]);
       return;

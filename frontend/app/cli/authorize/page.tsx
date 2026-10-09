@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { formatKst, parseServerTime } from "@/lib/time"
 
 type AuthUser = {
   id: string
@@ -265,6 +266,5 @@ function MetaCard({ icon, label, value }: { icon: ReactNode; label: string; valu
 }
 
 function formatDate(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ko-KR")
+  return parseServerTime(value) ? formatKst(value) : value
 }

@@ -30,6 +30,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react"
+import { formatKst } from "@/lib/time"
 
 interface ClusterNode {
   id: string
@@ -399,7 +400,7 @@ export function RealTimeMonitoringDashboard({ initialTab = 'nodes' as 'nodes' | 
 
   const formatTimestamp = (timestamp: string) => {
     try {
-      return new Date(timestamp).toLocaleString()
+      return formatKst(timestamp, true)
     } catch {
       return timestamp
     }
@@ -411,7 +412,7 @@ export function RealTimeMonitoringDashboard({ initialTab = 'nodes' as 'nodes' | 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Real-time Monitoring</h2>
-          <p className="text-muted-foreground">Last updated: {currentTime.toLocaleString()}</p>
+          <p className="text-muted-foreground">Last updated: {formatKst(currentTime, true)}</p>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -623,7 +624,7 @@ export function RealTimeMonitoringDashboard({ initialTab = 'nodes' as 'nodes' | 
                         {nksData?.overall_status === 'healthy' ? 'Healthy' : 'Degraded'}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        Last updated: {new Date().toLocaleString()}
+                        Last updated: {formatKst(new Date(), true)}
                       </span>
                     </div>
                   </CardTitle>

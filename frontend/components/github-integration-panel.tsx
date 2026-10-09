@@ -28,6 +28,7 @@ import {
   Zap,
   RefreshCw,
 } from "lucide-react"
+import { formatKst } from "@/lib/time"
 
 const UI_TEXT = {
   pullRequests: {
@@ -1277,7 +1278,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
                         <div>
                           <h3 className="font-semibold">{repo.fullName}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Branch: {repo.branch} • Last sync: {repo.lastSync.toLocaleString()}
+                            Branch: {repo.branch} • Last sync: {formatKst(repo.lastSync)}
                           </p>
                         </div>
                       </div>
@@ -1418,7 +1419,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
                     </div>
 
                     <div className="text-sm text-muted-foreground mb-3">
-                      {pr.author} wants to merge {pr.branch} into {pr.targetBranch} • {pr.createdAt.toLocaleString()}
+                      {pr.author} wants to merge {pr.branch} into {pr.targetBranch} • {formatKst(pr.createdAt)}
                     </div>
 
                     <div className="flex items-center justify-between">

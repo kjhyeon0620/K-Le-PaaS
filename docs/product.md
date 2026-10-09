@@ -63,8 +63,8 @@
 | 7-2 | #75 | 운영 DB H2 → PostgreSQL 전환 | 완료 (PR #76), 운영 PostgreSQL V1 | [0075](specs/0075-postgresql-migration/spec.md) |
 | 7-3 | #74 | 공개 이미지 배포에서 pull secret 끄기 | 완료 (PR #77), 운영 V2, IoT 재배포 성공 | [0074](specs/0074-optional-image-pull-secret/spec.md) |
 | 7-4 | #79 | 명령·배포 이력 조회 인덱스와 전후 측정 | 완료 (PR #80) | [0079](specs/0079-history-query-indexes/spec.md) |
-| 7-5 | #78 | 콘솔 배포 화면과 백엔드 응답 필드 불일치 (#66 포함) | 진행 중 (#75·#74 운영 확인 중 발견) | [0078](specs/0078-console-deployments-api-contract/spec.md) |
-| 7-6 | #81 | API 시각 시간대 포함, 콘솔·CLI 한국 시간 표시 | 스펙 ready (#78 이후) | 0081 |
+| 7-5 | #78 | 콘솔 배포 화면과 백엔드 응답 필드 불일치 (#66 포함) | 완료 (PR #82) | [0078](specs/0078-console-deployments-api-contract/spec.md) |
+| 7-6 | #81 | API 시각 시간대 포함, 콘솔·CLI 한국 시간 표시 | 진행 중 | [0081](specs/0081-kst-time-display/spec.md) |
 | 8 | #53 | 요청 단위 rollout 판정 | 미착수 | - |
 | 9 | #54 | 배포 실패 원인, 배포 로그 API | 미착수 | - |
 | 10 | #55 | 두 번째 앱 배포·실패·복구 실증 | 미착수 | - |

@@ -32,6 +32,20 @@ export function printRows(rows, columns) {
   }
 }
 
+// API 시각(UTC, Z)을 한국 시간으로 표시한다 (#81). 시간대가 없는 예전 형식은 UTC로 해석한다.
+export function formatKst(value) {
+  if (!value) return "-";
+  const date = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value}Z`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul", hourCycle: "h23",
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+    }).formatToParts(date).map((part) => [part.type, part.value])
+  );
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} KST`;
+}
+
 export function formatCurrency(amount, currency = "KRW") {
   return new Intl.NumberFormat("ko-KR", {
     style: "currency",

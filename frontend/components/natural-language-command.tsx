@@ -29,6 +29,7 @@ import { NLPResponseRenderer } from "./nlp-response-renderers"
 import { NLPResponse } from "@/lib/types/nlp-response"
 import { copyToClipboard } from "@/lib/utils/clipboard"
 import { useToast } from "@/hooks/use-toast"
+import { formatKstTime } from "@/lib/time"
 
 // 메시지 타입 정의
 interface Message {
@@ -685,10 +686,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
           </div>
 
           <span className="text-xs text-muted-foreground">
-            {message.timestamp.toLocaleTimeString("ko-KR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatKstTime(message.timestamp)}
           </span>
         </div>
 
