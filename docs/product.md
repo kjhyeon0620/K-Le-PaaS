@@ -61,7 +61,9 @@
 | 7 | #52 | 동일 앱 배포 직렬화, 중복 접수 방지 | 완료 (PR #72), 운영 V5 | [0052](specs/0052-serialize-deployments/spec.md) |
 | 7-1 | #65 | GitHub Actions OIDC 기반 CI 배포 인증 | 완료 (PR #73), IoT 전환 | [0065](specs/0065-github-actions-oidc/spec.md) |
 | 7-2 | #75 | 운영 DB H2 → PostgreSQL 전환 | 완료 (PR #76), 운영 PostgreSQL V1 | [0075](specs/0075-postgresql-migration/spec.md) |
-| 7-3 | #74 | 공개 이미지 배포에서 pull secret 끄기 | 진행 중 (#65 운영 확인 중 발견) | [0074](specs/0074-optional-image-pull-secret/spec.md) |
+| 7-3 | #74 | 공개 이미지 배포에서 pull secret 끄기 | 완료 (PR #77), 운영 V2, IoT 재배포 성공 | [0074](specs/0074-optional-image-pull-secret/spec.md) |
+| 7-4 | #79 | 명령·배포 이력 조회 인덱스와 전후 측정 | 진행 중 | [0079](specs/0079-history-query-indexes/spec.md) |
+| 7-5 | #78 | 콘솔 배포 화면과 백엔드 응답 필드 불일치 | 스펙 초안 (#75·#74 운영 확인 중 발견) | 0078 (초안) |
 | 8 | #53 | 요청 단위 rollout 판정 | 미착수 | - |
 | 9 | #54 | 배포 실패 원인, 배포 로그 API | 미착수 | - |
 | 10 | #55 | 두 번째 앱 배포·실패·복구 실증 | 미착수 | - |

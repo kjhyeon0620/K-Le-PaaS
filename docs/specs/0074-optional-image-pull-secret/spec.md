@@ -63,7 +63,10 @@ branch: fix/#74-optional-image-pull-secret
 | IoT를 끈 뒤 재배포 성공 | IoT 워크플로 재실행 | 운영 | 머지 후 (운영 반영에 기록) |
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-09 PR #77 머지(`c1a8d8f`). Build and deploy의 build·deploy 성공, 운영 readiness `UP`, revision 일치, 운영 PostgreSQL Flyway `2 deployment image pull secret enabled` 성공. 기존 IoT 행은 `image_pull_secret_enabled = true`.
+- 2026-10-09 IoT 저장소의 pull secret을 API(`PUT /repositories/{id}/config`)로 끔. 콘솔 토글은 Deployments 화면이 백엔드 응답 필드와 맞지 않아 동작하지 않았다(#78).
+- 2026-10-09 IoT 배포 워크플로 재실행: 배포 `SUCCESS`(커밋 84b385f), Deployment 1/1, `imagePullSecrets` 없음, 앱 HTTP 200. 2026-10-03부터 `ImagePullBackOff`였던 Pod가 교체됐다.
+- 정정: 완료 증거의 "콘솔 토글"은 타입 검사만 했고 실제 API에 붙여 확인하지 않았다. 화면 수정은 #78.
 
 ## 회고
 - 어긋난 점: 공개 이미지에 필요 없는 자격 증명을 배포마다 강제로 참조해, 그 자격 증명이 만료되자 배포가 실패했다. #50·#65의 운영 검증 대상이 IoT 한 곳뿐이라 이전 배포(sha-0c3265f)도 같은 이유로 실패하고 있었던 것을 #65 확인 중에야 알았다. K-Le-PaaS에는 "rollout 타임아웃"만 남아 원인을 찾는 데 서버 접속이 필요했다.
