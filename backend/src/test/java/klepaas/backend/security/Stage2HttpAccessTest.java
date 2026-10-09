@@ -18,7 +18,9 @@ import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.service.DeploymentPipelineService;
 import klepaas.backend.deployment.service.RuntimeResourcePolicy;
+import klepaas.backend.infra.kubernetes.DeploymentObservationReader;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
+import klepaas.backend.deployment.dto.DeploymentLogResponse;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
@@ -76,6 +78,7 @@ class Stage2HttpAccessTest {
     @MockitoBean private GeminiClient gemini;
     @MockitoBean private KubernetesClient kubernetes;
     @MockitoBean private KubernetesManifestGenerator generator;
+    @MockitoBean private DeploymentObservationReader observationReader;
     @MockitoBean private DeploymentPipelineService pipeline;
     @MockitoBean private S3Client s3;
 
@@ -124,8 +127,12 @@ class Stage2HttpAccessTest {
         assertEquals(deployment.getId().longValue(), ok("A JWT own deployment", send("GET", deploymentUrl, aJwt, null))
                 .path("data").path("id").asLong());
         ok("A JWT own deployment status", send("GET", deploymentUrl + "/status", aJwt, null));
-        assertEquals(deployment.getId().longValue(), ok("A JWT own logs", send("GET", deploymentUrl + "/logs", aJwt, null))
-                .path("data").path("deployment_id").asLong());
+        when(observationReader.observe(any(), any(), any(), anyInt()))
+                .thenReturn(DeploymentLogResponse.Observed.notCurrent("현재 Deployment에 적용한 배포 요청 기록이 없습니다", null));
+        JsonNode ownLogs = ok("A JWT own logs", send("GET", deploymentUrl + "/logs", aJwt, null)).path("data");
+        assertEquals(deployment.getId().longValue(), ownLogs.path("deployment_id").asLong());
+        assertEquals("NOT_CURRENT", ownLogs.path("observation").asText());
+        reject("A JWT logs lines out of range", 400, send("GET", deploymentUrl + "/logs?lines=201", aJwt, null));
         ok("A JWT own deployment list", send("GET", "/api/v1/deployments?repositoryId=" + repo.getId(), aJwt, null));
         ok("A JWT allowed config references", send("PUT", repoUrl + "/config", aJwt, configBody));
 
@@ -149,6 +156,8 @@ class Stage2HttpAccessTest {
         assertTrue(repositories.existsById(repo.getId()), "B cannot delete A's repository");
         assertEquals(List.of("runtime"), configs.findBySourceRepositoryId(repo.getId()).orElseThrow().getEnvFromConfigMaps());
         verifyNoInteractions(generator, pipeline);
+        // A의 정상 조회 1회뿐: B의 조회와 범위 밖 lines는 Kubernetes 조회 전에 거절된다
+        verify(observationReader, times(1)).observe(any(), any(), any(), anyInt());
 
         reject("A JWT unauthorized config-map reference", 400, send("PUT", repoUrl + "/config", aJwt,
                 configBody.replace("runtime", "foreign")));

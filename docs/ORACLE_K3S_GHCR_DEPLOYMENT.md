@@ -181,6 +181,18 @@ The applied request ID is kept in the Deployment annotation
 On failure the previous pods keep serving. A canceled request is not retried;
 the newer change is judged on its own.
 
+`fail_reason` carries the observed evidence: for `CrashLoopBackOff` the last
+termination reason and exit code (for example `마지막 종료=OOMKilled, exit=137`),
+and on timeout the new pod state (`스케줄 불가: <scheduler message>` or
+`실행 중이나 Ready 아님`).
+
+To see the pod state, recent logs, and Kubernetes events of the pods a
+deployment request applied, use `GET /api/v1/deployments/{id}/logs`,
+`klepaas deployments logs <id>`, or the Logs button in the console. When a later
+request has already replaced the Deployment, the earlier request shows
+`NOT_CURRENT` instead of another request's pods. Logs are read live and are not
+stored; events expire after the cluster's event TTL (one hour by default).
+
 ## Service Exposure
 
 The default Kubernetes Service type remains `CLUSTER_IP`, preserving the existing

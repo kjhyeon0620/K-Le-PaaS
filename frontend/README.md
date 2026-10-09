@@ -39,12 +39,12 @@ K-Le-PaaS 프론트엔드는 agent-safe Kubernetes control plane을 사람이 �
 | 자연어 명령 UI | 구현 MVP | `/api/v1/nlp/command`, `/api/v1/nlp/confirm`, history 연동 |
 | CLI token UI | 구현 MVP | `/api/v1/cli-tokens` 연동 |
 | WebSocket | 구현 MVP | `/api/v1/ws/deployments?token={jwt}` 연결 |
-| CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor` |
+| CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`(`logs` 포함), `cost`, `doctor` |
 | Scaling history | 구현 MVP | backend scaling-history API adapter 존재 |
 | Deployments 화면 | 구현 | `/api/v1/repositories`, 저장소별 `/api/v1/deployments?repositoryId=&size=1`, `/repositories/{id}/config`. 배포 기록 상태만 표시하고 Pod 실제 상태·자원 사용량은 표시하지 않음 |
 | 배포 설정 편집 | 구현 | 빌드 방식, 이미지 템플릿, pull secret, 서비스 타입·NodePort, 포트, 도메인, envFrom, probe·자원. GitHub 화면 Configure에서 이동. 조회 실패 시 저장하지 않음 |
 | Dashboard data | 일부 구현 | 저장소별 최신 배포는 실제 API. 상단 통계 카드(`getDashboardData`)는 고정값 stub |
-| Deployment logs UI | 일부 구현 | frontend dialog/API는 있으나 backend logs endpoint가 placeholder |
+| Deployment logs UI | 구현 | Deployments 화면 Logs: 최신 배포의 실패 원인, 이 배포 요청이 적용한 Pod 로그(직전 컨테이너 포함)·이벤트, 관측 불가 사유 (`/api/v1/deployments/{id}/logs`) |
 | Monitoring / alerts | 일부 구현 | UI와 client stub 중심, backend metrics API 없음 |
 | Slack 설정 UI | 일부 구현 | 화면은 있으나 실제 설정 저장 API 없음 |
 | Rollback direct API | 예정/Stub | 일부 자연어 flow UI는 있으나 direct backend API는 없음 |

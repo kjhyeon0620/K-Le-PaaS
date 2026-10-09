@@ -92,6 +92,7 @@ klepaas history --page 0 --size 20
 ```bash
 klepaas deployments list --repository-id 1
 klepaas deployments get 42
+klepaas deployments logs 42 --lines 100
 klepaas deployments restart 42
 klepaas deployments scale 42 --replicas 3
 klepaas deployments wait 42 --timeout 600 --interval 5
@@ -103,6 +104,14 @@ klepaas deployments export 42 --format yaml --output klepaas-export.yaml
 - 성공 종료 상태: `SUCCESS`
 - 실패 종료 상태: `FAILED`, `CANCELED`
 - timeout 시 종료 코드 `5`
+
+`deployments logs`는 배포 상태·실패 원인과, 그 배포 요청이 적용한 Pod의 조회 시점 상태·최근 로그·Kubernetes 이벤트를 보여 준다.
+
+- `--lines`: Pod별 최근 로그 줄 수, 1~200 (기본 100). 범위 밖이면 종료 코드 `1`
+- 재시작한 컨테이너는 직전 컨테이너 로그도 보여 준다.
+- `Observation`이 `NOT_CURRENT`(다른 요청이 적용했거나 적용 기록 없음)나 `UNAVAILABLE`(Kubernetes 조회 실패)이면 Pod 로그 없이 이유를 보여 준다. 조회 자체가 성공하면 관측 상태와 무관하게 종료 코드 `0`이다.
+- `--json`은 API 응답(`deployment_id`, `status`, `fail_reason`, `observation`, `observation_message`, `applied_deployment_id`, `pods`, `events`)을 그대로 출력한다.
+- 로그는 저장되지 않으며, Kubernetes 이벤트는 보존 기간(기본 1시간)이 지나면 사라진다.
 
 `deployments export`는 현재 배포 상태와 저장소/런타임 설정을 파일로 내보낸다.
 

@@ -66,8 +66,9 @@ public class DeploymentController {
 
     @GetMapping("/deployments/{id}/logs")
     public ApiResponse<DeploymentLogResponse> getDeploymentLogs(@PathVariable Long id,
+            @RequestParam(defaultValue = "100") int lines,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(deploymentService.getDeploymentLogs(id, userDetails.getUserId()));
+        return ApiResponse.success(deploymentService.getDeploymentLogs(id, lines, userDetails.getUserId()));
     }
 
     @PostMapping("/deployments/{id}/scale")

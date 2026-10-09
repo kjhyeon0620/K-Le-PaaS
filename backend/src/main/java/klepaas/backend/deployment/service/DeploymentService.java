@@ -12,6 +12,7 @@ import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.infra.CloudInfraProviderFactory;
+import klepaas.backend.infra.kubernetes.DeploymentObservationReader;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,9 @@ public class DeploymentService {
     private final ResourceAccessService resourceAccessService;
     private final RuntimeResourcePolicy runtimeResourcePolicy;
     private final DeploymentPipelineStepService pipelineStepService;
+    private final DeploymentObservationReader observationReader;
+
+    public static final int MAX_LOG_LINES = 200;
 
     private static final List<DeploymentStatus> IN_PROGRESS_STATUSES = List.of(
             DeploymentStatus.PENDING, DeploymentStatus.UPLOADING_SOURCE,
@@ -155,11 +159,16 @@ public class DeploymentService {
         return DeploymentStatusResponse.from(deployment);
     }
 
-    public DeploymentLogResponse getDeploymentLogs(Long deploymentId, Long userId) {
-        resourceAccessService.requireDeployment(deploymentId, userId);
-
-        // TODO: Phase 5+ - NCP에서 실제 빌드/배포 로그 조회
-        return new DeploymentLogResponse(deploymentId, List.of("로그 조회 기능은 향후 구현 예정입니다."));
+    // 소유권 검사가 먼저다. 다른 사용자 배포면 Kubernetes를 호출하지 않는다
+    public DeploymentLogResponse getDeploymentLogs(Long deploymentId, int lines, Long userId) {
+        if (lines < 1 || lines > MAX_LOG_LINES) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "lines는 1~" + MAX_LOG_LINES + " 사이여야 합니다");
+        }
+        Deployment deployment = resourceAccessService.requireDeployment(deploymentId, userId);
+        SourceRepository repo = deployment.getSourceRepository();
+        String appName = repo.getOwner() + "-" + repo.getRepoName();
+        return DeploymentLogResponse.of(deployment,
+                observationReader.observe(appName, repo.getId(), deploymentId, lines));
     }
 
     @Transactional
