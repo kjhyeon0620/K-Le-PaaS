@@ -80,10 +80,16 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
   │    BUILDING: Kaniko Job (initContainer가 소스 준비) → NCR {owner}-{repo}:{shortSha}
   └─ GITHUB_ACTIONS_GHCR / PREBUILT_IMAGE (외부 이미지)
        요청의 image_uri 또는 image_uri_template으로 이미지 결정 (빌드 단계 없음)
-  → DEPLOYING: Deployment/Service/Ingress 적용 → Deployment Available 대기
+  → DEPLOYING: 상태와 image_uri를 먼저 커밋 → Deployment/Service/Ingress 적용
        (기존 Deployment는 관측한 resourceVersion으로 전체 교체, Service·Ingress는 강제 server-side apply.
-        설정한 readiness probe를 통과하지 못한 새 Pod는 Available이 되지 않아 타임아웃 시 FAILED)
-  → SUCCESS / FAILED, Slack·WebSocket 알림
+        Deployment metadata에 annotation `klepaas.io/deployment-id`로 적용한 요청 ID를 남긴다)
+  → 트랜잭션 밖에서 적용한 generation의 rollout만 판정 (#53)
+       성공: 그 generation을 관측했고 Available, updated = available = desired, unavailable = 0
+       FAILED: Progressing=False, 새 ReplicaSet Pod의 ImagePullBackOff·InvalidImageName·ErrImageNeverPull·
+               CreateContainerConfigError·CrashLoopBackOff (타임아웃 전 즉시), Deployment 삭제,
+               `kubernetes.rollout.timeout-ms`(120초) 타임아웃 (readiness 실패, 스케줄 불가 등)
+       CANCELED: 대기 중 다른 apply·restart·scale로 generation이 바뀜 (대체)
+  → SUCCESS / FAILED / CANCELED (사유는 fail_reason), Slack·WebSocket 알림
 ```
 
 - 빌드 경로 기본값: `NCP → KANIKO`, `ON_PREMISE → GITHUB_ACTIONS_GHCR` ([ADR-0001](adr/0001-external-image-build.md)).
@@ -130,7 +136,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 
 | 모델 | 값 | 비고 |
 |---|---|---|
-| `DeploymentStatus` | `PENDING → UPLOADING_SOURCE → BUILDING → DEPLOYING → SUCCESS`, `FAILED`, `CANCELED` | 외부 이미지 경로는 업로드·빌드 단계를 건너뛴다 |
+| `DeploymentStatus` | `PENDING → UPLOADING_SOURCE → BUILDING → DEPLOYING → SUCCESS`, `FAILED`, `CANCELED` | 외부 이미지 경로는 업로드·빌드 단계를 건너뛴다. `CANCELED`는 rollout 대기 중 다른 변경으로 대체된 배포 (§3.2) |
 | `CommandStatus` | `PENDING → EXECUTING → SUCCEEDED / FAILED`, `PENDING → EXPIRED / CANCELLED`, `UNKNOWN` | `UNKNOWN`은 결과를 판단할 수 없는 상태. 자동으로 재실행하지 않는다 |
 | `RiskLevel` | `LOW`, `MEDIUM`, `HIGH` | §3.1 매핑 |
 | `CliTokenScope` | `READ_ONLY`, `PROPOSE_ONLY`, `DEPLOY`, `FULL` | §4.1 |
@@ -205,7 +211,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 
 | 격차 | 영향 | 이슈 |
 |---|---|---|
-| rollout 판정이 요청 단위가 아니라 앱 이름 기준이다 | 다른 배포의 완료를 성공으로 기록할 수 있다 | #53 |
+| rollout 타임아웃(`kubernetes.rollout.timeout-ms`, 120초)이 앱의 startup probe 허용 시간(`period_seconds × startup_failure_threshold`)과 무관한 고정값이다 | 기동이 120초보다 오래 걸리는 앱은 정상이어도 타임아웃 FAILED로 기록된다 | 이슈 후보 (#53에서 확인) |
 | `GET /deployments/{id}/logs`가 placeholder 응답이다 | 실패 원인을 API에서 볼 수 없다 | #54 |
 | 승인한 뒤 실행 시점에 설정을 다시 조회한다 | 승인 대기 중에 바뀐 설정으로 실행될 수 있다 | #56 |
 | 백엔드 재시작 후 진행 중이던 배포·명령 상태를 대조하지 않는다 | 영원히 진행 중으로 남는다 | #57 |

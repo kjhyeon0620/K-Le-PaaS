@@ -4,6 +4,7 @@ import klepaas.backend.auth.service.GitHubInstallationTokenService;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.DeploymentStatus;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
@@ -26,7 +27,9 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class DeploymentPipelineStepServiceTest {
@@ -59,8 +62,8 @@ class DeploymentPipelineStepServiceTest {
     private DeploymentPipelineStepService stepService;
 
     @Test
-    @DisplayName("K8s 배포는 manifest apply 후 rollout available 상태까지 검증한다")
-    void executeK8sDeploy_waitsForRolloutAvailability() {
+    @DisplayName("apply 전에 DEPLOYING과 이미지를 저장하고, apply는 요청 ID와 함께 적용한 generation을 돌려준다")
+    void startAndApplyK8sDeploy_recordsImageBeforeApplyAndReturnsGeneration() {
         SourceRepository repository = repository();
         Deployment deployment = Deployment.builder()
                 .sourceRepository(repository)
@@ -80,10 +83,32 @@ class DeploymentPipelineStepServiceTest {
         given(deploymentConfigRepository.findBySourceRepositoryId(10L)).willReturn(Optional.of(config));
         given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        stepService.executeK8sDeploy(1L, imageUri);
+        given(k8sGenerator.deploy("kjhyeon0620-smart-sousvide-iot-platform", imageUri, config, 10L, 1L)).willReturn(5L);
 
-        verify(k8sGenerator).deploy("kjhyeon0620-smart-sousvide-iot-platform", imageUri, config, 10L);
-        verify(k8sGenerator).waitForDeploymentAvailable("kjhyeon0620-smart-sousvide-iot-platform");
+        stepService.startK8sDeploy(1L, imageUri);
+        assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.DEPLOYING);
+        assertThat(deployment.getImageUri()).isEqualTo(imageUri);
+        verify(deploymentRepository).save(deployment);
+        verifyNoInteractions(k8sGenerator);
+
+        var applied = stepService.applyK8sManifests(1L, imageUri);
+
+        assertThat(applied).isEqualTo(new DeploymentPipelineStepService.AppliedRollout(
+                "kjhyeon0620-smart-sousvide-iot-platform", 5L));
+    }
+
+    @Test
+    @DisplayName("대체된 배포는 CANCELED와 사유로 기록한다")
+    void markCanceled_recordsSupersededReason() {
+        Deployment deployment = Deployment.builder().sourceRepository(repository()).branchName("main")
+                .commitHash("abcdef1234567890").build();
+        given(deploymentRepository.findById(1L)).willReturn(Optional.of(deployment));
+
+        stepService.markCanceled(1L, "다른 변경으로 대체됨: generation 3 → 4");
+
+        assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.CANCELED);
+        assertThat(deployment.getFailReason()).isEqualTo("다른 변경으로 대체됨: generation 3 → 4");
+        assertThat(deployment.getFinishedAt()).isNotNull();
     }
 
     private SourceRepository repository() {

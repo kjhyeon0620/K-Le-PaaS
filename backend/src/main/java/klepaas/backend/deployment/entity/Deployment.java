@@ -101,6 +101,13 @@ public class Deployment extends BaseTimeEntity {
         this.finishedAt = LocalDateTime.now();
     }
 
+    // 다른 변경으로 대체됨 (이 요청의 rollout 결과를 판정할 수 없다)
+    public void cancel(String reason) {
+        this.status = DeploymentStatus.CANCELED;
+        this.failReason = reason;
+        this.finishedAt = LocalDateTime.now();
+    }
+
     // 실패 처리
     public void fail(String reason) {
         this.status = DeploymentStatus.FAILED;

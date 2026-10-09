@@ -10,6 +10,7 @@ import klepaas.backend.infra.CloudInfraProvider;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.dto.BuildResult;
 import klepaas.backend.infra.dto.BuildStatusResult;
+import klepaas.backend.infra.kubernetes.RolloutResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,11 +53,23 @@ public class DeploymentPipelineService {
             };
 
             notifyWs(deploymentId, userId, "DEPLOYING", "in_progress", 70, "Kubernetes에 배포 중...");
-            stepService.executeK8sDeploy(deploymentId, imageUri);
+            stepService.startK8sDeploy(deploymentId, imageUri);
+            DeploymentPipelineStepService.AppliedRollout applied = stepService.applyK8sManifests(deploymentId, imageUri);
+            RolloutResult result = stepService.awaitK8sRollout(applied);
 
-            stepService.markSuccess(deploymentId);
-            notifyWs(deploymentId, userId, "SUCCESS", "completed", 100, "배포가 완료되었습니다.");
-            log.info("Pipeline completed successfully: deploymentId={}", deploymentId);
+            switch (result.outcome()) {
+                case SUCCEEDED -> {
+                    stepService.markSuccess(deploymentId);
+                    notifyWs(deploymentId, userId, "SUCCESS", "completed", 100, "배포가 완료되었습니다.");
+                    log.info("Pipeline completed successfully: deploymentId={}", deploymentId);
+                }
+                case SUPERSEDED -> {
+                    stepService.markCanceled(deploymentId, result.reason());
+                    notifyWs(deploymentId, userId, "CANCELED", "failed", 0, "배포 취소: " + result.reason());
+                    log.info("Pipeline superseded: deploymentId={}, reason={}", deploymentId, result.reason());
+                }
+                case FAILED -> throw new BusinessException(ErrorCode.DEPLOY_FAILED, result.reason());
+            }
 
         } catch (Exception e) {
             log.error("Pipeline failed: deploymentId={}, error={}", deploymentId, e.getMessage(), e);
