@@ -935,7 +935,7 @@ export function DeploymentStatusMonitoring({
           onOpenChange={setScaleDialogOpen}
           owner={actionRepo.owner}
           repo={actionRepo.repo}
-          currentReplicas={deploymentConfigs[actionRepo.full_name]?.replica_count}
+          repositoryId={actionRepo.id}
           onScaleSuccess={handleActionSuccess}
         />
       )}

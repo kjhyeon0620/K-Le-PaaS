@@ -410,6 +410,13 @@ class ApiClient {
     return { repositories }
   }
 
+  // ─── Replicas (#90) ──────────────────────────────────────────────────────
+
+  // 저장소 앱의 현재 Deployment replica 관측값. 관측할 수 없으면 observation으로 구분하고 숫자는 null이다
+  async getReplicaStatus(repositoryId: number): Promise<ReplicaStatus> {
+    return this.request<ReplicaStatus>(`/api/v1/repositories/${repositoryId}/replicas`)
+  }
+
   // ─── Deployment logs (#54) ──────────────────────────────────────────────
 
   // 이 배포 요청이 적용한 Pod의 상태·최근 로그·이벤트. 관측할 수 없으면 observation으로 구분한다
@@ -824,6 +831,17 @@ export interface DeploymentSummary {
   started_at: string | null
   finished_at: string | null
   created_at: string
+}
+
+// GET /api/v1/repositories/{id}/replicas 응답 (ReplicaStatusResponse)
+export interface ReplicaStatus {
+  repository_id: number
+  observation: 'AVAILABLE' | 'NOT_FOUND' | 'UNAVAILABLE'
+  observation_message: string | null
+  desired: number | null
+  ready: number | null
+  available: number | null
+  updated: number | null
 }
 
 // GET /api/v1/deployments/{id}/logs 응답 (DeploymentLogResponse)

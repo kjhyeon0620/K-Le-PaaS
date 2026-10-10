@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Scale, AlertCircle, TrendingUp, TrendingDown } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, type ReplicaStatus } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
 interface ScaleDialogProps {
@@ -23,21 +23,47 @@ interface ScaleDialogProps {
   onOpenChange: (open: boolean) => void
   owner: string
   repo: string
-  currentReplicas?: number
+  repositoryId: number
   onScaleSuccess?: () => void
 }
+
+const MIN_REPLICAS = 1
+const MAX_REPLICAS = 10
 
 export function ScaleDialog({
   open,
   onOpenChange,
   owner,
   repo,
-  currentReplicas = 1,
+  repositoryId,
   onScaleSuccess,
 }: ScaleDialogProps) {
-  const [targetReplicas, setTargetReplicas] = useState(currentReplicas)
+  const [replicaStatus, setReplicaStatus] = useState<ReplicaStatus | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [targetReplicas, setTargetReplicas] = useState(MIN_REPLICAS)
   const [scaling, setScaling] = useState(false)
   const { toast } = useToast()
+
+  // 현재 값은 클러스터 관측값이다. 저장된 설정값으로 채우지 않고, 관측할 수 없으면 null로 둔다 (#90)
+  const currentReplicas = replicaStatus?.observation === "AVAILABLE" ? replicaStatus.desired : null
+  const unobservedReason = loadError ?? replicaStatus?.observation_message ?? null
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setReplicaStatus(null)
+    setLoadError(null)
+    api.getReplicaStatus(repositoryId)
+      .then((status) => {
+        if (cancelled) return
+        setReplicaStatus(status)
+        setTargetReplicas(status.observation === "AVAILABLE" && status.desired != null ? status.desired : MIN_REPLICAS)
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(`현재 레플리카를 조회하지 못했습니다: ${String(error)}`)
+      })
+    return () => { cancelled = true }
+  }, [open, repositoryId])
 
   const handleScaleChange = (value: number[]) => {
     setTargetReplicas(value[0])
@@ -45,13 +71,13 @@ export function ScaleDialog({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10)
-    if (!isNaN(value) && value >= 0 && value <= 10) {
+    if (!isNaN(value) && value >= MIN_REPLICAS && value <= MAX_REPLICAS) {
       setTargetReplicas(value)
     }
   }
 
   const handleScale = async () => {
-    if (targetReplicas === currentReplicas) {
+    if (currentReplicas != null && targetReplicas === currentReplicas) {
       toast({
         title: "변경사항 없음",
         description: "현재 레플리카 개수와 동일합니다.",
@@ -66,7 +92,9 @@ export function ScaleDialog({
 
       toast({
         title: "스케일링 시작",
-        description: `레플리카를 ${currentReplicas}개에서 ${targetReplicas}개로 조정합니다.`,
+        description: currentReplicas == null
+          ? `레플리카를 ${targetReplicas}개로 조정합니다.`
+          : `레플리카를 ${currentReplicas}개에서 ${targetReplicas}개로 조정합니다.`,
       })
 
       onOpenChange(false)
@@ -84,6 +112,9 @@ export function ScaleDialog({
   }
 
   const getScaleDirection = () => {
+    if (currentReplicas == null) {
+      return { icon: Scale, text: "현재 값 확인 불가", color: "text-gray-600" }
+    }
     if (targetReplicas > currentReplicas) {
       return { icon: TrendingUp, text: "Scale Up", color: "text-green-600" }
     } else if (targetReplicas < currentReplicas) {
@@ -95,16 +126,8 @@ export function ScaleDialog({
   const scaleDirection = getScaleDirection()
   const ScaleIcon = scaleDirection.icon
 
-  // Reset target when opening
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
-      setTargetReplicas(currentReplicas)
-    }
-    onOpenChange(newOpen)
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -112,7 +135,7 @@ export function ScaleDialog({
             배포 스케일링 - {owner}/{repo}
           </DialogTitle>
           <DialogDescription>
-            Pod 레플리카 개수를 조정합니다. (0-10개)
+            Pod 레플리카 개수를 조정합니다. ({MIN_REPLICAS}-{MAX_REPLICAS}개)
           </DialogDescription>
         </DialogHeader>
 
@@ -122,9 +145,17 @@ export function ScaleDialog({
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold">현재 레플리카</span>
               <Badge variant="outline" className="text-lg font-mono">
-                {currentReplicas}개
+                {currentReplicas != null ? `${currentReplicas}개` : replicaStatus || loadError ? "확인 불가" : "조회 중"}
               </Badge>
             </div>
+            {currentReplicas != null && replicaStatus && (
+              <p className="text-xs text-muted-foreground">
+                Ready {replicaStatus.ready} · Available {replicaStatus.available} · Updated {replicaStatus.updated}
+              </p>
+            )}
+            {currentReplicas == null && unobservedReason && (
+              <p className="text-xs text-muted-foreground">{unobservedReason}</p>
+            )}
           </div>
 
           {/* Target Replicas Slider */}
@@ -137,8 +168,8 @@ export function ScaleDialog({
                 <Input
                   id="replicas-input"
                   type="number"
-                  min={0}
-                  max={10}
+                  min={MIN_REPLICAS}
+                  max={MAX_REPLICAS}
                   value={targetReplicas}
                   onChange={handleInputChange}
                   className="w-20 h-8 text-center font-mono"
@@ -149,8 +180,8 @@ export function ScaleDialog({
 
             <Slider
               id="replicas-slider"
-              min={0}
-              max={10}
+              min={MIN_REPLICAS}
+              max={MAX_REPLICAS}
               step={1}
               value={[targetReplicas]}
               onValueChange={handleScaleChange}
@@ -158,14 +189,14 @@ export function ScaleDialog({
             />
 
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0</span>
+              <span>{MIN_REPLICAS}</span>
               <span>5</span>
-              <span>10</span>
+              <span>{MAX_REPLICAS}</span>
             </div>
           </div>
 
           {/* Scale Direction Indicator */}
-          {targetReplicas !== currentReplicas && (
+          {currentReplicas != null && targetReplicas !== currentReplicas && (
             <div className={`p-4 rounded-lg border ${
               targetReplicas > currentReplicas
                 ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
@@ -187,22 +218,9 @@ export function ScaleDialog({
             </div>
           )}
 
-          {/* Warning for zero replicas */}
-          {targetReplicas === 0 && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-semibold text-red-900 dark:text-red-100">주의</p>
-                  <p className="text-red-700 dark:text-red-300">
-                    레플리카를 0으로 설정하면 서비스가 중단됩니다.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          
+          <p className="text-xs text-muted-foreground">
+            스케일은 지금 실행 중인 앱에만 적용됩니다. 다음 배포 때 레플리카는 배포 설정의 min_replicas로 바뀝니다.
+          </p>
         </div>
 
         <DialogFooter>
@@ -211,7 +229,7 @@ export function ScaleDialog({
           </Button>
           <Button
             onClick={handleScale}
-            disabled={scaling || targetReplicas === currentReplicas}
+            disabled={scaling || (!replicaStatus && !loadError) || targetReplicas === currentReplicas}
           >
             {scaling ? (
               <>

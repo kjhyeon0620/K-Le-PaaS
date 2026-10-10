@@ -206,6 +206,12 @@ public class DeploymentService {
         return previousReplicas;
     }
 
+    // 소유권 검사가 먼저다. 다른 사용자 저장소면 Kubernetes를 호출하지 않는다
+    public ReplicaStatusResponse getReplicaStatus(Long repositoryId, Long userId) {
+        SourceRepository repo = resourceAccessService.requireRepository(repositoryId, userId);
+        return observationReader.readReplicas(repo.getOwner() + "-" + repo.getRepoName(), repo.getId());
+    }
+
     public Page<ScalingHistoryResponse> getScalingHistory(Long repositoryId, Pageable pageable, Long userId) {
         resourceAccessService.requireRepository(repositoryId, userId);
         return scalingHistoryRepository.findByDeploymentSourceRepositoryIdOrderByCreatedAtDesc(repositoryId, pageable)

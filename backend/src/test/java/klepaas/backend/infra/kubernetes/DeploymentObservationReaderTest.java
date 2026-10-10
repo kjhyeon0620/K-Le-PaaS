@@ -18,6 +18,7 @@ import io.fabric8.kubernetes.api.model.apps.ReplicaSetBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import klepaas.backend.deployment.dto.DeploymentLogResponse.Observation;
+import klepaas.backend.deployment.dto.ReplicaStatusResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -172,6 +173,46 @@ class DeploymentObservationReaderTest {
             assertThat(e.object()).isEqualTo("Pod/o-r-abc-1");
             assertThat(e.count()).isEqualTo(4);
         });
+    }
+
+    @Test
+    @DisplayName("replica는 클러스터 Deployment의 관측값이고, spec.replicas가 없으면 Kubernetes 기본값 1이다")
+    void readReplicasReturnsObservedValues() {
+        Deployment deployment = deployment("7", null);
+        deployment.setSpec(new io.fabric8.kubernetes.api.model.apps.DeploymentSpecBuilder().withReplicas(2).build());
+        deployment.setStatus(new io.fabric8.kubernetes.api.model.apps.DeploymentStatusBuilder()
+                .withReadyReplicas(1).withAvailableReplicas(1).withUpdatedReplicas(2).build());
+        currentDeployment(deployment);
+
+        var observed = reader.readReplicas("o-r", 7L);
+
+        assertThat(observed.observation()).isEqualTo(ReplicaStatusResponse.Observation.AVAILABLE);
+        assertThat(List.of(observed.desired(), observed.ready(), observed.available(), observed.updated()))
+                .containsExactly(2, 1, 1, 2);
+
+        Deployment noReplicas = deployment("7", null);
+        currentDeployment(noReplicas);
+        var defaulted = reader.readReplicas("o-r", 7L);
+        assertThat(defaulted.desired()).isEqualTo(1);
+        assertThat(defaulted.ready()).isZero();
+    }
+
+    @Test
+    @DisplayName("Deployment가 없거나 다른 저장소 소유면 NOT_FOUND, 조회 실패면 UNAVAILABLE이고 숫자를 채우지 않는다")
+    void readReplicasNeverFillsUnobservedValues() {
+        currentDeployment(null);
+        assertThat(reader.readReplicas("o-r", 7L).observation()).isEqualTo(ReplicaStatusResponse.Observation.NOT_FOUND);
+
+        currentDeployment(deployment("8", null));
+        var foreign = reader.readReplicas("o-r", 7L);
+        assertThat(foreign.observation()).isEqualTo(ReplicaStatusResponse.Observation.NOT_FOUND);
+        assertThat(foreign.desired()).isNull();
+
+        when(deploymentResource.get()).thenThrow(new KubernetesClientException("Failed to connect to https://10.0.0.1:6443"));
+        var unavailable = reader.readReplicas("o-r", 7L);
+        assertThat(unavailable.observation()).isEqualTo(ReplicaStatusResponse.Observation.UNAVAILABLE);
+        assertThat(unavailable.desired()).isNull();
+        assertThat(unavailable.observationMessage()).doesNotContain("10.0.0.1");
     }
 
     @Test
