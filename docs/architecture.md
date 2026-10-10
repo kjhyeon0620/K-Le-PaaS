@@ -157,6 +157,7 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 - 경로 prefix는 `/api/v1`, JSON 필드는 `snake_case`다.
 - 시각은 UTC로 저장하고, 응답에는 `Z`가 붙은 ISO 8601(`2026-10-09T09:09:30.682Z`)로 보낸다 (`JacksonTimeConfig`, 애플리케이션 시간대는 UTC 고정). 콘솔·CLI 사람용 출력은 한국 시간(KST)으로 표시하고, 콘솔은 `frontend/lib/time.ts`만 쓴다 (#81).
 - 에러는 `ErrorCode` enum(`backend/.../global/exception/ErrorCode.java`)이 기준이다. 코드 체계는 `<영역>_<번호>`다.
+- 예외 메시지를 사용자에게 보이는 곳(`fail_reason`, 명령 기록, 자연어 응답, API 메시지)에 넣을 때는 `KubernetesErrorMessages.userMessage(e)`를 쓴다. Fabric8 예외 메시지에는 Kubernetes API 서버 주소가 들어 있어 Kubernetes status 메시지만 남긴다. 전체 예외는 서버 로그에만 남긴다 (#92).
 
 | 영역 | 코드 예 |
 |---|---|
@@ -224,7 +225,6 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
 | 콘솔 Deployments 화면의 Rollback 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환한다 (Config·Scale·Restart·Logs는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다 | 이슈 후보 (이전 성공 배포 목록·롤백 API) |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | 이슈 후보 (Fabric8·Jackson 버전 정합) |
-| manifest 적용(apply) 실패 시 `fail_reason`에 Fabric8 예외 메시지를 그대로 넣는다(`KubernetesManifestGenerator.deploy`) | Kubernetes API 서버 주소가 배포 기록·로그 화면에 노출될 수 있다 | 이슈 후보 (#54에서 확인) |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | 이슈 후보 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |

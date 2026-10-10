@@ -10,6 +10,7 @@ import klepaas.backend.infra.CloudInfraProvider;
 import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.dto.BuildResult;
 import klepaas.backend.infra.dto.BuildStatusResult;
+import klepaas.backend.infra.kubernetes.KubernetesErrorMessages;
 import klepaas.backend.infra.kubernetes.RolloutResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,8 +74,9 @@ public class DeploymentPipelineService {
 
         } catch (Exception e) {
             log.error("Pipeline failed: deploymentId={}, error={}", deploymentId, e.getMessage(), e);
-            stepService.markFailed(deploymentId, e.getMessage());
-            notifyWs(deploymentId, userId, "FAILED", "failed", 0, "배포 실패: " + e.getMessage());
+            String reason = KubernetesErrorMessages.userMessage(e);
+            stepService.markFailed(deploymentId, reason);
+            notifyWs(deploymentId, userId, "FAILED", "failed", 0, "배포 실패: " + reason);
         }
     }
 

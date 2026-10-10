@@ -5,6 +5,7 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressRule;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import klepaas.backend.infra.kubernetes.KubernetesErrorMessages;
 import klepaas.backend.ai.dto.FormattedResponseDto;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.BusinessException;
@@ -99,7 +100,7 @@ public class KubectlService {
                     pods, metadata);
         } catch (Exception e) {
             log.error("listPods failed: namespace={}", ns, e);
-            return errorResponse("list_pods", "파드 목록 조회 실패: " + e.getMessage());
+            return errorResponse("list_pods", "파드 목록 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -156,7 +157,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getPodStatus failed: ns={}, app={}", ns, appName, e);
-            return errorResponse("pod_status", "파드 상태 조회 실패: " + e.getMessage());
+            return errorResponse("pod_status", "파드 상태 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -210,7 +211,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getServiceStatus failed: name={}, ns={}", name, ns, e);
-            return errorResponse("service_status", "서비스 상태 조회 실패: " + e.getMessage());
+            return errorResponse("service_status", "서비스 상태 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -284,7 +285,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getDeploymentStatus failed: name={}, ns={}", name, ns, e);
-            return errorResponse("deployment_status", "디플로이먼트 상태 조회 실패: " + e.getMessage());
+            return errorResponse("deployment_status", "디플로이먼트 상태 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -316,7 +317,7 @@ public class KubectlService {
                     services, metadata);
         } catch (Exception e) {
             log.error("listServices failed: ns={}", ns, e);
-            return errorResponse("list_services", "서비스 목록 조회 실패: " + e.getMessage());
+            return errorResponse("list_services", "서비스 목록 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -378,7 +379,7 @@ public class KubectlService {
                     ingresses, metadata);
         } catch (Exception e) {
             log.error("listIngresses failed: ns={}", ns, e);
-            return errorResponse("list_ingresses", "인그레스 목록 조회 실패: " + e.getMessage());
+            return errorResponse("list_ingresses", "인그레스 목록 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -405,7 +406,7 @@ public class KubectlService {
                     namespaces, metadata);
         } catch (Exception e) {
             log.error("listNamespaces failed", e);
-            return errorResponse("list_namespaces", "네임스페이스 목록 조회 실패: " + e.getMessage());
+            return errorResponse("list_namespaces", "네임스페이스 목록 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -486,7 +487,7 @@ public class KubectlService {
                     endpoints, metadata);
         } catch (Exception e) {
             log.error("listEndpoints failed: ns={}", ns, e);
-            return errorResponse("list_endpoints", "엔드포인트 목록 조회 실패: " + e.getMessage());
+            return errorResponse("list_endpoints", "엔드포인트 목록 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -524,7 +525,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getService failed: name={}, ns={}", name, ns, e);
-            return errorResponse("get_service", "서비스 조회 실패: " + e.getMessage());
+            return errorResponse("get_service", "서비스 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -569,7 +570,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getDeploymentDetail failed: name={}, ns={}", name, ns, e);
-            return errorResponse("get_deployment", "디플로이먼트 조회 실패: " + e.getMessage());
+            return errorResponse("get_deployment", "디플로이먼트 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -614,7 +615,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getPodLogs failed: pod={}, ns={}", podOrAppName, ns, e);
-            return errorResponse("logs", "로그 조회 실패: " + e.getMessage());
+            return errorResponse("logs", "로그 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -776,7 +777,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getOverview failed", e);
-            return errorResponse("overview", "전체 현황 조회 실패: " + e.getMessage());
+            return errorResponse("overview", "전체 현황 조회 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -887,7 +888,7 @@ public class KubectlService {
                     formatted, metadata);
         } catch (Exception e) {
             log.error("getCostAnalysis failed", e);
-            return errorResponse("cost_analysis", "비용 분석 실패: " + e.getMessage());
+            return errorResponse("cost_analysis", "비용 분석 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 
@@ -916,7 +917,7 @@ public class KubectlService {
             summary.put("ready", "unknown");
             summary.put("restarts", "unknown");
             summary.put("all_ready", false);
-            summary.put("error", e.getMessage());
+            summary.put("error", KubernetesErrorMessages.userMessage(e));
         }
         return summary;
     }
