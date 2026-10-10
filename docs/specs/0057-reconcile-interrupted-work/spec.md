@@ -187,7 +187,7 @@ branch: fix/#57-enable-startup-reconciliation
 
 ## 운영 반영
 - 1단계 (2026-10-10): PR #97 머지 `1865e5f`, main 배포 run 38062074153 build·deploy success. receiver는 `validate` 강제 기동·readiness·revision을 확인한 뒤에만 성공하므로, 새 엔티티 컬럼을 요구하는 이 릴리스가 기동한 것은 V5가 운영 원본에 적용됐다는 간접 증거다. 운영 API·DB는 직접 조회하지 않았다. 이 시점부터 2단계 롤백 대상은 1단계 릴리스다.
-- 2단계: PR #98 머지 후 main 배포 결과를 다음 PR에서 기록한다. 롤백 대상은 1단계 릴리스(`1865e5f`) 이상이다.
+- 2단계 (2026-10-10): PR #98 머지 `2bfb73e`, main 배포 run 38073148420 build·deploy success. receiver가 readiness·revision을 확인한 뒤 성공했으므로 활성화 릴리스가 운영에서 기동했다. 운영 기동 시 대조 대상·결과 로그와 운영 API·DB는 조회하지 않았다. 롤백 대상은 1단계 릴리스(`1865e5f`) 이상이다.
 
 ## 회고
 ### 1단계
