@@ -776,7 +776,7 @@ class ApiClient {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function mapDeploymentStatus(status: string): 'running' | 'success' | 'failed' {
+function mapDeploymentStatus(status: string): 'running' | 'success' | 'failed' | 'unknown' {
   switch (status) {
     case 'PENDING':
     case 'UPLOADING_SOURCE':
@@ -788,6 +788,8 @@ function mapDeploymentStatus(status: string): 'running' | 'success' | 'failed' {
     case 'FAILED':
     case 'CANCELED':
       return 'failed'
+    case 'UNKNOWN':
+      return 'unknown'
     default:
       return 'running'
   }
@@ -827,7 +829,7 @@ export interface RollbackListResponse {
 }
 
 export type DeploymentStatus =
-  | 'PENDING' | 'UPLOADING_SOURCE' | 'BUILDING' | 'DEPLOYING' | 'SUCCESS' | 'FAILED' | 'CANCELED'
+  | 'PENDING' | 'UPLOADING_SOURCE' | 'BUILDING' | 'DEPLOYING' | 'SUCCESS' | 'FAILED' | 'CANCELED' | 'UNKNOWN'
 
 // GET /api/v1/deployments 응답 항목 (DeploymentResponse)
 export interface DeploymentSummary {

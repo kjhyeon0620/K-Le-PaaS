@@ -132,17 +132,17 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
           {data && (
             <div className="space-y-2 shrink-0 max-h-[30%] overflow-auto">
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge variant={data.status === "SUCCESS" ? "default" : data.status === "FAILED" ? "destructive" : "secondary"}>
-                  {data.status}
+                <Badge variant={data.status === "SUCCESS" ? "default" : data.status === "FAILED" ? "destructive" : data.status === "UNKNOWN" ? "outline" : "secondary"}>
+                  {data.status === "UNKNOWN" ? "판정 불가" : data.status}
                 </Badge>
                 <Badge variant={data.observation === "AVAILABLE" ? "outline" : "secondary"}>
                   {OBSERVATION_LABEL[data.observation]}
                 </Badge>
               </div>
               {data.fail_reason && (
-                <Alert variant="destructive">
+                <Alert variant={data.status === "UNKNOWN" ? "default" : "destructive"}>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>실패 원인</AlertTitle>
+                  <AlertTitle>{data.status === "UNKNOWN" ? "판정 이유" : "실패 원인"}</AlertTitle>
                   <AlertDescription className="font-mono text-xs break-all">{data.fail_reason}</AlertDescription>
                 </Alert>
               )}

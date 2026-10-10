@@ -971,16 +971,13 @@ async function waitForDeployment(client, deploymentId, { timeoutSeconds, interva
       return;
     }
 
-    if (["FAILED", "CANCELED"].includes(statusResponse.status)) {
-      if (json) {
-        printJson({
-          deployment_id: deploymentId,
-          final_status: statusResponse.status,
-          fail_reason: statusResponse.fail_reason ?? null,
-          timeline,
-        });
-      }
-      throw new CliError(`배포가 ${statusResponse.status} 상태로 종료되었습니다.`, EXIT_CODES.API, statusResponse);
+    if (["FAILED", "CANCELED", "UNKNOWN"].includes(statusResponse.status)) {
+      throw new CliError(`배포가 ${statusResponse.status} 상태로 종료되었습니다.`, EXIT_CODES.API, {
+        deployment_id: deploymentId,
+        final_status: statusResponse.status,
+        fail_reason: statusResponse.fail_reason ?? null,
+        timeline,
+      });
     }
 
     await sleep(intervalSeconds * 1000);

@@ -28,6 +28,8 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 
 ## 현재 상태
 
+#57 1단계는 배포 `UNKNOWN` 읽기·표시와 적용 UID·generation 저장을 준비합니다. 재시작 대조는 준비 릴리스 운영 배포 후 활성화합니다.
+
 | 영역 | 상태 | 설명 |
 |---|---|---|
 | Web console | 구현 MVP | Next.js 기반 대시보드, 배포, GitHub, 명령, 모니터링, 설정 UI |
@@ -36,7 +38,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | GitHub App source access | 구현 MVP | Installation token과 source ZIP 다운로드 경로 구현 |
 | NCP Object Storage upload | 구현 MVP | AWS SDK v2 S3 호환 업로드 경로 구현 |
 | Kaniko image build | 구현 MVP | Kubernetes Job 기반 빌드 경로 구현 |
-| Kubernetes deploy | 구현 MVP | Fabric8로 Deployment(관측한 버전으로 전체 교체), Service·Ingress(server-side apply) 반영, 앱별 readiness/startup probe·requests/limits 설정, 요청이 적용한 generation 기준 rollout 판정 |
+| Kubernetes deploy | 구현 MVP | Fabric8로 Deployment(관측한 버전으로 전체 교체), Service·Ingress(server-side apply) 반영, 앱별 readiness/startup probe·requests/limits 설정, 요청이 적용한 generation 기준 rollout 판정, 적용 UID·generation 저장 (#57 1단계) |
 | External image deploy | 구현 MVP | GHCR/prebuilt 이미지 배포, envFrom·pull secret·Service 설정 지원 |
 | KLEPAAS CI/CD | 구현 | main 빌드 성공 후 Oracle ARM64 systemd 자동 배포, 버전·readiness 확인 및 실패 시 앱 버전 복구 |
 | Commit SHA image tags | 구현 | 짧은 commit SHA를 이미지 태그로 사용 |

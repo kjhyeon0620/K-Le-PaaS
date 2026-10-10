@@ -155,18 +155,21 @@ Deployment 생성
   -> Kaniko가 dir:///workspace context로 image build
   -> NCR에 {owner}-{repo}:{shortSha} push
   -> Fabric8로 Deployment 생성·전체 교체(resourceVersion 고정), Service/Ingress server-side apply
+  -> apply 응답 UID·generation을 DB에 저장 (#57 1단계)
   -> 적용한 generation의 rollout만 판정 (성공 / 이미지·설정·반복 종료 즉시 실패 / 타임아웃 실패 / 다른 변경으로 대체 시 CANCELED)
   -> Slack/WebSocket 알림과 deployment status update
 ```
 
 ## 현재 구현 상태
 
+#57 1단계는 배포 `UNKNOWN` 읽기와 적용 UID·generation 저장을 준비합니다. 재시작 대조·UNKNOWN 기록은 준비 릴리스 운영 배포 후 활성화합니다.
+
 | 영역 | 상태 | 메모 |
 |---|---|---|
 | GitHub OAuth / JWT | 구현 MVP | OAuth login, refresh, logout API 존재 |
 | GitHub App source access | 구현 MVP | installation token과 ZIP download 경로 존재 |
 | NCP Object Storage / Kaniko / NCR | 구현 MVP | NCP 중심 구현, AWS/ON_PREMISE provider는 예정 |
-| Kubernetes apply | 구현 MVP | Deployment, Service, Ingress 반영, 앱별 health probe·requests/limits (`PUT /repositories/{id}/config`의 `health_probe`, `resources`), 요청 단위 rollout 판정 |
+| Kubernetes apply | 구현 MVP | Deployment, Service, Ingress 반영, 앱별 health probe·requests/limits (`PUT /repositories/{id}/config`의 `health_probe`, `resources`), 요청 단위 rollout 판정, 적용 UID·generation 저장 |
 | 자연어 명령 / risk confirmation | 구현 MVP | `ActionDispatcher`와 `NlpCommandService`에서 처리 |
 | CLI token / web login | 구현 MVP | CLI token과 browser approval flow 존재 |
 | Cost guardrails | 구현 MVP | spec 기반 추정과 budget check 존재 |

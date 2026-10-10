@@ -42,6 +42,7 @@ function StatusBadge({ status }: { status: DeploymentStatus }) {
   if (status === "SUCCESS") return <Badge className="bg-green-500">성공</Badge>
   if (status === "FAILED") return <Badge variant="destructive">실패</Badge>
   if (status === "CANCELED") return <Badge variant="secondary">대체됨</Badge>
+  if (status === "UNKNOWN") return <Badge variant="outline">판정 불가</Badge>
   return <Badge className="bg-blue-500">{status}</Badge>
 }
 
@@ -207,9 +208,9 @@ export function DeploymentRequestDetail({ deploymentId, onBack }: { deploymentId
       {detail && d && (
         <>
           {(detail.explanation || d.fail_reason) && (
-            <Alert variant={d.status === "CANCELED" ? "default" : "destructive"}>
+            <Alert variant={d.status === "CANCELED" || d.status === "UNKNOWN" ? "default" : "destructive"}>
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>{detail.explanation?.title ?? "실패"}</AlertTitle>
+              <AlertTitle>{detail.explanation?.title ?? (d.status === "UNKNOWN" ? "배포 결과를 확인할 수 없습니다" : "실패")}</AlertTitle>
               <AlertDescription className="space-y-2">
                 {detail.explanation && <p>{detail.explanation.summary}</p>}
                 {d.fail_reason && <p className="font-mono text-xs break-all">{d.fail_reason}</p>}

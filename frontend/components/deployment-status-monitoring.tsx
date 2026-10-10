@@ -270,6 +270,9 @@ export function DeploymentStatusMonitoring({
         </Badge>
       )
     }
+    if (status === "UNKNOWN") {
+      return <Badge variant="outline">판정 불가</Badge>
+    }
     if (IN_PROGRESS_STATUSES.includes(status)) {
       return (
         <Badge className="bg-blue-500">
