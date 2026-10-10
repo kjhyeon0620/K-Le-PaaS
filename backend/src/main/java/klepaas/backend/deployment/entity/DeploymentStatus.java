@@ -8,5 +8,5 @@ public enum DeploymentStatus {
     SUCCESS,          // 5. 완료
     FAILED,           // 6. 실패
     CANCELED,         // 7. 취소됨
-    UNKNOWN          // 판정 불가. #57 준비 릴리스에서는 읽기만 지원한다.
+    UNKNOWN          // 판정 불가. 재시작 대조(#57)만 기록한다.
 }

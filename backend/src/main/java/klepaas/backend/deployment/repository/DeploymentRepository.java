@@ -5,13 +5,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import klepaas.backend.deployment.entity.DeploymentStatus;
+import klepaas.backend.deployment.entity.FailureKind;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
@@ -39,4 +42,17 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
 
     @Query("SELECT s.user.id FROM Deployment d JOIN d.sourceRepository s WHERE d.id = :id")
     Optional<Long> findUserIdByDeploymentId(@Param("id") Long id);
+
+    // 재시작 대조(#57) 대상. 웹 서버가 요청을 받기 전에 읽는다
+    @Query("SELECT d.id FROM Deployment d WHERE d.status IN :statuses ORDER BY d.id")
+    List<Long> findIdsByStatusIn(@Param("statuses") Collection<DeploymentStatus> statuses);
+
+    // 이전 상태가 그대로일 때만 대조 결과를 기록한다. bulk update라 updatedAt을 직접 넣는다
+    @Modifying
+    @Query("UPDATE Deployment d SET d.status = :next, d.failureKind = :kind, d.failReason = :reason, "
+            + "d.imageDigest = :digest, d.finishedAt = :now, d.updatedAt = :now WHERE d.id = :id AND d.status = :expected")
+    int finishIfStatus(@Param("id") Long id, @Param("expected") DeploymentStatus expected,
+                       @Param("next") DeploymentStatus next, @Param("kind") FailureKind kind,
+                       @Param("reason") String reason, @Param("digest") String digest,
+                       @Param("now") LocalDateTime now);
 }

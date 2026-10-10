@@ -1,10 +1,10 @@
 ---
 issue: 57
 title: 재시작 후 미완료 배포·명령 상태 대조
-status: in-progress
+status: done
 size: L
 type: fix
-branch: fix/#57-reconcile-interrupted-work
+branch: fix/#57-enable-startup-reconciliation
 ---
 
 # 재시작 후 미완료 배포·명령 상태 대조
@@ -21,6 +21,23 @@ branch: fix/#57-reconcile-interrupted-work
 - 배포 `DeploymentStatus`와 PostgreSQL CHECK에는 `UNKNOWN`이 없다. 현재 JAR의 JPA enum은 DB에 `UNKNOWN`이 있으면 읽을 수 없다. enum 추가와 동시에 새 상태를 쓰는 단일 릴리스는 ADR-0004의 이전 JAR 호환 조건과 충돌한다.
 - 명령 `CommandStatus`에는 `UNKNOWN`이 이미 있다. 승인 명령은 `EXECUTING`으로 별도 커밋 후 실행하며 결과는 조건부 update로 끝낸다. 기동 시 상태 대조는 없다.
 - CLI `deployments wait`는 SUCCESS / FAILED / CANCELED만 종료로 취급한다. 콘솔 상세의 나머지 상태는 진행 중과 같은 파란 badge다.
+
+## 1단계 이후 동작 (2026-10-11 코드 확인, 2단계 기준)
+- 1단계(PR #97)로 `DeploymentStatus.UNKNOWN` 읽기, V5 nullable `applied_resource_uid`·`applied_generation`, apply 응답 UID·generation 저장이 운영에 있다. UNKNOWN을 기록하는 경로는 없다.
+- 기동 hook·`@Scheduled`는 없다. Spring Boot는 웹 서버를 `ApplicationReadyEvent`·Runner보다 먼저 열기 때문에 기동 직후 요청이 대조와 겹칠 수 있다.
+- 명령 `consume`·`finish`는 JPQL bulk update라 `updated_at`을 바꾸지 않는다. 재시작 전 만든 PENDING 명령을 재시작 후 승인하면 `created_at`·`updated_at`이 기동 이전인 EXECUTING 행이 생긴다. **기동 기준 시각 비교로는 이전 프로세스 작업을 구분할 수 없다.**
+- `createDeployment`는 마지막 갱신 후 빌드+rollout 타임아웃+10분 안의 미완료 배포를 진행 중으로 보고 새 요청을 거절하거나 같은 요청이면 그 행을 돌려준다.
+- 배포 receiver는 `/api/v1/system/ready`가 200이 아니면 이전 릴리스로 자동 롤백한다.
+- 배포 상태 전이는 엔티티 저장뿐이고 이전 상태 조건 update는 없다. `failure_kind`는 CHECK 없는 varchar이며 새 값을 추가하지 않는다 (이전 릴리스 호환).
+
+## 2단계 계약 (활성화 릴리스)
+- 대상 확정: 웹 서버가 요청을 받기 전(`SmartInitializingSingleton`) DB에서 미완료 배포(PENDING / UPLOADING_SOURCE / BUILDING / DEPLOYING)와 EXECUTING 명령의 id만 읽어 둔다. 이 id 목록만 대조하며 시각 비교는 쓰지 않는다. 이 시점에는 이 프로세스가 시작한 작업이 없다.
+- 실행: `ApplicationReadyEvent`에서 목록을 한 번 처리한다. 행마다 짧은 읽기 트랜잭션 → (DEPLOYING이면) 트랜잭션 밖 Kubernetes 조회 → 이전 상태를 조건으로 한 update. 한 행의 실패가 다른 행·기동을 막지 않는다.
+- 저장 실패: 로그만 남기고 그 행은 원래 상태로 둔다. readiness와 기동에는 반영하지 않는다 (receiver 자동 롤백 방지). 다음 재기동 때 다시 대상이 된다.
+- 동시 요청: 대조가 끝나기 전 같은 저장소의 새 배포는 기존 진행 중 규칙(`DEPLOYMENT_IN_PROGRESS` 또는 같은 요청 재사용)을 그대로 따른다.
+- 기록 값: FAILED(중단) `failure_kind=OTHER`, FAILED(Deployment 없음) `DEPLOYMENT_MISSING`, rollout 실패는 기존 판정 종류, CANCELED `SUPERSEDED`, UNKNOWN은 `failure_kind` null. 모든 경우 `fail_reason`에 “재시작 대조:” 접두의 이유, `finished_at`·`updated_at`을 기록한다. 명령 UNKNOWN은 `is_executed=false`, `error_message`에 이유.
+- 알림·WebSocket: 대조 결과는 보내지 않는다 (재시작 직후 구독자 없음, 범위 밖).
+- Kubernetes 조회: Deployment 1회, 판정이 필요할 때 현재 ReplicaSet·Pod 목록. rollout을 기다리지 않는다.
 
 ## 이번 1단계의 완료 조건
 - T1만 구현한다. UNKNOWN을 기록하는 도메인 메서드·기동 hook·대조 서비스는 추가하지 않는다.
@@ -84,8 +101,9 @@ branch: fix/#57-reconcile-interrupted-work
 ## 예외·경계 상황
 | 상황 | 처리 |
 |---|---|
-| DB 대조 결과 저장 실패 | 기동 오류를 숨기거나 완료를 주장하지 않는다. 기동/ready 정책은 구현 스펙 보강 시 명시 |
-| 기동 중 새 요청 | 시작 기준 시각 이후 요청은 대조 대상에서 제외 |
+| DB 대조 결과 저장 실패 | 로그만 남기고 행은 원래 상태 유지. 기동·readiness에 반영하지 않고 완료를 주장하지 않는다. 다음 재기동에 다시 대상 |
+| 기동 중 새 요청 | 웹 서버 시작 전 확정한 id 목록에 없으므로 대조하지 않는다. 같은 저장소 배포는 기존 진행 중 규칙을 따른다 |
+| 재시작 전 PENDING 명령을 재시작 후 승인 | 목록 확정 시 PENDING이었으므로 대상 아님. 새 실행 결과를 그대로 둔다 |
 | 대조 사이 다른 경로가 이미 terminal로 변경 | 조건부 update가 기존 결과를 보존 |
 | 삭제 후 같은 이름·generation으로 재생성 | UID 불일치로 CANCELED |
 | 같은 이미지로 restart·scale | generation 불일치로 CANCELED |
@@ -93,7 +111,7 @@ branch: fix/#57-reconcile-interrupted-work
 | 이전 릴리스 미완료 행 | 새 적용 근거 null이면 UNKNOWN (활성화 이후) |
 
 ## 미결 질문 (Open)
-- 없음 (1단계 범위 확정. 2단계의 기동 정책은 활성화 PR 전에 구체화한다).
+- 없음 (2026-10-11 2단계 기동 정책 확정, Decisions 참고).
 
 ## 결정 기록 (Decisions)
 - 2026-10-10 Q1 → 사용자 결정: 같은 #57 아래 두 릴리스로 진행한다. 1단계는 UNKNOWN 읽기·표시와 적용 UID/generation 저장만 구현·배포한다. 이슈는 닫지 않고 스펙을 in-progress로 유지한다. 2단계는 1단계 운영 배포 확인 후 별도 브랜치/PR에서 대조를 활성화한다. 각 PR은 별도로 미커밋 보고와 사용자 승인을 거친다. 준비 PR은 Closes 대신 Refs #57을 써 이슈를 닫지 않는다.
@@ -104,6 +122,13 @@ branch: fix/#57-reconcile-interrupted-work
 - 2026-10-10 사실 확인: #53은 generation을 영속화하지 않았다. #57 이슈 본문의 “기록된 generation”을 사용하려면 영속화가 선행되어야 한다.
 
 - 2026-10-10 (구현 중) CLI 비성공 종료는 wait와 공통 catch에서 JSON을 중복 출력해 파싱되지 않았다. UNKNOWN도 같은 경로를 쓰므로 기존 final_status·fail_reason·timeline·exit 3을 유지하고 공통 catch에서 한 번만 출력하도록 수정한다. FAILED/CANCELED도 같은 회귀 테스트로 확인한다.
+
+- 2026-10-11 사실 확인: 명령 bulk update는 `updated_at`을 갱신하지 않아 기동 기준 시각으로 이전 EXECUTING과 재시작 후 승인된 EXECUTING을 구분할 수 없다. Spring Boot는 Runner보다 웹 서버를 먼저 연다.
+- 2026-10-11 Q1 → 사용자 결정(권장안): 웹 서버 시작 전 `SmartInitializingSingleton`에서 대상 id만 확정하고, Kubernetes 관측과 기록은 기동 후 처리한다. 시각 비교는 쓰지 않는다.
+- 2026-10-11 Q2 → 사용자 결정(권장안): 대조 완료 전 같은 저장소 새 배포는 기존 진행 중 규칙(`DEPLOYMENT_IN_PROGRESS`/같은 요청 재사용)을 유지한다.
+- 2026-10-11 Q3 → 사용자 결정(권장안): 대조 결과 저장 실패는 로그만 남기고 행을 그대로 둔다. readiness·기동에 반영하지 않는다.
+- 2026-10-11 Q4 → 사용자 결정(권장안): 실제 클러스터 검증용 k3s 이미지는 2단계 검증 직전에 내려받는다.
+- 2026-10-11 (구현 중) 기동 후 처리는 `ApplicationReadyEvent` 리스너에서 순차 실행한다. 이미 웹 서버가 요청을 받는 중이므로 별도 executor를 두지 않는다. 중단 FAILED는 새 enum 값 대신 기존 `OTHER`를 쓴다 (이전 릴리스 호환).
 
 ## 완료 증거
 
@@ -118,6 +143,24 @@ branch: fix/#57-reconcile-interrupted-work
 - 증거: `.local/evidence/0057-reconcile-interrupted-work/` (테스트 집계, migration-result.json, JAR 실행 로그, 데스크톱·모바일 스크린샷).
 - 운영 DB 사본 (2026-10-10, 사용자 실행 결과): V4 사본의 배포 14개 행에 V5 migrate·Hibernate validate·readiness UP 통과. 기존 14개 행·값 유지와 새 UID·generation 컬럼 모두 NULL 확인. 검증 스크립트는 원본을 변경하지 않고 종료 시 사본·확인용 JAR 프로세스를 정리한다. 운영 원본에 V5를 적용한 결과가 아니다.
 - 2단계 대조·실제 클러스터 중단 재현은 이번 준비 릴리스에서 실행하지 않는다.
+
+### 2단계 실행 결과 (2026-10-11)
+- 로컬: `KubernetesManifestGeneratorTest` 한 번 관측 판정 5개 (성공·digest 미관측 시 null, UID·요청 ID·generation 변경과 같은 이미지 restart → 대체, 다른 저장소 라벨·이미지 불일치·진행 중·generation 미관측 → 판정 불가, ProgressDeadline·Deployment 없음 → 실패, 조회 실패 → API 주소 없는 판정 불가).
+- 로컬 PostgreSQL: `InterruptedWorkReconcilerTest` — PENDING/UPLOADING_SOURCE/BUILDING → FAILED(OTHER), 근거 없는 DEPLOYING → UNKNOWN, 성공·대체 기록, 조회 중 다른 경로가 먼저 terminal로 바꾼 행 보존, 한 행 예외가 다른 행을 막지 않음, 소유자 없는 저장소는 Kubernetes 호출 없이 UNKNOWN, 대상 확정 후 생긴 배포와 재시작 후 승인된 이전 PENDING 명령 보존, EXECUTING 명령만 UNKNOWN, terminal 유지, Kubernetes는 근거·소유권이 확인된 행만 `observeOnce` 1회씩이고 다른 호출 0회, 같은 프로세스 재호출 시 대상 없음.
+- 로컬: 전체 `./gradlew test` 230개, 실패·오류·건너뜀 0개.
+- 로컬 실제 클러스터 (패키징 JAR + PostgreSQL 16 + Docker 임시 k3s v1.30.6): 배포 5개를 apply 후 rollout 대기 중 SIGKILL로 종료 (적용 근거 generation 1 저장 확인). 종료 중 restart·삭제·ImagePullBackOff·rollout 완료가 일어난 뒤 재기동하여 다음 결과를 확인했다.
+  - rollout 완료 → SUCCESS + 새 Pod digest
+  - `kubectl rollout restart` → CANCELED(SUPERSEDED, generation 1 → 2)
+  - 존재하지 않는 이미지 → FAILED(IMAGE_PULL)
+  - Deployment 삭제 → FAILED(DEPLOYMENT_MISSING)
+  - 스케줄 불가(cpu 64) → UNKNOWN(진행 중)
+  - DB로 재현한 apply 전 중단: BUILDING → FAILED(OTHER), 근거 없는 DEPLOYING → UNKNOWN
+  - EXECUTING 명령 → UNKNOWN, PENDING·SUCCEEDED 명령 유지
+  - 대조 전후 Kubernetes Deployment UID·generation·요청 annotation·Pod template annotation 동일 (재실행·restart·scale 0회), 배포 행 추가 없음
+  - 대조 후 새 배포 SUCCESS, UNKNOWN 저장소의 새 배포 접수
+- 실제 클러스터 검증의 apply 전 중단은 프로세스 종료 시점을 맞추지 않고 DB 상태로 재현했다. k3s가 기동하며 자체 시스템 이미지를 받았고 앱 이미지는 로컬 redis를 import했다. 검증 후 k3s·DB 컨테이너·kubeconfig·백엔드 프로세스를 정리했다.
+- 마이그레이션 없음 (V5 그대로, 새 `failure_kind` 값 없음). 운영 DB 사본 검증 대상 아님.
+- 증거: `.local/evidence/0057-reconcile-interrupted-work/stage2/` (restart-k3s-result.json, 기동·재기동 로그).
 
 ### 전체 이슈 검증 계획
 | 증명할 것 | 방법 | 환경 |
@@ -143,7 +186,8 @@ branch: fix/#57-reconcile-interrupted-work
 - 운영 DB 사본 결과를 확보하고 승인 전 미커밋 보고한다. 각 릴리스별로 보고·승인·PR·사용자 머지를 거친다.
 
 ## 운영 반영
-- 미착수.
+- 1단계 (2026-10-10): PR #97 머지 `1865e5f`, main 배포 run 38062074153 build·deploy success. receiver는 `validate` 강제 기동·readiness·revision을 확인한 뒤에만 성공하므로, 새 엔티티 컬럼을 요구하는 이 릴리스가 기동한 것은 V5가 운영 원본에 적용됐다는 간접 증거다. 운영 API·DB는 직접 조회하지 않았다. 이 시점부터 2단계 롤백 대상은 1단계 릴리스다.
+- 2단계: PR #98 머지 후 main 배포 결과를 다음 PR에서 기록한다. 롤백 대상은 1단계 릴리스(`1865e5f`) 이상이다.
 
 ## 회고
 ### 1단계
@@ -151,3 +195,8 @@ branch: fix/#57-reconcile-interrupted-work
 - generation을 재조회하면 다른 작업의 값을 기록할 수 있다. create/replace 응답의 UID·generation만 반환하고 전체 apply가 끝난 후 저장하며, 실패 시 근거가 남지 않는 테스트를 추가했다.
 - CLI는 종료 코드만 확인하면 JSON 중복 출력 결함을 놓친다. 별도 프로세스의 stdout을 JSON으로 파싱하는 계약 테스트로 UNKNOWN과 기존 비성공 종료를 함께 확인했다.
 - 1단계 구현·로컬 검증·운영 DB 사본 검증을 마쳤다. 스펙은 이슈 전체 완료 전까지 in-progress다. 사용자 승인 후 1단계 PR·운영 배포를 거쳐 2단계 대조를 활성화한다.
+### 2단계
+- 기동 기준 시각으로 이전 작업을 구분하려던 초기 계약은 명령 bulk update가 `updated_at`을 바꾸지 않아 성립하지 않았다. 웹 서버 시작 전에 대상 id를 확정하는 방식으로 바꾸고, 재시작 후 승인된 이전 PENDING 명령을 통합 테스트로 고정했다.
+- 권한 거절 예외가 공유 트랜잭션을 rollback-only로 만들어 소유권 미확인 행이 기록되지 않는 결함을 통합 테스트가 잡았다. 읽기는 바깥 트랜잭션 없이 하고 기록만 짧은 트랜잭션으로 한다.
+- 실제 클러스터에서 프로세스를 apply 후 대기 중에 끊는 방법으로 poll 간격 설정을 늘려 대기 구간을 확보했다. 종료 시점에 의존하지 않아 같은 결과를 재현할 수 있다.
+- 남은 한계: 단일 프로세스 전제, 대조 후 UNKNOWN은 자동 재대조하지 않는다. 필요하면 별도 이슈로 다룬다.

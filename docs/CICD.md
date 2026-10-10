@@ -104,4 +104,6 @@ Check the failed workflow's exit status and inspect `systemctl status` and `jour
 1. 준비 릴리스는 V5로 nullable `applied_resource_uid`·`applied_generation`과 status CHECK의 `UNKNOWN` 허용을 추가한다. UNKNOWN 읽기·표시를 지원하지만 생성하거나 기동 대조를 실행하지 않는다. 기존 행은 새 컬럼이 null이며, 이전 JAR가 읽을 수 있는 상태만 계속 쓴다.
 2. 준비 릴리스의 운영 배포·V5 적용을 확인한 후 다음 릴리스에서 기동 대조와 UNKNOWN 기록을 활성화한다. 이때 롤백 대상은 준비 릴리스다. UNKNOWN 행이 생긴 뒤에는 준비 릴리스보다 오래된 JAR로 되돌릴 수 없다.
 
+준비 릴리스는 PR #97로 운영 배포됐다 (2026-10-10). 활성화 릴리스는 PR #98이며, 배포 후 롤백 대상은 준비 릴리스 이상이어야 한다. 활성화 릴리스는 새 마이그레이션과 새 `failure_kind` 값을 추가하지 않는다.
+
 각 릴리스는 별도 PR과 사용자 승인을 거친다. V4→V5는 로컬 패키징 JAR 및 운영 DB 사본에서 기존 배포 행·값 유지, 새 컬럼 null, Flyway 적용, Hibernate validate, readiness를 확인한다. 로컬에서는 이전 JAR의 조회·배포 행 생성/갱신도 검증한다. 운영 원본에 검증용 UNKNOWN을 넣지 않는다. 상세 범위와 증거는 [스펙 0057](specs/0057-reconcile-interrupted-work/spec.md)을 따른다.

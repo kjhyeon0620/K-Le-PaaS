@@ -155,14 +155,14 @@ Deployment 생성
   -> Kaniko가 dir:///workspace context로 image build
   -> NCR에 {owner}-{repo}:{shortSha} push
   -> Fabric8로 Deployment 생성·전체 교체(resourceVersion 고정), Service/Ingress server-side apply
-  -> apply 응답 UID·generation을 DB에 저장 (#57 1단계)
+  -> apply 응답 UID·generation을 DB에 저장 (#57)
   -> 적용한 generation의 rollout만 판정 (성공 / 이미지·설정·반복 종료 즉시 실패 / 타임아웃 실패 / 다른 변경으로 대체 시 CANCELED)
   -> Slack/WebSocket 알림과 deployment status update
 ```
 
 ## 현재 구현 상태
 
-#57 1단계는 배포 `UNKNOWN` 읽기와 적용 UID·generation 저장을 준비합니다. 재시작 대조·UNKNOWN 기록은 준비 릴리스 운영 배포 후 활성화합니다.
+재시작하면 이전 프로세스가 끝내지 못한 배포·명령을 기동 시 한 번 대조합니다 (#57). 배포는 저장한 UID·generation·요청 ID·이미지와 현재 Deployment를 한 번 비교해 SUCCESS·FAILED·CANCELED·UNKNOWN으로 정리하고, 실행 중이던 명령은 UNKNOWN으로 남깁니다. 아무것도 다시 실행하지 않습니다. 규칙은 [architecture §3.2](../docs/architecture.md#재시작-대조-57-interruptedworkreconciler)를 따릅니다.
 
 | 영역 | 상태 | 메모 |
 |---|---|---|

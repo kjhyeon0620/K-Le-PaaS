@@ -126,7 +126,7 @@ public class DeploymentService {
     }
 
     // 마지막 갱신 후 파이프라인 최대 시간(빌드 + rollout + 여유)이 지난 미완료 배포는 재시작 등으로 멈춘 것으로 보고
-    // 막지 않는다. 상태는 바꾸지 않는다 (대조는 #57).
+    // 막지 않는다. 이전 프로세스의 미완료 배포는 기동 시 재시작 대조(#57)가 정리한다.
     private Optional<Deployment> findInProgress(Long repositoryId) {
         Duration window = Duration.ofMillis(buildTimeoutMs + rolloutTimeoutMs).plusMinutes(10);
         return deploymentRepository.findFirstBySourceRepositoryIdAndStatusInAndUpdatedAtAfterOrderByIdDesc(

@@ -83,7 +83,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
   → DEPLOYING: 상태와 image_uri를 먼저 커밋 → Deployment/Service/Ingress 적용
        (기존 Deployment는 관측한 resourceVersion으로 전체 교체, Service·Ingress는 강제 server-side apply.
         Deployment metadata에 annotation `klepaas.io/deployment-id`로 적용한 요청 ID를 남긴다)
-  → 전체 apply 반환 후 응답의 Deployment UID·generation을 요청 행에 저장 (#57 1단계)
+  → 전체 apply 반환 후 응답의 Deployment UID·generation을 요청 행에 저장 (#57)
   → 트랜잭션 밖에서 적용한 generation의 rollout만 판정 (#53)
        성공: 그 generation을 관측했고 Available, updated = available = desired, unavailable = 0
        FAILED: Progressing=False, 새 ReplicaSet Pod의 ImagePullBackOff·InvalidImageName·ErrImageNeverPull·
@@ -109,8 +109,28 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 
 - 빌드 경로 기본값: `NCP → KANIKO`, `ON_PREMISE → GITHUB_ACTIONS_GHCR` ([ADR-0001](adr/0001-external-image-build.md)).
 - 외부 이미지 경로의 저장소는 raw push webhook을 무시한다. 이미지 push가 끝난 뒤 CI가 배포 API를 호출한다.
-- "진행 중"은 `PENDING`~`DEPLOYING` 상태이면서 마지막 갱신 후 `빌드 타임아웃 + rollout 타임아웃 + 10분` 이내인 배포다. 재시작 등으로 그보다 오래 멈춘 배포는 새 배포를 막지 않고, 상태도 바꾸지 않는다(대조는 #57).
+- "진행 중"은 `PENDING`~`DEPLOYING` 상태이면서 마지막 갱신 후 `빌드 타임아웃 + rollout 타임아웃 + 10분` 이내인 배포다. 재시작 등으로 그보다 오래 멈춘 배포는 새 배포를 막지 않는다. 재시작 직후 대조 전에는 이전 프로세스의 배포도 이 규칙으로 새 요청을 막을 수 있다.
 - 생성하는 리소스에는 `klepaas.io/repository-id` 라벨을 붙이고, 조회와 변경도 이 라벨과 설정된 namespace 안으로 제한한다 ([ADR-0006](adr/0006-resource-access-scope.md)).
+
+#### 재시작 대조 (#57, `InterruptedWorkReconciler`)
+
+```
+웹 서버가 요청을 받기 전: 미완료 배포(PENDING~DEPLOYING)·EXECUTING 명령 id만 확정 (시각 비교 없음)
+ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확인 → (DEPLOYING만) Kubernetes 한 번 조회 → 이전 상태 조건 update
+  PENDING / UPLOADING_SOURCE / BUILDING         → FAILED(OTHER). 외부 빌드 완료·취소는 주장하지 않음
+  DEPLOYING, 적용 UID·generation 없음           → UNKNOWN (apply 전후 중단·이전 릴리스)
+  소유권 미확인 / 다른 저장소 라벨 / 조회 실패  → UNKNOWN (소유권 미확인이면 Kubernetes 호출 없음)
+  적용 근거 있음, Deployment 없음               → FAILED(DEPLOYMENT_MISSING)
+  UID·요청 annotation·generation 변경           → CANCELED(SUPERSEDED). 같은 이미지 restart·scale 포함
+  일치 + #53 성공 조건 / 명확한 실패            → SUCCESS(digest는 새 revision Pod에서 관측될 때만) / FAILED(기존 FailureKind)
+  이미지 불일치·진행 중                         → UNKNOWN. rollout을 기다리지 않음
+  EXECUTING 명령                                → UNKNOWN. 재실행·승인 재소비 없음
+```
+
+- 이유는 `fail_reason`(명령은 `error_message`)에 `재시작 대조:` 접두로 남긴다. 알림·WebSocket은 보내지 않는다.
+- 외부 변경(재배포·재빌드·restart·scale·rollback)을 자동 실행하지 않는다. 주기적·수동 재대조는 없다.
+- 한 행의 조회·저장 실패는 로그만 남기고 그 행을 그대로 둔다. 기동·readiness는 막지 않으며 다음 재기동에 다시 대상이 된다.
+- 단일 백엔드 프로세스 전제다. 여러 인스턴스가 동시에 대조하는 경우는 다루지 않는다.
 
 ### 3.3 CLI 웹 로그인
 
@@ -151,10 +171,10 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 
 | 모델 | 값 | 비고 |
 |---|---|---|
-| `DeploymentStatus` | `PENDING → UPLOADING_SOURCE → BUILDING → DEPLOYING → SUCCESS`, `FAILED`, `CANCELED`, `UNKNOWN` | 외부 이미지 경로는 업로드·빌드 단계를 건너뛴다. `CANCELED`는 rollout 대기 중 다른 변경으로 대체된 배포 (§3.2). `UNKNOWN`은 판정 불가이며 CLI wait는 exit 3. #57 1단계에서는 읽기·표시만 지원하고 생성하지 않는다 |
+| `DeploymentStatus` | `PENDING → UPLOADING_SOURCE → BUILDING → DEPLOYING → SUCCESS`, `FAILED`, `CANCELED`, `UNKNOWN` | 외부 이미지 경로는 업로드·빌드 단계를 건너뛴다. `CANCELED`는 rollout 대기 중 다른 변경으로 대체된 배포 (§3.2). `UNKNOWN`은 판정 불가이며 CLI wait는 exit 3. 재시작 대조(§3.2)만 기록한다 |
 | `TriggerSource` | `WEB`, `CLI`, `CI_TOKEN`, `CI_OIDC`, `WEBHOOK`, `NLP` | 배포 요청 경로 (#95). 웹 JWT와 CLI 전체 권한 토큰은 인증 주체의 CLI 토큰 여부로 구분 |
 | `FailureKind` | `IMAGE_PULL`, `CRASH_LOOP`, `CONFIG_ERROR`, `READINESS_TIMEOUT`, `UNSCHEDULABLE`, `ROLLOUT_TIMEOUT`, `PROGRESS_DEADLINE`, `DEPLOYMENT_MISSING`, `SUPERSEDED`, `BUILD_FAILED`, `APPLY_FAILED`, `OTHER` | 판정 시점에 정하는 실패 종류 (#95). 예외는 단계(이미지 준비·apply)로 분류 |
-| `CommandStatus` | `PENDING → EXECUTING → SUCCEEDED / FAILED`, `PENDING → EXPIRED / CANCELLED`, `UNKNOWN` | `UNKNOWN`은 결과를 판단할 수 없는 상태. 자동으로 재실행하지 않는다 |
+| `CommandStatus` | `PENDING → EXECUTING → SUCCEEDED / FAILED`, `PENDING → EXPIRED / CANCELLED`, `EXECUTING → UNKNOWN` | `UNKNOWN`은 결과를 판단할 수 없는 상태 (재시작 시 실행 중이던 명령). 자동으로 재실행하지 않는다 |
 | `RiskLevel` | `LOW`, `MEDIUM`, `HIGH` | §3.1 매핑 |
 | `CliTokenScope` | `READ_ONLY`, `PROPOSE_ONLY`, `DEPLOY`, `FULL` | §4.1 |
 | `BuildStrategy` | `KANIKO`, `GITHUB_ACTIONS_GHCR`, `PREBUILT_IMAGE` | §3.2 |
@@ -231,7 +251,6 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 |---|---|---|
 | rollout 타임아웃(`kubernetes.rollout.timeout-ms`, 120초)이 앱의 startup probe 허용 시간(`period_seconds × startup_failure_threshold`)과 무관한 고정값이다 | 기동이 120초보다 오래 걸리는 앱은 정상이어도 타임아웃 FAILED로 기록된다 | 이슈 후보 (#53에서 확인) |
 | 승인한 뒤 실행 시점에 설정을 다시 조회한다 | 승인 대기 중에 바뀐 설정으로 실행될 수 있다 | #56 |
-| 백엔드 재시작 후 진행 중이던 배포·명령 상태를 대조하지 않는다. #57 1단계부터 전체 apply 완료 시 UID·generation을 저장하고 UNKNOWN 읽기를 지원하지만 대조는 아직 비활성이다 | 영원히 진행 중으로 남고, 재시작 후 annotation·이미지만으로 이번 요청의 성공을 확정할 수 없다 | #57 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
 | 콘솔 Deployments 화면의 Rollback 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환한다 (Config·Scale·Restart·Logs는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다 | 이슈 후보 (이전 성공 배포 목록·롤백 API) |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | 이슈 후보 (Fabric8·Jackson 버전 정합) |

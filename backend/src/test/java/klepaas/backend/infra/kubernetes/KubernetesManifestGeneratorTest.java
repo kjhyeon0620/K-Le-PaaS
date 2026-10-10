@@ -5,6 +5,7 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentConditionBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.FailureKind;
 import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.entity.SourceRepository;
@@ -760,5 +761,101 @@ class KubernetesManifestGeneratorTest {
                 .isInstanceOf(BusinessException.class);
         Mockito.verify(client.apps().deployments().inNamespace("klepaas"), Mockito.never())
                 .resource(Mockito.any(io.fabric8.kubernetes.api.model.apps.Deployment.class));
+    }
+
+    // 재시작 대조(#57): 저장소 7, 요청 12가 UID uid-1·generation 3으로 img:v1을 적용한 상태
+    private io.fabric8.kubernetes.api.model.apps.Deployment applied(String repoId, String uid, String requestId,
+                                                                    String image, long generation, long observed,
+                                                                    int available, io.fabric8.kubernetes.api.model.apps.DeploymentCondition... conditions) {
+        return new DeploymentBuilder()
+                .withNewMetadata().withName("owner-repo").withUid(uid).withGeneration(generation)
+                .addToLabels("klepaas.io/repository-id", repoId)
+                .addToAnnotations("klepaas.io/deployment-id", requestId).endMetadata()
+                .withNewSpec().withReplicas(1).withNewTemplate().withNewSpec()
+                .addNewContainer().withName("owner-repo").withImage(image).endContainer()
+                .endSpec().endTemplate().endSpec()
+                .withNewStatus().withObservedGeneration(observed).withUpdatedReplicas(1)
+                .withAvailableReplicas(available).withUnavailableReplicas(1 - available)
+                .withConditions(conditions).endStatus()
+                .build();
+    }
+
+    private RolloutResult observeOnce(io.fabric8.kubernetes.api.model.apps.Deployment current) {
+        KubernetesClient client = mockScopedClient();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get()).thenReturn(current);
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+        return subject.observeOnce("owner-repo", 7L, 12L, "img:v1", "uid-1", 3);
+    }
+
+    @Test
+    @DisplayName("재시작 대조: 식별자·요청·이미지가 맞고 rollout이 끝났으면 성공, 기다리지 않는다")
+    void observeOnce_succeedsWhenEvidenceMatches() {
+        var available = condition("Available", "True", "MinimumReplicasAvailable");
+
+        RolloutResult result = observeOnce(applied("7", "uid-1", "12", "img:v1", 3, 3, 1, available));
+
+        assertThat(result.outcome()).isEqualTo(RolloutResult.Outcome.SUCCEEDED);
+        assertThat(result.imageDigest()).isNull(); // 새 revision Pod를 관측하지 못하면 digest를 쓰지 않는다
+    }
+
+    @Test
+    @DisplayName("재시작 대조: UID·요청 ID·generation이 바뀌면 같은 이미지여도 대체다")
+    void observeOnce_supersededWhenResourceOrRequestChanged() {
+        var available = condition("Available", "True", "MinimumReplicasAvailable");
+
+        assertThat(observeOnce(applied("7", "uid-2", "12", "img:v1", 3, 3, 1, available)).outcome())
+                .isEqualTo(RolloutResult.Outcome.SUPERSEDED);
+        assertThat(observeOnce(applied("7", "uid-1", "13", "img:v1", 3, 3, 1, available)).outcome())
+                .isEqualTo(RolloutResult.Outcome.SUPERSEDED);
+        // 같은 이미지의 restart·scale: generation만 바뀌고 annotation은 그대로다
+        RolloutResult restarted = observeOnce(applied("7", "uid-1", "12", "img:v1", 4, 4, 1, available));
+        assertThat(restarted.outcome()).isEqualTo(RolloutResult.Outcome.SUPERSEDED);
+        assertThat(restarted.failureKind()).isEqualTo(FailureKind.SUPERSEDED);
+    }
+
+    @Test
+    @DisplayName("재시작 대조: 다른 저장소 리소스·이미지 불일치·진행 중이면 판정 불가")
+    void observeOnce_unknownWithoutEvidence() {
+        var available = condition("Available", "True", "MinimumReplicasAvailable");
+
+        assertThat(observeOnce(applied("8", "uid-1", "12", "img:v1", 3, 3, 1, available)).outcome())
+                .isEqualTo(RolloutResult.Outcome.UNKNOWN);
+        assertThat(observeOnce(applied("7", "uid-1", "12", "img:v2", 3, 3, 1, available)).outcome())
+                .isEqualTo(RolloutResult.Outcome.UNKNOWN);
+        RolloutResult progressing = observeOnce(applied("7", "uid-1", "12", "img:v1", 3, 3, 0,
+                condition("Progressing", "True", "ReplicaSetUpdated")));
+        assertThat(progressing.outcome()).isEqualTo(RolloutResult.Outcome.UNKNOWN);
+        assertThat(progressing.reason()).contains("아직 끝나지 않음");
+        assertThat(observeOnce(applied("7", "uid-1", "12", "img:v1", 3, 2, 1, available)).outcome())
+                .isEqualTo(RolloutResult.Outcome.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("재시작 대조: 명확한 실패와 Deployment 없음은 실패다")
+    void observeOnce_failsOnClearFailureOrMissingDeployment() {
+        RolloutResult stuck = observeOnce(applied("7", "uid-1", "12", "img:v1", 3, 3, 0,
+                condition("Progressing", "False", "ProgressDeadlineExceeded")));
+        assertThat(stuck.outcome()).isEqualTo(RolloutResult.Outcome.FAILED);
+        assertThat(stuck.failureKind()).isEqualTo(FailureKind.PROGRESS_DEADLINE);
+
+        RolloutResult missing = observeOnce(null);
+        assertThat(missing.outcome()).isEqualTo(RolloutResult.Outcome.FAILED);
+        assertThat(missing.failureKind()).isEqualTo(FailureKind.DEPLOYMENT_MISSING);
+    }
+
+    @Test
+    @DisplayName("재시작 대조: 조회 실패는 API 서버 주소 없이 판정 불가로 남긴다")
+    void observeOnce_unknownOnReadFailure() {
+        KubernetesClient client = mockScopedClient();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenThrow(new io.fabric8.kubernetes.client.KubernetesClientException("Failed to connect https://10.0.0.1:6443"));
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+        RolloutResult result = subject.observeOnce("owner-repo", 7L, 12L, "img:v1", "uid-1", 3);
+
+        assertThat(result.outcome()).isEqualTo(RolloutResult.Outcome.UNKNOWN);
+        assertThat(result.reason()).startsWith("Kubernetes 조회 실패").doesNotContain("10.0.0.1");
     }
 }
