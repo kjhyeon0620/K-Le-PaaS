@@ -11,7 +11,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectContent,
@@ -106,7 +105,8 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[min(90vw,1100px)] w-[90vw] sm:w-auto max-h-[82vh] flex flex-col">
+      {/* 기본 DialogContent의 sm:max-w-lg를 덮어쓰고, 높이를 고정해 안쪽 로그 영역만 스크롤되게 한다 (#88) */}
+      <DialogContent className="w-[95vw] max-w-[1100px] sm:max-w-[1100px] h-[85vh] flex flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-muted">
@@ -120,7 +120,7 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col space-y-3 min-h-0">
+        <div className="flex-1 flex flex-col gap-3 min-h-0">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -130,7 +130,7 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
           )}
 
           {data && (
-            <div className="space-y-2">
+            <div className="space-y-2 shrink-0 max-h-[30%] overflow-auto">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant={data.status === "SUCCESS" ? "default" : data.status === "FAILED" ? "destructive" : "secondary"}>
                   {data.status}
@@ -156,7 +156,7 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border">
+          <div className="shrink-0 flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border">
             <div className="flex items-center gap-2">
               <Label htmlFor="pod-select" className="text-sm font-medium">Pod</Label>
               <Select value={selectedPod} onValueChange={(value) => { setSelectedPod(value); setPrevious(false) }}
@@ -219,16 +219,15 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
             <TabsContent value="logs" className="flex-1 min-h-0">
               {pod ? (
                 <div className="h-full rounded-lg border bg-background overflow-hidden flex flex-col">
-                  <div className="px-3 py-2 bg-muted/40 border-b text-xs space-y-1">
+                  <div className="shrink-0 px-3 py-2 bg-muted/40 border-b text-xs space-y-1">
                     <div className="font-mono">{podSummary(pod)}</div>
                     {pod.state_message && <div className="text-muted-foreground break-all">{pod.state_message}</div>}
                     {pod.logs_error && <div className="text-destructive break-all">로그 조회 불가: {pod.logs_error}</div>}
                   </div>
-                  <ScrollArea className="flex-1 min-h-0">
-                    <pre className="p-3 bg-[rgb(18,18,18)] text-[rgb(210,210,210)] text-xs font-mono whitespace-pre-wrap break-all leading-5 min-h-24">
-                      {logText || "(로그 없음)"}
-                    </pre>
-                  </ScrollArea>
+                  {/* 줄 바꿈 없이 표시하고 긴 줄은 가로 스크롤 */}
+                  <pre className="flex-1 min-h-0 overflow-auto p-3 bg-[rgb(18,18,18)] text-[rgb(210,210,210)] text-xs font-mono whitespace-pre leading-5">
+                    {logText || "(로그 없음)"}
+                  </pre>
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
@@ -237,30 +236,28 @@ export function DeploymentLogsDialog({ open, onOpenChange, deploymentId, appName
               )}
             </TabsContent>
 
-            <TabsContent value="events" className="flex-1 min-h-0">
-              <ScrollArea className="h-full max-h-[40vh]">
-                {data && data.events.length > 0 ? (
-                  <ul className="space-y-2 text-sm">
-                    {data.events.map((event, index) => (
-                      <li key={`${event.object}-${event.reason}-${index}`} className="rounded border p-2 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={event.type === "Warning" ? "destructive" : "outline"}>{event.type ?? "-"}</Badge>
-                          <span className="font-medium">{event.reason}</span>
-                          <span className="font-mono text-xs text-muted-foreground">{event.object}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatKst(event.last_seen, true)}{event.count ? ` · ${event.count}회` : ""}
-                          </span>
-                        </div>
-                        <p className="text-xs break-all">{event.message}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground p-2">
-                    관측된 이벤트가 없습니다. Kubernetes 이벤트는 보존 기간(기본 1시간)이 지나면 사라집니다.
-                  </p>
-                )}
-              </ScrollArea>
+            <TabsContent value="events" className="flex-1 min-h-0 overflow-auto">
+              {data && data.events.length > 0 ? (
+                <ul className="space-y-2 text-sm">
+                  {data.events.map((event, index) => (
+                    <li key={`${event.object}-${event.reason}-${index}`} className="rounded border p-2 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={event.type === "Warning" ? "destructive" : "outline"}>{event.type ?? "-"}</Badge>
+                        <span className="font-medium">{event.reason}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{event.object}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatKst(event.last_seen, true)}{event.count ? ` · ${event.count}회` : ""}
+                        </span>
+                      </div>
+                      <p className="text-xs break-all">{event.message}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground p-2">
+                  관측된 이벤트가 없습니다. Kubernetes 이벤트는 보존 기간(기본 1시간)이 지나면 사라집니다.
+                </p>
+              )}
             </TabsContent>
           </Tabs>
         </div>
