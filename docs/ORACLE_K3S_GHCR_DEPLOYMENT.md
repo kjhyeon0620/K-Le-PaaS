@@ -193,6 +193,25 @@ request has already replaced the Deployment, the earlier request shows
 `NOT_CURRENT` instead of another request's pods. Logs are read live and are not
 stored; events expire after the cluster's event TTL (one hour by default).
 
+## Example: second app (Node.js)
+
+[kjhyeon0620/klepaas-sample-node](https://github.com/kjhyeon0620/klepaas-sample-node)
+is a dependency-free Node.js app deployed the same way (#55). Its workflow builds a
+linux/arm64 image on `ubuntu-24.04-arm`, pushes `ghcr.io/<owner>/<repo>:sha-<commit>`,
+and calls the deployment API with an OIDC token.
+
+- Keep the deployment URL as a repository **secret** so a public repository's
+  Actions logs do not show the server host. The repository ID is not secret; keep it
+  as a repository **variable** (a short numeric secret masks every matching digit in
+  the logs).
+- A manual run (`workflow_dispatch`) with an `image_tag` input deploys an existing
+  image without building. Use it to return to a previous image. The deployment
+  record then shows the commit the workflow ran on (OIDC requires it) and the
+  previous image.
+- Restoring a previous image does not undo a configuration change. If a deployment
+  failed because of its configuration (for example a missing env var), fix the
+  configuration and deploy again. Deployment records do not store the configuration.
+
 ## Service Exposure
 
 The default Kubernetes Service type remains `CLUSTER_IP`, preserving the existing
