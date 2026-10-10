@@ -594,6 +594,42 @@ class KubernetesManifestGeneratorTest {
         Mockito.verify(resource, Mockito.never()).create();
     }
 
+    // 서버 GET 응답처럼 managedFields(fieldsV1)를 가진 Deployment. Fabric8 7.2.0 + Jackson 2.20에서 그대로 replace()하면
+    // 보내기 전 clone 단계에서 직렬화가 실패한다 (#86)
+    private io.fabric8.kubernetes.api.model.apps.Deployment observedWithManagedFields() {
+        return new io.fabric8.kubernetes.client.utils.KubernetesSerialization().unmarshal("""
+                {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"owner-repo","resourceVersion":"42",
+                 "labels":{"klepaas.io/repository-id":"7"},
+                 "managedFields":[{"manager":"fabric8-kubernetes-client","operation":"Update","apiVersion":"apps/v1",
+                   "fieldsType":"FieldsV1","fieldsV1":{"f:metadata":{"f:labels":{".":{},"f:app.kubernetes.io/name":{}}}}}]},
+                 "spec":{"replicas":2,"template":{"metadata":{"labels":{"app.kubernetes.io/name":"owner-repo"}}}}}
+                """, io.fabric8.kubernetes.api.model.apps.Deployment.class);
+    }
+
+    @Test
+    @DisplayName("restart·scale은 managedFields를 빼고 보내 Fabric8이 복제할 수 있는 객체로 교체한다")
+    void restartAndScaleSendDeploymentWithoutManagedFields() {
+        for (boolean restart : new boolean[]{true, false}) {
+            KubernetesClient client = mockScopedClient();
+            var observed = observedWithManagedFields();
+            Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                    .thenReturn(observed);
+            var deployments = client.apps().deployments().inNamespace("klepaas");
+            var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+            ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+            if (restart) subject.restart("owner-repo", 7L); else subject.scale("owner-repo", 3, 7L);
+
+            var sent = org.mockito.ArgumentCaptor.forClass(io.fabric8.kubernetes.api.model.apps.Deployment.class);
+            Mockito.verify(deployments).resource(sent.capture());
+            assertThat(sent.getValue().getMetadata().getManagedFields()).isNullOrEmpty();
+            assertThat(sent.getValue().getMetadata().getResourceVersion()).isEqualTo("42");
+            // Fabric8 replace()가 보내기 전에 하는 것과 같은 복제가 성공한다
+            assertThat(new io.fabric8.kubernetes.client.utils.KubernetesSerialization().clone(sent.getValue())
+                    .getMetadata().getName()).isEqualTo("owner-repo");
+        }
+    }
+
     @Test
     void scalePassesObservedVersionAndDoesNotRetryConflict() {
         KubernetesClient client = mockScopedClient();

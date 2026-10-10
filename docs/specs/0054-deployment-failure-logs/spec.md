@@ -170,7 +170,9 @@ branch: feat/#54-deployment-failure-logs
 - 변경: architecture(§3.2, §9 로그 격차 삭제), `backend/README.md`, `README.md`, `ORACLE_K3S_GHCR_DEPLOYMENT.md`, `product.md`
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-10T03:49:38Z PR #85 머지(4807f7e), main `Build and deploy` run 38021923170: build·deploy success. 마이그레이션 없음.
+- 운영 콘솔 Logs 확인: #53 이전에 적용된 IoT 배포 #3은 `NOT_CURRENT`("현재 Deployment에 적용한 배포 요청 기록이 없습니다"), Pod·이벤트 없음. 의도한 동작이다. 이 배포 요청이 적용한 Pod의 로그 표시는 다음 사용자 앱 배포 후 확인한다.
+- 같은 확인 중 콘솔 Restart가 500으로 실패하는 기존 결함을 발견해 #86으로 처리했다 (`managedFields` 직렬화 오류, #54 변경과 무관).
 
 ## 회고
 - 어긋난 점: (1) 자연어 LOGS의 배포 ID 경로가 같은 placeholder를 쓰고 있다는 사실을 스펙 초안에서 놓쳤다(컴파일 단계에서 발견). (2) Fabric8 예외 메시지에 API 서버 주소가 들어간다는 점을 실제 클러스터 확인 전에는 몰랐다. 같은 메시지가 apply 실패 `fail_reason`에도 이미 들어가고 있다.
