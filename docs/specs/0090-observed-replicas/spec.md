@@ -93,7 +93,8 @@ branch: fix/#90-observed-replicas
 | 실제 Deployment replica 관측 | - | - | 하지 않음. 읽는 값이 Deployment `spec`·`status`뿐이고 같은 reader의 Deployment 조회는 #54에서 실제 k3s로 확인했다. 운영 콘솔에서 확인한다 |
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-10T06:46:15Z PR #91 머지(9ea2459), main `Build and deploy` run 38032088536: build·deploy success. 마이그레이션 없음.
+- 사용자가 운영 콘솔에서 Scale 대화상자의 실제 레플리카 표시와 축소 동작을 확인했다. 같은 시점에 #86 Restart, #88 Logs 대화상자도 확인했다 (#55 PR 시점).
 
 ## 회고
 - 어긋난 점: 콘솔이 백엔드 응답에 없는 `replica_count`를 정규화 함수에서 설정값(`max_replicas`)으로 채워 "현재" 값처럼 표시했다. #78(콘솔·백엔드 응답 불일치)에서도 걸러지지 않았다. 대화상자 범위(0~10)도 백엔드 규칙(1 이상)과 달랐다.
