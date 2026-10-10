@@ -86,6 +86,12 @@ public class DeploymentController {
         return ApiResponse.success(null, "재시작 요청이 접수되었습니다");
     }
 
+    @GetMapping("/repositories/{repositoryId}/replicas")
+    public ApiResponse<ReplicaStatusResponse> getReplicaStatus(@PathVariable Long repositoryId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentService.getReplicaStatus(repositoryId, userDetails.getUserId()));
+    }
+
     @GetMapping("/repositories/{repositoryId}/scaling-history")
     public ApiResponse<Page<ScalingHistoryResponse>> getScalingHistory(
             @PathVariable Long repositoryId,

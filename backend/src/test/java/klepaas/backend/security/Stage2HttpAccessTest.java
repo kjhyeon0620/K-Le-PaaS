@@ -21,6 +21,7 @@ import klepaas.backend.deployment.service.RuntimeResourcePolicy;
 import klepaas.backend.infra.kubernetes.DeploymentObservationReader;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import klepaas.backend.deployment.dto.DeploymentLogResponse;
+import klepaas.backend.deployment.dto.ReplicaStatusResponse;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
@@ -133,6 +134,11 @@ class Stage2HttpAccessTest {
         assertEquals(deployment.getId().longValue(), ownLogs.path("deployment_id").asLong());
         assertEquals("NOT_CURRENT", ownLogs.path("observation").asText());
         reject("A JWT logs lines out of range", 400, send("GET", deploymentUrl + "/logs?lines=201", aJwt, null));
+        when(observationReader.readReplicas(any(), any())).thenReturn(new ReplicaStatusResponse(repo.getId(),
+                ReplicaStatusResponse.Observation.AVAILABLE, null, 2, 2, 2, 2));
+        JsonNode ownReplicas = ok("A JWT own replicas", send("GET", repoUrl + "/replicas", aJwt, null)).path("data");
+        assertEquals(2, ownReplicas.path("desired").asInt());
+        assertEquals("AVAILABLE", ownReplicas.path("observation").asText());
         ok("A JWT own deployment list", send("GET", "/api/v1/deployments?repositoryId=" + repo.getId(), aJwt, null));
         ok("A JWT allowed config references", send("PUT", repoUrl + "/config", aJwt, configBody));
 
@@ -145,6 +151,7 @@ class Stage2HttpAccessTest {
             hidden(identity + " deployment logs", send("GET", deploymentUrl + "/logs", token, null));
             hidden(identity + " repository deployments", send("GET", "/api/v1/deployments?repositoryId=" + repo.getId(), token, null));
             hidden(identity + " scaling history", send("GET", repoUrl + "/scaling-history", token, null));
+            hidden(identity + " replicas", send("GET", repoUrl + "/replicas", token, null));
             hidden(identity + " update config", send("PUT", repoUrl + "/config", token, configBody));
             hidden(identity + " scale", send("POST", deploymentUrl + "/scale", token, "{\"replicas\":3}"));
             hidden(identity + " restart", send("POST", deploymentUrl + "/restart", token, "{}"));
@@ -158,6 +165,7 @@ class Stage2HttpAccessTest {
         verifyNoInteractions(generator, pipeline);
         // A의 정상 조회 1회뿐: B의 조회와 범위 밖 lines는 Kubernetes 조회 전에 거절된다
         verify(observationReader, times(1)).observe(any(), any(), any(), anyInt());
+        verify(observationReader, times(1)).readReplicas(any(), any());
 
         reject("A JWT unauthorized config-map reference", 400, send("PUT", repoUrl + "/config", aJwt,
                 configBody.replace("runtime", "foreign")));

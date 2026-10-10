@@ -13,6 +13,7 @@ import klepaas.backend.deployment.dto.DeploymentLogResponse;
 import klepaas.backend.deployment.dto.DeploymentLogResponse.Observed;
 import klepaas.backend.deployment.dto.DeploymentLogResponse.PodEvent;
 import klepaas.backend.deployment.dto.DeploymentLogResponse.PodLog;
+import klepaas.backend.deployment.dto.ReplicaStatusResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -82,6 +83,37 @@ public class DeploymentObservationReader {
             log.warn("Deployment observation failed: app={}, deploymentId={}, error={}", appName, deploymentId, e.getMessage());
             return Observed.unavailable("Kubernetes 조회 실패: " + clientMessage(e));
         }
+    }
+
+    /** 저장소 앱의 현재 Deployment replica. 설정값으로 채우지 않는다 (#90). */
+    public ReplicaStatusResponse readReplicas(String appName, Long repositoryId) {
+        try {
+            Deployment deployment = kubernetesClient.apps().deployments().inNamespace(namespace).withName(appName).get();
+            if (deployment == null) {
+                return ReplicaStatusResponse.unobserved(repositoryId, ReplicaStatusResponse.Observation.NOT_FOUND,
+                        "클러스터에 이 앱의 Deployment가 없습니다");
+            }
+            if (!String.valueOf(repositoryId).equals(label(deployment, "klepaas.io/repository-id"))) {
+                return ReplicaStatusResponse.unobserved(repositoryId, ReplicaStatusResponse.Observation.NOT_FOUND,
+                        "클러스터의 같은 이름 Deployment가 이 저장소 소유가 아닙니다");
+            }
+            var spec = deployment.getSpec();
+            var status = deployment.getStatus();
+            // spec.replicas가 비어 있으면 Kubernetes 기본값 1로 동작한다
+            int desired = spec == null || spec.getReplicas() == null ? 1 : spec.getReplicas();
+            return new ReplicaStatusResponse(repositoryId, ReplicaStatusResponse.Observation.AVAILABLE, null, desired,
+                    status == null ? 0 : orZero(status.getReadyReplicas()),
+                    status == null ? 0 : orZero(status.getAvailableReplicas()),
+                    status == null ? 0 : orZero(status.getUpdatedReplicas()));
+        } catch (KubernetesClientException e) {
+            log.warn("Replica observation failed: app={}, error={}", appName, e.getMessage());
+            return ReplicaStatusResponse.unobserved(repositoryId, ReplicaStatusResponse.Observation.UNAVAILABLE,
+                    "Kubernetes 조회 실패: " + clientMessage(e));
+        }
+    }
+
+    private static int orZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     PodLog toPodLog(Pod pod, String containerName, int lines) {

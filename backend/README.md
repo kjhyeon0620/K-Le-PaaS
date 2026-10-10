@@ -90,6 +90,7 @@ DELETE /api/v1/repositories/{id}
 GET    /api/v1/repositories/{id}/config
 PUT    /api/v1/repositories/{id}/config
 GET    /api/v1/repositories/{repositoryId}/scaling-history
+GET    /api/v1/repositories/{repositoryId}/replicas
 
 POST /api/v1/deployments
 GET  /api/v1/deployments?repositoryId={repositoryId}
@@ -103,6 +104,8 @@ POST /api/v1/deployments/{id}/restart
 `POST /api/v1/deployments`는 같은 저장소에 진행 중인 배포가 있으면 409(`DEPLOY_003`)를 반환합니다. 진행 중 배포와 같은 요청(branch·commit·image_uri)을 다시 보내면 새로 만들지 않고 그 배포를 200으로 반환합니다.
 
 `GET /api/v1/deployments/{id}/logs?lines=100`은 배포 상태·실패 원인과, 그 배포 요청이 적용한 Pod의 조회 시점 상태·최근 로그·Kubernetes 이벤트를 반환합니다. 다른 요청이 적용한 Deployment면 Pod를 읽지 않고 `observation: NOT_CURRENT`, Kubernetes 조회가 실패하면 `UNAVAILABLE`입니다. 로그는 저장하지 않으며 스트리밍과 빌드(Kaniko) 로그는 지원하지 않습니다.
+
+`GET /api/v1/repositories/{repositoryId}/replicas`는 저장소 앱의 현재 Deployment replica 관측값(`desired`, `ready`, `available`, `updated`)을 반환합니다. Deployment가 없거나 다른 저장소 소유면 `observation: NOT_FOUND`, Kubernetes 조회가 실패하면 `UNAVAILABLE`이고 숫자는 null입니다. 배포 설정의 `min_replicas`·`max_replicas`와는 다른 값입니다.
 
 ### 자연어 명령
 
