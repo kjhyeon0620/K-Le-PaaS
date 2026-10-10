@@ -28,6 +28,8 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -86,7 +88,8 @@ class DeploymentPipelineStepServiceTest {
         given(deploymentConfigRepository.findBySourceRepositoryId(10L)).willReturn(Optional.of(config));
         given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        given(k8sGenerator.deploy("kjhyeon0620-smart-sousvide-iot-platform", imageUri, config, 10L, 1L)).willReturn(5L);
+        given(k8sGenerator.deploy("kjhyeon0620-smart-sousvide-iot-platform", imageUri, config, 10L, 1L))
+                .willReturn(new KubernetesManifestGenerator.AppliedDeployment("uid-applied", 5L));
         var snapshot = org.mockito.Mockito.mock(DeploymentConfigSnapshot.class);
         given(configSnapshots.capture(config)).willReturn(snapshot);
         given(configSnapshots.toJson(snapshot)).willReturn("{\"version\":1}");
@@ -95,6 +98,8 @@ class DeploymentPipelineStepServiceTest {
         assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.DEPLOYING);
         assertThat(deployment.getConfigSnapshot()).isEqualTo("{\"version\":1}");
         assertThat(deployment.getImageUri()).isEqualTo(imageUri);
+        assertThat(deployment.getAppliedResourceUid()).isNull();
+        assertThat(deployment.getAppliedGeneration()).isNull();
         verify(deploymentRepository).save(deployment);
         verifyNoInteractions(k8sGenerator);
 
@@ -102,6 +107,32 @@ class DeploymentPipelineStepServiceTest {
 
         assertThat(applied).isEqualTo(new DeploymentPipelineStepService.AppliedRollout(
                 "kjhyeon0620-smart-sousvide-iot-platform", 5L));
+        assertThat(deployment.getAppliedResourceUid()).isEqualTo("uid-applied");
+        assertThat(deployment.getAppliedGeneration()).isEqualTo(5L);
+        var order = org.mockito.Mockito.inOrder(k8sGenerator, deploymentRepository);
+        order.verify(k8sGenerator).deploy("kjhyeon0620-smart-sousvide-iot-platform", imageUri, config, 10L, 1L);
+        order.verify(deploymentRepository).save(deployment);
+    }
+
+    @Test
+    @DisplayName("apply가 실패하면 적용 완료 근거를 저장하지 않는다")
+    void applyFailureDoesNotRecordResourceEvidence() {
+        var repo = repository();
+        var deployment = Deployment.builder().sourceRepository(repo).branchName("main").commitHash("abc1234").build();
+        deployment.startDeploying();
+        var config = DeploymentConfig.builder().sourceRepository(repo).build();
+        given(deploymentRepository.findById(1L)).willReturn(Optional.of(deployment));
+        given(deploymentConfigRepository.findBySourceRepositoryId(10L)).willReturn(Optional.of(config));
+        given(k8sGenerator.deploy("kjhyeon0620-smart-sousvide-iot-platform", "image", config, 10L, 1L))
+                .willThrow(new IllegalStateException("Service apply failed"));
+
+        assertThatThrownBy(() -> stepService.applyK8sManifests(1L, "image"))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(deployment.getAppliedResourceUid()).isNull();
+        assertThat(deployment.getAppliedGeneration()).isNull();
+        assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.DEPLOYING);
+        verify(deploymentRepository, never()).save(any());
     }
 
     @Test

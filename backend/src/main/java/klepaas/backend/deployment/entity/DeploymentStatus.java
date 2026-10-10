@@ -7,5 +7,6 @@ public enum DeploymentStatus {
     DEPLOYING,        // 4. Kubernetes 배포 중
     SUCCESS,          // 5. 완료
     FAILED,           // 6. 실패
-    CANCELED          // 7. 취소됨
+    CANCELED,         // 7. 취소됨
+    UNKNOWN          // 판정 불가. #57 준비 릴리스에서는 읽기만 지원한다.
 }

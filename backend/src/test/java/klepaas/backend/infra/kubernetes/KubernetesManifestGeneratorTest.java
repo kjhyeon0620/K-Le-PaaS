@@ -558,12 +558,13 @@ class KubernetesManifestGeneratorTest {
                 .thenReturn(null);
         Mockito.when(client.apps().deployments().inNamespace("klepaas")
                         .resource(new io.fabric8.kubernetes.api.model.apps.Deployment()).create())
-                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(1L).endMetadata().build());
+                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(1L).withUid("created-uid").endMetadata().build());
         Mockito.clearInvocations(client.apps().deployments().inNamespace("klepaas"));
         var subject = new KubernetesManifestGenerator(client, policy);
         ReflectionTestUtils.setField(subject, "namespace", "klepaas");
 
-        assertThat(subject.deploy("owner-repo", "image", config, 7L, 1L)).isEqualTo(1L);
+        assertThat(subject.deploy("owner-repo", "image", config, 7L, 1L))
+                .isEqualTo(new KubernetesManifestGenerator.AppliedDeployment("created-uid", 1L));
 
         Mockito.verify(client.apps().deployments().inNamespace("klepaas"))
                 .resource(Mockito.argThat(d -> "7".equals(d.getMetadata().getLabels().get("klepaas.io/repository-id"))
@@ -626,12 +627,13 @@ class KubernetesManifestGeneratorTest {
         var deployments = client.apps().deployments().inNamespace("klepaas");
         var resource = deployments.resource(own);
         Mockito.when(resource.lockResourceVersion("42").replace())
-                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(5L).endMetadata().build());
+                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(5L).withUid("replaced-uid").endMetadata().build());
         Mockito.clearInvocations(deployments, resource);
         var subject = new KubernetesManifestGenerator(client, policy);
         ReflectionTestUtils.setField(subject, "namespace", "klepaas");
 
-        assertThat(subject.deploy("owner-repo", "image:v2", config, 7L, 1L)).isEqualTo(5L);
+        assertThat(subject.deploy("owner-repo", "image:v2", config, 7L, 1L))
+                .isEqualTo(new KubernetesManifestGenerator.AppliedDeployment("replaced-uid", 5L));
 
         Mockito.verify(deployments).resource(Mockito.argThat(d -> "42".equals(d.getMetadata().getResourceVersion())
                 && d.getSpec().getTemplate().getSpec().getContainers().get(0).getReadinessProbe() == null));

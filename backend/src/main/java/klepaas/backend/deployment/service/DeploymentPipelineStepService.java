@@ -118,15 +118,18 @@ public class DeploymentPipelineStepService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AppliedRollout applyK8sManifests(Long deploymentId, String imageUri) {
-        SourceRepository repo = getDeployment(deploymentId).getSourceRepository();
+        Deployment deployment = getDeployment(deploymentId);
+        SourceRepository repo = deployment.getSourceRepository();
         String appName = repo.getOwner() + "-" + repo.getRepoName();
 
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repo.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
-        long generation = k8sGenerator.deploy(appName, imageUri, config, repo.getId(), deploymentId);
-        log.info("K8s manifests applied: deploymentId={}, app={}, generation={}", deploymentId, appName, generation);
-        return new AppliedRollout(appName, generation);
+        var applied = k8sGenerator.deploy(appName, imageUri, config, repo.getId(), deploymentId);
+        deployment.recordAppliedResource(applied.resourceUid(), applied.generation());
+        deploymentRepository.save(deployment);
+        log.info("K8s manifests applied: deploymentId={}, app={}, generation={}", deploymentId, appName, applied.generation());
+        return new AppliedRollout(appName, applied.generation());
     }
 
     // 트랜잭션 밖에서 기다린다 (최대 rollout 타임아웃 동안 DB 연결을 잡지 않는다)

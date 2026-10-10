@@ -58,9 +58,9 @@ public class KubernetesManifestGenerator {
     private static final int MAX_REASON_MESSAGE_LENGTH = 300;
 
     /**
-     * K8s Deployment + Service + Ingress 생성/업데이트. 적용한 Deployment의 metadata.generation을 반환한다.
+     * K8s Deployment + Service + Ingress 적용이 끝나면 Deployment apply 응답의 UID·generation을 반환한다.
      */
-    public long deploy(String appName, String imageUri, DeploymentConfig config, Long repoId, Long deploymentId) {
+    public AppliedDeployment deploy(String appName, String imageUri, DeploymentConfig config, Long repoId, Long deploymentId) {
         Map<String, String> labels = Map.of(
                 "app.kubernetes.io/name", appName,
                 "app.kubernetes.io/managed-by", "klepaas",
@@ -80,15 +80,15 @@ public class KubernetesManifestGenerator {
             rejectForeignResource(existingService, repoId);
             rejectForeignResource(existingIngress, repoId);
             validateEnvFromRefs(config);
-            long generation = createOrUpdateDeployment(appName, imageUri, config, labels, existingDeployment, deploymentId);
+            AppliedDeployment applied = createOrUpdateDeployment(appName, imageUri, config, labels, existingDeployment, deploymentId);
             createOrUpdateService(appName, config, labels, existingService);
 
             if (config.getDomainUrl() != null && !config.getDomainUrl().isBlank()) {
                 createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels, existingIngress);
             }
 
-            log.info("K8s resources deployed: app={}, namespace={}, generation={}", appName, namespace, generation);
-            return generation;
+            log.info("K8s resources deployed: app={}, namespace={}, generation={}", appName, namespace, applied.generation());
+            return applied;
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -399,7 +399,10 @@ public class KubernetesManifestGenerator {
         }
     }
 
-    private long createOrUpdateDeployment(String appName, String imageUri, DeploymentConfig config,
+    public record AppliedDeployment(String resourceUid, long generation) {
+    }
+
+    private AppliedDeployment createOrUpdateDeployment(String appName, String imageUri, DeploymentConfig config,
                                           Map<String, String> labels, Deployment existing, Long deploymentId) {
         Deployment deployment = buildDeployment(appName, imageUri, config, labels);
         // 이 spec을 적용한 배포 요청. Pod template이 아닌 metadata에 두어 새 rollout을 만들지 않는다 (#57 대조용)
@@ -413,10 +416,11 @@ public class KubernetesManifestGenerator {
             deployment.getMetadata().setResourceVersion(existing.getMetadata().getResourceVersion());
             applied = replaceWithObservedVersion(deployment);
         }
-        if (applied == null || applied.getMetadata() == null || applied.getMetadata().getGeneration() == null) {
-            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: 적용한 Deployment의 generation을 알 수 없습니다");
+        if (applied == null || applied.getMetadata() == null || applied.getMetadata().getGeneration() == null
+                || applied.getMetadata().getUid() == null || applied.getMetadata().getUid().isBlank()) {
+            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: 적용한 Deployment의 UID 또는 generation을 알 수 없습니다");
         }
-        return applied.getMetadata().getGeneration();
+        return new AppliedDeployment(applied.getMetadata().getUid(), applied.getMetadata().getGeneration());
     }
 
     Deployment buildDeployment(String appName, String imageUri,

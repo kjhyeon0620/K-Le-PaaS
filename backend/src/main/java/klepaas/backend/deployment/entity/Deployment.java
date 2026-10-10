@@ -36,6 +36,10 @@ public class Deployment extends BaseTimeEntity {
     private String externalBuildId;
     private String imageUri;
 
+    // apply 응답의 식별자. 이전 배포·apply 도중 중단은 null이며 추정하지 않는다.
+    private String appliedResourceUid;
+    private Long appliedGeneration;
+
     // 이 배포를 만든 GitHub webhook delivery. 재전송된 push가 다시 배포하지 않게 unique로 둔다
     @Column(length = 64, unique = true)
     private String githubDeliveryId;
@@ -113,6 +117,11 @@ public class Deployment extends BaseTimeEntity {
 
     public void recordAppliedConfig(String configSnapshot) {
         this.configSnapshot = configSnapshot;
+    }
+
+    public void recordAppliedResource(String resourceUid, long generation) {
+        this.appliedResourceUid = resourceUid;
+        this.appliedGeneration = generation;
     }
 
     public void setGithubDeliveryId(String githubDeliveryId) {

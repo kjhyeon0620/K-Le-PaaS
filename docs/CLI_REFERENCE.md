@@ -102,7 +102,8 @@ klepaas deployments export 42 --format yaml --output klepaas-export.yaml
 `deployments wait`는 배포 상태가 `SUCCESS`가 될 때까지 폴링한다.
 
 - 성공 종료 상태: `SUCCESS`
-- 실패 종료 상태: `FAILED`, `CANCELED`
+- 비성공 종료 상태: `FAILED`, `CANCELED`, `UNKNOWN` (판정 불가). exit 3을 반환한다.
+- `--json`은 비성공 종료에서도 `deployment_id`, `final_status`, `fail_reason`, `timeline`을 JSON 하나로 출력한다.
 - timeout 시 종료 코드 `5`
 
 `deployments get`은 배포 기록과 함께 실패 종류(`Failure Kind`), 요청 경로(`Trigger`), 자연어 승인 명령(`Command`), 관측한 이미지 digest(`Image Digest`)를 보여 준다. #95 이전 배포는 `-`(기록 없음)이다. `--json`에는 `failure_kind`, `trigger_source`, `requested_by_user_id`, `command_log_id`, `image_digest`가 추가된다.

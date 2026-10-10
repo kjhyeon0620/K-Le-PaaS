@@ -114,7 +114,12 @@ branch: feat/#95-deployment-request-detail
 - 검증: 운영 DB 사본 V4 (사용자 서버 실행), 머지 후 운영 샘플 앱으로 #55 사례 구분 확인
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-10 PR #96 머지(d3770ce), main `Build and deploy` run 38041508007 success. 운영 버전 API에서 revision d3770ce를 확인했다. Flyway V4 운영 적용은 사용자 확인 기록이다.
+- 운영 샘플 앱에 기존 v1 이미지를 빌드 없이 재배포: #12 SUCCESS, 요청 경로 `CI_OIDC`, 설정 스냅샷(env 이름 `SAMPLE_GREETING`), Pod 관측 digest 기록 확인. 직전 성공 #11은 설정 기록이 없어 `NOT_RECORDED`로 비교된다. 콘솔 History → 상세도 API와 일치했다.
+- 사용자 승인 후 같은 이미지로 env 삭제·복구 재현: #13은 약 5초 만에 `FAILED` / `CRASH_LOOP`, #12 대비 `env:SAMPLE_GREETING` `REMOVED`이며 콘솔에도 “삭제”로 표시됐다. 직전 컨테이너 로그에 env 누락과 exit 1이 확인됐고 가용 레플리카는 1이었다.
+- 원래 설정을 복원한 #14는 약 1초 만에 SUCCESS. 전체 배포 설정은 검증 전과 같고, Ready Pod 로그 v1.0.0·#12와 동일한 digest가 확인됐다. 직전 성공 #12 대비 `AVAILABLE` / 변경 없음이며 실패 #13은 비교 기준에서 제외된다. 콘솔에서도 확인했다.
+- 샘플 Actions run: 기준 38042235511, 실패 주입 38043577974, 복구 38043641900. 모두 배포 API 접수에 성공했다. Actions success와 앱 rollout 결과(#13 FAILED)는 구분한다. 최종 운영 샘플은 #14(v1 이미지)다.
+- 검증 환경: 운영 API·콘솔. 서버 curl로 NodePort HTTP 응답을 직접 확인하지 않았으며 버전은 현재 Pod 로그, 가용성은 replicas API 관측값으로 확인했다. 원자료·화면: `.local/evidence/0095-deployment-request-detail/2026-10-10/production/`.
 
 ## 회고
 - 어긋난 점: (1) 웹 JWT와 CLI 토큰이 같은 scope라 요청 경로를 구분할 수 없다는 점을 스펙 초안에서 확인하지 않았다. (2) 콘솔 API에 같은 이름의 메서드가 이미 있었다. (3) 모바일 폭에서 앱 공통 사이드바가 접히지 않는다.
