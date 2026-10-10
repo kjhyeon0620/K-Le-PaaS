@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface CommandLogRepository extends JpaRepository<CommandLog, Long> {
 
@@ -25,4 +26,8 @@ public interface CommandLogRepository extends JpaRepository<CommandLog, Long> {
     @Modifying
     @Query("update CommandLog c set c.status = :next, c.isExecuted = :executed, c.executionResult = :result, c.errorMessage = :error where c.id = :id and c.status = :executing")
     int finish(Long id, CommandStatus executing, CommandStatus next, boolean executed, String result, String error);
+
+    // 재시작 대조(#57) 대상. 웹 서버가 요청을 받기 전에 읽는다
+    @Query("select c.id from CommandLog c where c.status = :status order by c.id")
+    List<Long> findIdsByStatus(CommandStatus status);
 }

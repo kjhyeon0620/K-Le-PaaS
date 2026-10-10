@@ -10,7 +10,7 @@ K-Le-PaaS 프론트엔드는 agent-safe Kubernetes control plane을 사람이 �
 - 저장소 등록과 배포 실행 UI
 - 자연어 명령 입력과 confirmation UI
 - 배포 목록, 상세, scale, restart, wait/export 보조 UI
-- `UNKNOWN` 배포는 “판정 불가”로 표시하며 CLI wait는 exit 3으로 종료 (#57 1단계; 재시작 대조는 후속 릴리스)
+- `UNKNOWN` 배포는 “판정 불가”로 표시하며 CLI wait는 exit 3으로 종료 (#57; 백엔드 재시작 대조가 기록한 결과와 이유를 표시)
 - WebSocket 기반 배포 이벤트 수신
 - CLI token 발급/조회/폐기 UI
 - Node 기반 `klepaas` CLI 제공

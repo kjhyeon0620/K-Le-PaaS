@@ -35,7 +35,7 @@ class DeploymentEvidenceSchemaTest {
     }
 
     @Test
-    void readsUnknownWithoutAProductionTransitionThatWritesIt() {
+    void readsUnknownStatus() {
         var deployment = Deployment.builder().branchName("main").commitHash("abcdef1").build();
         entityManager.persist(deployment);
         entityManager.flush();

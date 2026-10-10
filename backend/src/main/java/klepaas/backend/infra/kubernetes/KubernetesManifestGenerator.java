@@ -181,6 +181,60 @@ public class KubernetesManifestGenerator {
                 + describeReplicas(last) + (described.isEmpty() ? "" : "; " + described), timeoutKind(pods));
     }
 
+    /**
+     * 재시작 대조(#57): 기록한 적용 근거와 현재 Deployment를 한 번 대조한다. 기다리거나 리소스를 바꾸지 않는다.
+     * 다른 저장소 리소스·이미지 불일치·진행 중·조회 실패는 UNKNOWN, UID·요청 ID·generation이 바뀌면 SUPERSEDED.
+     */
+    public RolloutResult observeOnce(String appName, Long repoId, Long deploymentId, String imageUri,
+                                     String resourceUid, long generation) {
+        try {
+            Deployment current = kubernetesClient.apps().deployments().inNamespace(namespace).withName(appName).get();
+            if (current == null || current.getMetadata() == null) {
+                return RolloutResult.failed("Deployment가 없음 (적용 generation=" + generation + ")",
+                        FailureKind.DEPLOYMENT_MISSING);
+            }
+            Map<String, String> labels = current.getMetadata().getLabels();
+            if (labels == null || !String.valueOf(repoId).equals(labels.get("klepaas.io/repository-id"))) {
+                return RolloutResult.unknown("같은 이름의 Deployment가 이 저장소의 리소스가 아님");
+            }
+            if (!resourceUid.equals(current.getMetadata().getUid())) {
+                return RolloutResult.superseded("다른 변경으로 대체됨: Deployment가 다시 만들어짐 (UID 변경)");
+            }
+            String appliedBy = annotation(current.getMetadata(), DEPLOYMENT_ID_ANNOTATION);
+            if (!String.valueOf(deploymentId).equals(appliedBy)) {
+                return RolloutResult.superseded("다른 변경으로 대체됨: 다른 배포 요청이 적용됨 (deployment_id=" + appliedBy + ")");
+            }
+            RolloutResult result = evaluateDeployment(current, generation);
+            if (result != null && result.outcome() == RolloutResult.Outcome.SUPERSEDED) {
+                return result;
+            }
+            if (imageUri == null || !imageUri.equals(containerImage(current))) {
+                return RolloutResult.unknown("적용된 이미지가 요청과 다름");
+            }
+            if (result == null && isObserved(current, generation)) {
+                result = evaluatePods(findNewReplicaSetPods(current), generation);
+            }
+            if (result == null) {
+                return RolloutResult.unknown("rollout이 아직 끝나지 않음 (generation=" + generation + "): " + describeReplicas(current));
+            }
+            return result.outcome() == RolloutResult.Outcome.SUCCEEDED
+                    ? result.withImageDigest(observeImageDigest(current)) : result;
+        } catch (KubernetesClientException e) {
+            log.warn("Restart observation failed: app={}, deploymentId={}", appName, deploymentId, e);
+            return RolloutResult.unknown("Kubernetes 조회 실패: " + KubernetesErrorMessages.userMessage(e));
+        }
+    }
+
+    private static String containerImage(Deployment deployment) {
+        if (deployment.getSpec() == null || deployment.getSpec().getTemplate() == null
+                || deployment.getSpec().getTemplate().getSpec() == null
+                || deployment.getSpec().getTemplate().getSpec().getContainers() == null
+                || deployment.getSpec().getTemplate().getSpec().getContainers().size() != 1) {
+            return null;
+        }
+        return deployment.getSpec().getTemplate().getSpec().getContainers().get(0).getImage();
+    }
+
     // 타임아웃 시 관측한 새 Pod 상태를 근거로 덧붙인다. 원인을 추정하지 않고 상태만 적는다
     private List<Pod> podsAtTimeout(Deployment last, long generation) {
         if (last == null || !isObserved(last, generation)
