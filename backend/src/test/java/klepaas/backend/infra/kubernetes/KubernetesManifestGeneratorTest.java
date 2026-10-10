@@ -283,6 +283,53 @@ class KubernetesManifestGeneratorTest {
     }
 
     @Test
+    @DisplayName("실패 종류: 대기 사유별, 타임아웃은 스케줄 불가 > Ready 아님 > 그 밖의 순서, 대체·삭제·진행 기한")
+    void failureKinds() {
+        assertThat(generator.evaluatePods(List.of(waitingPod("ImagePullBackOff")), 3).failureKind())
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.IMAGE_PULL);
+        assertThat(generator.evaluatePods(List.of(waitingPod("CrashLoopBackOff")), 3).failureKind())
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.CRASH_LOOP);
+        assertThat(generator.evaluatePods(List.of(waitingPod("CreateContainerConfigError")), 3).failureKind())
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.CONFIG_ERROR);
+
+        var unschedulable = new io.fabric8.kubernetes.api.model.PodBuilder().withNewMetadata().withName("p1").endMetadata()
+                .withNewStatus().addNewCondition().withType("PodScheduled").withStatus("False").endCondition().endStatus().build();
+        var notReady = new io.fabric8.kubernetes.api.model.PodBuilder().withNewMetadata().withName("p2").endMetadata()
+                .withNewStatus().addNewContainerStatus().withReady(false).withNewState().withNewRunning().endRunning().endState()
+                .endContainerStatus().endStatus().build();
+        assertThat(generator.timeoutKind(List.of(notReady, unschedulable)))
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.UNSCHEDULABLE);
+        assertThat(generator.timeoutKind(List.of(notReady))).isEqualTo(klepaas.backend.deployment.entity.FailureKind.READINESS_TIMEOUT);
+        assertThat(generator.timeoutKind(List.of())).isEqualTo(klepaas.backend.deployment.entity.FailureKind.ROLLOUT_TIMEOUT);
+
+        assertThat(generator.evaluateDeployment(rollout(4, 4, 1, 1, 0), 3).failureKind())
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.SUPERSEDED);
+        assertThat(generator.evaluateDeployment(null, 3).failureKind())
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.DEPLOYMENT_MISSING);
+        assertThat(generator.evaluateDeployment(rollout(3, 3, 1, 0, 1,
+                condition("Progressing", "False", "ProgressDeadlineExceeded")), 3).failureKind())
+                .isEqualTo(klepaas.backend.deployment.entity.FailureKind.PROGRESS_DEADLINE);
+    }
+
+    private io.fabric8.kubernetes.api.model.Pod podWithImageId(String imageId) {
+        return new io.fabric8.kubernetes.api.model.PodBuilder().withNewMetadata().withName("p").endMetadata()
+                .withNewStatus().addNewContainerStatus().withImageID(imageId).endContainerStatus().endStatus().build();
+    }
+
+    @Test
+    @DisplayName("digest는 새 Pod의 imageID에서 관측하고, Pod마다 다르거나 없으면 null이다")
+    void digestOfNewPods() {
+        String digest = "sha256:" + "a".repeat(64);
+        assertThat(KubernetesManifestGenerator.digestOf(List.of(
+                podWithImageId("ghcr.io/o/r@" + digest), podWithImageId("docker-pullable://ghcr.io/o/r@" + digest))))
+                .isEqualTo(digest);
+        assertThat(KubernetesManifestGenerator.digestOf(List.of(
+                podWithImageId("ghcr.io/o/r@" + digest), podWithImageId("ghcr.io/o/r@sha256:" + "b".repeat(64))))).isNull();
+        assertThat(KubernetesManifestGenerator.digestOf(List.of(podWithImageId(""), new io.fabric8.kubernetes.api.model.Pod())))
+                .isNull();
+    }
+
+    @Test
     @DisplayName("시간 안에 결론이 없으면 타임아웃 실패로 마지막 관측 상태를 남긴다")
     void waitForRollout_timesOutWithLastObservedStatus() {
         KubernetesClient client = mockScopedClient();

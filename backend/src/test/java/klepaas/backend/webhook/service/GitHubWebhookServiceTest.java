@@ -81,7 +81,7 @@ class GitHubWebhookServiceTest {
 
         gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload), null);
 
-        verify(deploymentService, never()).createDeployment(any(), any(), any());
+        verify(deploymentService, never()).createDeployment(any(), any(), any(), any());
     }
 
     @Test
@@ -105,7 +105,7 @@ class GitHubWebhookServiceTest {
 
         gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload), null);
 
-        verify(deploymentService, never()).createDeployment(any(), any(), any());
+        verify(deploymentService, never()).createDeployment(any(), any(), any(), any());
     }
 
     private SourceRepository repository(CloudVendor cloudVendor) {
@@ -140,7 +140,8 @@ class GitHubWebhookServiceTest {
         org.assertj.core.api.Assertions.assertThat(gitHubWebhookService.handleVerifiedPushEvent(payload, sign(payload), "72d3162e-cc78-11e3-81ab-4c9367dc0958"))
                 .isEqualTo(GitHubWebhookService.PushResult.ACCEPTED);
         verify(deploymentService).createDeployment(any(), org.mockito.ArgumentMatchers.eq(7L),
-                org.mockito.ArgumentMatchers.eq("72d3162e-cc78-11e3-81ab-4c9367dc0958"));
+                org.mockito.ArgumentMatchers.eq("72d3162e-cc78-11e3-81ab-4c9367dc0958"),
+                org.mockito.ArgumentMatchers.eq(klepaas.backend.deployment.service.DeploymentOrigin.webhook()));
     }
 
     @Test

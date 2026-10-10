@@ -3,6 +3,8 @@ package klepaas.backend.deployment.controller;
 import jakarta.validation.Valid;
 import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.deployment.dto.*;
+import klepaas.backend.deployment.service.DeploymentDetailService;
+import klepaas.backend.deployment.service.DeploymentOrigin;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.global.dto.ApiResponse;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 public class DeploymentController {
 
     private final DeploymentService deploymentService;
+    private final DeploymentDetailService deploymentDetailService;
     private final ResourceAccessService resourceAccessService;
 
     @PostMapping("/deployments")
@@ -38,7 +41,8 @@ public class DeploymentController {
         } else if (!userDetails.canDeployTo(request.repositoryId())) {
             throw new BusinessException(ErrorCode.CLI_TOKEN_SCOPE_DENIED);
         }
-        CreateDeploymentResult result = deploymentService.createDeployment(request, userId, null);
+        CreateDeploymentResult result = deploymentService.createDeployment(request, userId, null,
+                DeploymentOrigin.of(userDetails));
         // 진행 중 배포와 같은 요청(재시도)이면 새로 만들지 않고 그 배포를 200으로 돌려준다
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.success(result.deployment()));
@@ -56,6 +60,12 @@ public class DeploymentController {
     public ApiResponse<DeploymentResponse> getDeployment(@PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(deploymentService.getDeployment(id, userDetails.getUserId()));
+    }
+
+    @GetMapping("/deployments/{id}/detail")
+    public ApiResponse<DeploymentDetailResponse> getDeploymentDetail(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentDetailService.getDetail(id, userDetails.getUserId()));
     }
 
     @GetMapping("/deployments/{id}/status")

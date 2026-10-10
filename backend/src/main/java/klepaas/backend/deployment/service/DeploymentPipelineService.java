@@ -1,6 +1,7 @@
 package klepaas.backend.deployment.service;
 
 import klepaas.backend.deployment.entity.BuildStrategy;
+import klepaas.backend.deployment.entity.FailureKind;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.global.exception.BusinessException;
@@ -45,6 +46,8 @@ public class DeploymentPipelineService {
     public void executePipeline(Long deploymentId) {
         log.info("Pipeline started: deploymentId={}", deploymentId);
         Long userId = deploymentRepository.findUserIdByDeploymentId(deploymentId).orElse(null);
+        // 예외가 나면 어느 단계였는지로 실패 종류를 정한다 (#95)
+        FailureKind stageFailure = FailureKind.BUILD_FAILED;
 
         try {
             BuildStrategy buildStrategy = stepService.getBuildStrategy(deploymentId);
@@ -54,13 +57,15 @@ public class DeploymentPipelineService {
             };
 
             notifyWs(deploymentId, userId, "DEPLOYING", "in_progress", 70, "Kubernetes에 배포 중...");
+            stageFailure = FailureKind.APPLY_FAILED;
             stepService.startK8sDeploy(deploymentId, imageUri);
             DeploymentPipelineStepService.AppliedRollout applied = stepService.applyK8sManifests(deploymentId, imageUri);
+            stageFailure = FailureKind.OTHER;
             RolloutResult result = stepService.awaitK8sRollout(applied);
 
             switch (result.outcome()) {
                 case SUCCEEDED -> {
-                    stepService.markSuccess(deploymentId);
+                    stepService.markSuccess(deploymentId, result.imageDigest());
                     notifyWs(deploymentId, userId, "SUCCESS", "completed", 100, "배포가 완료되었습니다.");
                     log.info("Pipeline completed successfully: deploymentId={}", deploymentId);
                 }
@@ -69,13 +74,18 @@ public class DeploymentPipelineService {
                     notifyWs(deploymentId, userId, "CANCELED", "failed", 0, "배포 취소: " + result.reason());
                     log.info("Pipeline superseded: deploymentId={}, reason={}", deploymentId, result.reason());
                 }
-                case FAILED -> throw new BusinessException(ErrorCode.DEPLOY_FAILED, result.reason());
+                case FAILED -> {
+                    FailureKind kind = result.failureKind() != null ? result.failureKind() : FailureKind.OTHER;
+                    stepService.markFailed(deploymentId, result.reason(), kind);
+                    notifyWs(deploymentId, userId, "FAILED", "failed", 0, "배포 실패: " + result.reason());
+                    log.info("Pipeline rollout failed: deploymentId={}, kind={}", deploymentId, kind);
+                }
             }
 
         } catch (Exception e) {
             log.error("Pipeline failed: deploymentId={}, error={}", deploymentId, e.getMessage(), e);
             String reason = KubernetesErrorMessages.userMessage(e);
-            stepService.markFailed(deploymentId, reason);
+            stepService.markFailed(deploymentId, reason, stageFailure);
             notifyWs(deploymentId, userId, "FAILED", "failed", 0, "배포 실패: " + reason);
         }
     }

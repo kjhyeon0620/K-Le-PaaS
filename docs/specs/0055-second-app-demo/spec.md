@@ -138,7 +138,7 @@ branch: test/#55-second-app-demo
 - 발견한 이슈 후보: 배포 기록에 설정 스냅샷 없음(로드맵 배포 요청 상세, #56과 연결), NodePort 전용 앱도 `domain_url` 필수, CLI 요청 함수가 env 이름 같은 map 키까지 snake_case로 바꿈. [architecture §9](../../architecture.md#9-알려진-격차)에 기록했다.
 
 ## 운영 반영
-- (머지 후 기록)
+- 2026-10-10T08:11:49Z PR #94 머지(39c5710), main `Build and deploy` run 38037042112: build·deploy success. 문서만 바뀐 변경이다.
 
 ## 회고
 - 어긋난 점: (1) 콘솔 배포 설정 입력이 사용자에게 너무 어려워 API 스크립트로 대신했다. 두 번째 앱을 "설정만으로" 올리는 경로가 실제로는 설정 화면 사용성에 막혀 있었다. (2) NodePort 전용 앱도 `domain_url`이 필수였다. (3) 공개 저장소에서 짧은 숫자 secret이 로그 전체를 가렸다.

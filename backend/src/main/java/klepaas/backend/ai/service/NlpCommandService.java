@@ -107,7 +107,7 @@ public class NlpCommandService {
         Object result = null;
         if (!requiresConfirmation) {
             try {
-                result = actionDispatcher.dispatch(parsedIntent, userId);
+                result = actionDispatcher.dispatch(parsedIntent, userId, commandLog.getId());
                 if (result instanceof FormattedResponseDto formatted && "error".equals(formatted.type())) {
                     commandLog.markFailed(formatted.message());
                 } else {
@@ -163,7 +163,7 @@ public class NlpCommandService {
         String message = "명령이 실행되었습니다.";
         try {
             ParsedIntent parsedIntent = deserializeParsedIntent(commandLog);
-            result = actionDispatcher.dispatch(parsedIntent, userId);
+            result = actionDispatcher.dispatch(parsedIntent, userId, commandLog.getId());
             if (result instanceof FormattedResponseDto formatted && "error".equals(formatted.type())) {
                 confirmations.fail(commandLog.getId(), formatted.message());
                 message = formatted.message();

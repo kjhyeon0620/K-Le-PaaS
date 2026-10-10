@@ -40,6 +40,28 @@ public class Deployment extends BaseTimeEntity {
     @Column(length = 64, unique = true)
     private String githubDeliveryId;
 
+    // 요청 기록 (#95). 이전 배포는 null이고 "기록 없음"으로 보인다
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private TriggerSource triggerSource;
+
+    // 사람이 요청했을 때의 사용자. CI·webhook은 null
+    private Long requestedByUserId;
+
+    // 자연어 명령으로 승인·실행된 배포의 명령 기록
+    private Long commandLogId;
+
+    // 적용한 배포 설정 JSON. env 값은 저장하지 않는다 (DeploymentConfigSnapshot)
+    @Column(columnDefinition = "TEXT")
+    private String configSnapshot;
+
+    // 성공 판정 시 새 Pod에서 관측한 이미지 digest (sha256:...)
+    private String imageDigest;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private FailureKind failureKind;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeploymentStatus status;
@@ -83,6 +105,16 @@ public class Deployment extends BaseTimeEntity {
         this.status = DeploymentStatus.BUILDING;
     }
 
+    public void recordRequest(TriggerSource triggerSource, Long requestedByUserId, Long commandLogId) {
+        this.triggerSource = triggerSource;
+        this.requestedByUserId = requestedByUserId;
+        this.commandLogId = commandLogId;
+    }
+
+    public void recordAppliedConfig(String configSnapshot) {
+        this.configSnapshot = configSnapshot;
+    }
+
     public void setGithubDeliveryId(String githubDeliveryId) {
         this.githubDeliveryId = githubDeliveryId;
     }
@@ -97,12 +129,18 @@ public class Deployment extends BaseTimeEntity {
 
     // 배포 성공
     public void completeSuccess() {
+        completeSuccess(null);
+    }
+
+    public void completeSuccess(String imageDigest) {
+        this.imageDigest = imageDigest;
         this.status = DeploymentStatus.SUCCESS;
         this.finishedAt = LocalDateTime.now();
     }
 
     // 다른 변경으로 대체됨 (이 요청의 rollout 결과를 판정할 수 없다)
     public void cancel(String reason) {
+        this.failureKind = FailureKind.SUPERSEDED;
         this.status = DeploymentStatus.CANCELED;
         this.failReason = reason;
         this.finishedAt = LocalDateTime.now();
@@ -110,6 +148,11 @@ public class Deployment extends BaseTimeEntity {
 
     // 실패 처리
     public void fail(String reason) {
+        fail(reason, FailureKind.OTHER);
+    }
+
+    public void fail(String reason, FailureKind failureKind) {
+        this.failureKind = failureKind;
         this.status = DeploymentStatus.FAILED;
         this.failReason = reason;
         this.finishedAt = LocalDateTime.now();

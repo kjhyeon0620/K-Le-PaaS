@@ -142,7 +142,8 @@ class ActionDispatcherTest {
     void dispatchListDeploymentsReturnsHistoryFields() {
         var parsedIntent = new ParsedIntent(Intent.LIST_DEPLOYMENTS, Map.of("repository_id", 7), 0.9, "배포 목록");
         var history = new DeploymentResponse(3L, 7L, "owner/repo", "main", "abc1234def",
-                "ghcr.io/owner/repo:abc1234", DeploymentStatus.FAILED, "rollout timeout", null, null, null);
+                "ghcr.io/owner/repo:abc1234", DeploymentStatus.FAILED, "rollout timeout", null, null, null,
+                null, null, null, null, null);
         given(deploymentService.getDeployments(eq(7L), any(), eq(1L))).willReturn(new PageImpl<>(List.of(history)));
 
         FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);

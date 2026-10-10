@@ -210,7 +210,9 @@ and calls the deployment API with an OIDC token.
   previous image.
 - Restoring a previous image does not undo a configuration change. If a deployment
   failed because of its configuration (for example a missing env var), fix the
-  configuration and deploy again. Deployment records do not store the configuration.
+  configuration and deploy again. Since #95 each deployment records the applied
+  configuration (env names only, values are not stored), so the console's deployment
+  detail shows what changed against the previous successful deployment.
 
 ## Service Exposure
 

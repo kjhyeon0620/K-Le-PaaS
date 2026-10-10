@@ -21,21 +21,30 @@ public class CustomUserDetails implements UserDetails {
     private final Long deployRepositoryId;
     /** GitHub Actions OIDC로 인증한 주체. 사용자는 없고 배포 생성만 할 수 있다 */
     private final GitHubActionsIdentity gitHubActions;
+    // CLI 토큰으로 인증했는지. 웹 JWT와 CLI 전체 권한 토큰은 scope가 같아 배포 요청 경로(#95)를 이것으로 구분한다
+    private final boolean cliToken;
 
     public static final String GITHUB_ACTIONS_AUTHORITY = "SCOPE_GITHUB_ACTIONS";
 
     /** 웹 로그인(JWT) 사용자는 사용자 권한 전체를 갖는다. */
     public CustomUserDetails(Long userId, String email, Role role) {
-        this(userId, email, role, CliTokenScope.FULL, null);
+        this(userId, email, role, CliTokenScope.FULL, null, false);
     }
 
+    /** CLI 토큰 인증 */
     public CustomUserDetails(Long userId, String email, Role role, CliTokenScope scope, Long deployRepositoryId) {
+        this(userId, email, role, scope, deployRepositoryId, true);
+    }
+
+    private CustomUserDetails(Long userId, String email, Role role, CliTokenScope scope, Long deployRepositoryId,
+                              boolean cliToken) {
         this.userId = userId;
         this.email = email;
         this.role = role;
         this.scope = scope;
         this.deployRepositoryId = deployRepositoryId;
         this.gitHubActions = null;
+        this.cliToken = cliToken;
     }
 
     private CustomUserDetails(GitHubActionsIdentity gitHubActions) {
@@ -45,6 +54,7 @@ public class CustomUserDetails implements UserDetails {
         this.scope = null;
         this.deployRepositoryId = null;
         this.gitHubActions = gitHubActions;
+        this.cliToken = false;
     }
 
     public static CustomUserDetails gitHubActions(GitHubActionsIdentity identity) {

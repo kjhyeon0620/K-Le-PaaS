@@ -75,7 +75,7 @@ class NlpCommandServiceTest {
         given(intentParser.parse("test")).willReturn(
                 new klepaas.backend.ai.dto.ParsedIntent(Intent.HELP, java.util.Map.of(), 1.0, "도움말"));
         given(actionDispatcher.classifyRisk(Intent.HELP)).willReturn(RiskLevel.LOW);
-        given(actionDispatcher.dispatch(any(), eq(1L))).willReturn("도움말 결과");
+        given(actionDispatcher.dispatch(any(), eq(1L), any())).willReturn("도움말 결과");
         given(commandLogRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
         NlpCommandResponse response = nlpCommandService.processCommand(1L,
@@ -104,7 +104,7 @@ class NlpCommandServiceTest {
         assertThat(response.requiresConfirmation()).isTrue();
         assertThat(response.result()).isNull();
         assertThat(response.riskLevel()).isEqualTo(RiskLevel.HIGH);
-        verify(actionDispatcher, never()).dispatch(any(), anyLong());
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
     }
 
     @Test
@@ -121,14 +121,14 @@ class NlpCommandServiceTest {
                 .build();
 
         given(confirmations.claim(1L, 1L)).willReturn(commandLog);
-        given(actionDispatcher.dispatch(any(), eq(1L)))
+        given(actionDispatcher.dispatch(any(), eq(1L), any()))
                 .willReturn("배포가 시작되었습니다");
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L,
                 new NlpConfirmRequest(1L, true));
 
         assertThat(response.result()).isEqualTo("배포가 시작되었습니다");
-        verify(actionDispatcher).dispatch(any(), eq(1L));
+        verify(actionDispatcher).dispatch(any(), eq(1L), any());
     }
 
     @Test
@@ -151,7 +151,7 @@ class NlpCommandServiceTest {
 
         assertThat(response.message()).contains("취소");
         assertThat(response.result()).isNull();
-        verify(actionDispatcher, never()).dispatch(any(), anyLong());
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
     }
 
     @Test
@@ -174,7 +174,7 @@ class NlpCommandServiceTest {
                 .interpretedIntent(Intent.DEPLOY).intentArgs("{}")
                 .riskLevel(RiskLevel.HIGH).requiresConfirmation(true).build();
         given(confirmations.claim(1L, 1L)).willReturn(commandLog);
-        given(actionDispatcher.dispatch(any(), eq(1L))).willReturn(
+        given(actionDispatcher.dispatch(any(), eq(1L), any())).willReturn(
                 FormattedResponseDto.of("error", "대상이 허용되지 않습니다", "오류", java.util.Map.of(), null));
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L, new NlpConfirmRequest(1L, true));

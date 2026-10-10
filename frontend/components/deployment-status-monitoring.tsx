@@ -38,6 +38,7 @@ import {
   ExternalLink,
   Terminal,
   Save,
+  History,
 } from "lucide-react"
 import { api, type DeploymentConfigResponse, type DeploymentStatus, type RepositoryWorkload } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
@@ -46,6 +47,7 @@ import { RollbackDialog } from "@/components/rollback-dialog"
 import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
 import { DeploymentLogsDialog } from "@/components/deployment-logs-dialog"
+import { DeploymentHistory, DeploymentRequestDetail } from "@/components/deployment-request-detail"
 import { formatDuration } from "@/lib/utils"
 import { formatKst, formatTimeAgo, parseServerTime } from "@/lib/time"
 import { formatImageDisplay } from "@/lib/utils/image-formatter"
@@ -139,6 +141,29 @@ export function DeploymentStatusMonitoring({
   onConfigureRepoHandled,
 }: DeploymentStatusMonitoringProps = {}) {
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
+  // 배포 목록·요청 상세 화면 (#95). URL ?repository=<id>, ?deployment=<id>로 열고 공유한다
+  const [route, setRoute] = useState<{ repository: number | null; deployment: number | null }>({ repository: null, deployment: null })
+
+  useEffect(() => {
+    const readRoute = () => {
+      const params = new URLSearchParams(window.location.search)
+      const toId = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : null)
+      setRoute({ repository: toId(params.get("repository")), deployment: toId(params.get("deployment")) })
+    }
+    readRoute()
+    window.addEventListener("popstate", readRoute)
+    return () => window.removeEventListener("popstate", readRoute)
+  }, [])
+
+  const navigate = (next: { repository: number | null; deployment: number | null }) => {
+    const url = new URL(window.location.href)
+    for (const key of ["repository", "deployment"] as const) {
+      if (next[key] === null) url.searchParams.delete(key)
+      else url.searchParams.set(key, String(next[key]))
+    }
+    window.history.pushState({}, "", url.toString())
+    setRoute(next)
+  }
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -477,6 +502,28 @@ export function DeploymentStatusMonitoring({
     )
   }
 
+  if (route.deployment !== null) {
+    return (
+      <DeploymentRequestDetail
+        deploymentId={route.deployment}
+        onBack={() => (route.repository !== null
+          ? navigate({ repository: route.repository, deployment: null })
+          : window.history.length > 1 ? window.history.back() : navigate({ repository: null, deployment: null }))}
+      />
+    )
+  }
+  if (route.repository !== null) {
+    const repo = repositories.find((r) => r.id === route.repository)
+    return (
+      <DeploymentHistory
+        repositoryId={route.repository}
+        repositoryName={repo?.full_name ?? `저장소 #${route.repository}`}
+        onOpen={(id) => navigate({ repository: route.repository, deployment: id })}
+        onBack={() => navigate({ repository: null, deployment: null })}
+      />
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -597,7 +644,11 @@ export function DeploymentStatusMonitoring({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+                    <Button variant="outline" className="w-full" onClick={() => navigate({ repository: repo.id, deployment: null })}>
+                      <History className="mr-2 h-4 w-4" />
+                      History
+                    </Button>
                     <Button variant="outline" className="w-full" onClick={() => handleViewDetails(repo)}>
                       <Eye className="mr-2 h-4 w-4" />
                       Config

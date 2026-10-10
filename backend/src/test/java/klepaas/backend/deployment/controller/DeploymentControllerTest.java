@@ -59,6 +59,9 @@ class DeploymentControllerTest {
     private DeploymentService deploymentService;
 
     @MockitoBean
+    private klepaas.backend.deployment.service.DeploymentDetailService deploymentDetailService;
+
+    @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
@@ -83,9 +86,9 @@ class DeploymentControllerTest {
         var response = new DeploymentResponse(
                 1L, 1L, "owner/repo", "main", "abc1234", imageUri,
                 DeploymentStatus.PENDING, null,
-                LocalDateTime.now(), null, LocalDateTime.now());
+                LocalDateTime.now(), null, LocalDateTime.now(), null, null, null, null, null);
 
-        given(deploymentService.createDeployment(any(), eq(1L), isNull()))
+        given(deploymentService.createDeployment(any(), eq(1L), isNull(), any()))
                 .willReturn(new CreateDeploymentResult(response, true));
 
         mockMvc.perform(post("/api/v1/deployments")
@@ -102,7 +105,9 @@ class DeploymentControllerTest {
                 .andExpect(jsonPath("$.data.image_uri").value(imageUri));
 
         ArgumentCaptor<CreateDeploymentRequest> requestCaptor = ArgumentCaptor.forClass(CreateDeploymentRequest.class);
-        verify(deploymentService).createDeployment(requestCaptor.capture(), eq(1L), isNull());
+        verify(deploymentService).createDeployment(requestCaptor.capture(), eq(1L), isNull(),
+                eq(new klepaas.backend.deployment.service.DeploymentOrigin(
+                        klepaas.backend.deployment.entity.TriggerSource.WEB, 1L, null)));
         org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().imageUri()).isEqualTo(imageUri);
     }
 

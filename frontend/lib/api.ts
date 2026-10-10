@@ -410,6 +410,17 @@ class ApiClient {
     return { repositories }
   }
 
+  // ─── Deployment history and request detail (#95) ─────────────────────────
+
+  async getRepositoryDeployments(repositoryId: number, page: number = 0, size: number = 20): Promise<DeploymentPage> {
+    return this.request<DeploymentPage>(`/api/v1/deployments?repositoryId=${repositoryId}&page=${page}&size=${size}`)
+  }
+
+  // 요청 기록, 적용 설정, 직전 성공 대비 변경, 실패 종류 설명. 기록이 없는 값은 null이다
+  async getDeploymentDetail(deploymentId: number): Promise<DeploymentDetail> {
+    return this.request<DeploymentDetail>(`/api/v1/deployments/${deploymentId}/detail`)
+  }
+
   // ─── Replicas (#90) ──────────────────────────────────────────────────────
 
   // 저장소 앱의 현재 Deployment replica 관측값. 관측할 수 없으면 observation으로 구분하고 숫자는 null이다
@@ -831,6 +842,52 @@ export interface DeploymentSummary {
   started_at: string | null
   finished_at: string | null
   created_at: string
+  // 요청 기록 (#95). 이전 배포는 null
+  trigger_source?: TriggerSource | null
+  requested_by_user_id?: number | null
+  command_log_id?: number | null
+  image_digest?: string | null
+  failure_kind?: FailureKind | null
+}
+
+export type TriggerSource = 'WEB' | 'CLI' | 'CI_TOKEN' | 'CI_OIDC' | 'WEBHOOK' | 'NLP'
+export type FailureKind =
+  | 'IMAGE_PULL' | 'CRASH_LOOP' | 'CONFIG_ERROR' | 'READINESS_TIMEOUT' | 'UNSCHEDULABLE' | 'ROLLOUT_TIMEOUT'
+  | 'PROGRESS_DEADLINE' | 'DEPLOYMENT_MISSING' | 'SUPERSEDED' | 'BUILD_FAILED' | 'APPLY_FAILED' | 'OTHER'
+
+export interface DeploymentPage {
+  content: DeploymentSummary[]
+  total_elements: number
+  total_pages: number
+  number: number
+}
+
+// GET /api/v1/deployments/{id}/detail 응답 (DeploymentDetailResponse)
+export interface DeploymentDetail {
+  deployment: DeploymentSummary
+  requested_by: { user_id: number; name: string | null } | null
+  command: { id: number; raw_command: string | null; status: string | null } | null
+  config: {
+    build_strategy: string | null
+    image_uri_template: string | null
+    min_replicas: number
+    max_replicas: number
+    container_port: number
+    domain_url: string | null
+    service_type: string | null
+    node_port: number | null
+    env_names: string[]
+    env_from_config_maps: string[]
+    env_from_secrets: string[]
+    image_pull_secret_enabled: boolean
+    image_pull_secret_name: string | null
+    health_probe: { path: string | null; port: number | null; period_seconds: number | null; failure_threshold: number | null } | null
+    resources: { cpu_request: string | null; cpu_limit: string | null; memory_request: string | null; memory_limit: string | null } | null
+  } | null
+  previous_success: { id: number; commit_hash: string; image_uri: string | null; image_digest: string | null; finished_at: string | null } | null
+  comparison: 'AVAILABLE' | 'NOT_RECORDED' | 'NO_PREVIOUS'
+  changes: { field: string; before: string | null; after: string | null; kind: 'CHANGED' | 'ADDED' | 'REMOVED' | 'VALUE_CHANGED' | 'UNKNOWN' }[]
+  explanation: { kind: FailureKind; title: string; summary: string; checks: string[] } | null
 }
 
 // GET /api/v1/repositories/{id}/replicas 응답 (ReplicaStatusResponse)

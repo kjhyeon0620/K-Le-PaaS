@@ -6,6 +6,7 @@ import klepaas.backend.ai.entity.Intent;
 import klepaas.backend.ai.entity.RiskLevel;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.dto.ScaleRequest;
+import klepaas.backend.deployment.service.DeploymentOrigin;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.deployment.repository.DeploymentRepository;
@@ -41,12 +42,17 @@ public class ActionDispatcher {
     }
 
     public Object dispatch(ParsedIntent parsedIntent, Long userId) {
+        return dispatch(parsedIntent, userId, null);
+    }
+
+    /** commandLogId: 이 실행을 승인한 명령 기록. 배포 요청에 연결된다 (#95) */
+    public Object dispatch(ParsedIntent parsedIntent, Long userId, Long commandLogId) {
         Map<String, Object> args = parsedIntent.args();
         log.info("Action 실행: intent={}, args={}", parsedIntent.intent(), args);
 
         return switch (parsedIntent.intent()) {
             // ─ Platform deployment operations ─
-            case DEPLOY -> executeDeploy(args, userId);
+            case DEPLOY -> executeDeploy(args, userId, commandLogId);
             case SCALE -> executeScale(args, userId);
             case RESTART -> executeRestart(args, userId);
             case STATUS -> executeStatus(args, userId);
@@ -72,8 +78,8 @@ public class ActionDispatcher {
 
             // ─ Rollback operations ─
             case LIST_ROLLBACK -> executeListRollback(args, userId);
-            case ROLLBACK -> executeRollback(args, userId);
-            case ROLLBACK_EXECUTION -> executeRollbackConfirm(args, userId);
+            case ROLLBACK -> executeRollback(args, userId, commandLogId);
+            case ROLLBACK_EXECUTION -> executeRollbackConfirm(args, userId, commandLogId);
 
             // ─ Overview, help, cost ─
             case OVERVIEW -> kubectlService.getOverview(userId);
@@ -87,13 +93,14 @@ public class ActionDispatcher {
 
     // ─── Platform deployment operations ──────────────────────────────────────
 
-    private Object executeDeploy(Map<String, Object> args, Long userId) {
+    private Object executeDeploy(Map<String, Object> args, Long userId, Long commandLogId) {
         Long repositoryId = toLong(args.get("repository_id"));
         String branchName = (String) args.getOrDefault("branch_name", "main");
         String commitHash = (String) args.getOrDefault("commit_hash", "HEAD");
 
         var request = new CreateDeploymentRequest(repositoryId, branchName, commitHash);
-        var response = deploymentService.createDeployment(request, userId);
+        var response = deploymentService.createDeployment(request, userId, null,
+                DeploymentOrigin.nlp(userId, commandLogId)).deployment();
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("app_name", "deployment-" + response.id());
@@ -339,7 +346,7 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeRollback(Map<String, Object> args, Long userId) {
+    private Object executeRollback(Map<String, Object> args, Long userId, Long commandLogId) {
         String owner = getString(args, "owner");
         String repo = getString(args, "repo");
         String commitHash = getString(args, "commit_hash");
@@ -357,7 +364,8 @@ public class ActionDispatcher {
         resourceAccessService.requireRepository(srcRepo.getId(), userId);
 
         var request = new CreateDeploymentRequest(srcRepo.getId(), "main", commitHash);
-        var response = deploymentService.createDeployment(request, userId);
+        var response = deploymentService.createDeployment(request, userId, null,
+                DeploymentOrigin.nlp(userId, commandLogId)).deployment();
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("action_type", "rollback");
@@ -387,8 +395,8 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeRollbackConfirm(Map<String, Object> args, Long userId) {
-        return executeRollback(args, userId);
+    private Object executeRollbackConfirm(Map<String, Object> args, Long userId, Long commandLogId) {
+        return executeRollback(args, userId, commandLogId);
     }
 
     // ─── Help ─────────────────────────────────────────────────────────────────

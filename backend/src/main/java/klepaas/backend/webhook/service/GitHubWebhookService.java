@@ -2,6 +2,7 @@ package klepaas.backend.webhook.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import klepaas.backend.deployment.service.DeploymentOrigin;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.CloudVendor;
@@ -99,7 +100,7 @@ public class GitHubWebhookService {
             log.info("GitHub push 이벤트 처리: repo={}/{}, branch={}, commit={}, delivery={}",
                     owner, repoName, branch, commitHash, deliveryId);
             deploymentService.createDeployment(new CreateDeploymentRequest(repo.getId(), branch, commitHash),
-                    repo.getUser().getId(), normalizeDeliveryId(deliveryId));
+                    repo.getUser().getId(), normalizeDeliveryId(deliveryId), DeploymentOrigin.webhook());
 
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.DEPLOYMENT_IN_PROGRESS) {

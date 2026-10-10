@@ -12,6 +12,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import klepaas.backend.deployment.entity.ContainerResources;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.FailureKind;
 import klepaas.backend.deployment.entity.HealthProbe;
 import klepaas.backend.deployment.entity.KubernetesServiceType;
 import klepaas.backend.deployment.service.RuntimeResourcePolicy;
@@ -162,8 +163,11 @@ public class KubernetesManifestGenerator {
                     result = evaluatePods(findNewReplicaSetPods(last), generation);
                 }
                 if (result != null) {
-                    log.info("Rollout judged: app={}, generation={}, outcome={}, reason={}",
-                            appName, generation, result.outcome(), result.reason());
+                    if (result.outcome() == RolloutResult.Outcome.SUCCEEDED) {
+                        result = result.withImageDigest(observeImageDigest(last));
+                    }
+                    log.info("Rollout judged: app={}, generation={}, outcome={}, kind={}, reason={}",
+                            appName, generation, result.outcome(), result.failureKind(), result.reason());
                     return result;
                 }
             } catch (KubernetesClientException e) {
@@ -171,20 +175,64 @@ public class KubernetesManifestGenerator {
             }
             sleepBeforeNextRolloutCheck(appName);
         }
+        List<Pod> pods = podsAtTimeout(last, generation);
+        String described = describePods(pods);
         return RolloutResult.failed("rollout 타임아웃(" + rolloutTimeoutMs / 1000 + "초, generation=" + generation + "): "
-                + describeReplicas(last) + describePodsAtTimeout(last, generation));
+                + describeReplicas(last) + (described.isEmpty() ? "" : "; " + described), timeoutKind(pods));
     }
 
     // 타임아웃 시 관측한 새 Pod 상태를 근거로 덧붙인다. 원인을 추정하지 않고 상태만 적는다
-    private String describePodsAtTimeout(Deployment last, long generation) {
+    private List<Pod> podsAtTimeout(Deployment last, long generation) {
         if (last == null || !isObserved(last, generation)
-                || valueOrZero(last.getMetadata().getGeneration()) != generation) return "";
+                || valueOrZero(last.getMetadata().getGeneration()) != generation) return List.of();
         try {
-            String pods = describePods(findNewReplicaSetPods(last));
-            return pods.isEmpty() ? "" : "; " + pods;
+            return findNewReplicaSetPods(last);
         } catch (KubernetesClientException e) {
-            return "";
+            return List.of();
         }
+    }
+
+    /** 타임아웃 시 관측한 Pod 상태로 종류를 정한다. 스케줄 불가 > Ready 아님 > 그 밖의 타임아웃. */
+    FailureKind timeoutKind(List<Pod> pods) {
+        boolean readinessFailing = false;
+        for (Pod pod : pods) {
+            if (pod.getStatus() == null) continue;
+            if (pod.getStatus().getConditions() != null && pod.getStatus().getConditions().stream()
+                    .anyMatch(c -> "PodScheduled".equals(c.getType()) && "False".equals(c.getStatus()))) {
+                return FailureKind.UNSCHEDULABLE;
+            }
+            if (pod.getStatus().getContainerStatuses() != null && pod.getStatus().getContainerStatuses().stream()
+                    .anyMatch(c -> c.getState() != null && c.getState().getRunning() != null && !Boolean.TRUE.equals(c.getReady()))) {
+                readinessFailing = true;
+            }
+        }
+        return readinessFailing ? FailureKind.READINESS_TIMEOUT : FailureKind.ROLLOUT_TIMEOUT;
+    }
+
+    /**
+     * 성공한 generation의 새 Pod가 실제로 실행한 이미지 digest (containerStatuses.imageID). 레지스트리는 호출하지 않는다.
+     * Pod마다 다르거나 관측할 수 없으면 null.
+     */
+    String observeImageDigest(Deployment deployment) {
+        try {
+            return digestOf(findNewReplicaSetPods(deployment));
+        } catch (KubernetesClientException e) {
+            log.warn("Image digest observation failed: error={}", e.getMessage());
+            return null;
+        }
+    }
+
+    // imageID 예: ghcr.io/o/r@sha256:..., docker.io/library/nginx@sha256:..., docker-pullable://...@sha256:...
+    static String digestOf(List<Pod> pods) {
+        var digests = pods.stream()
+                .filter(p -> p.getStatus() != null && p.getStatus().getContainerStatuses() != null)
+                .flatMap(p -> p.getStatus().getContainerStatuses().stream())
+                .map(ContainerStatus::getImageID)
+                .filter(id -> id != null && id.contains("sha256:"))
+                .map(id -> id.substring(id.indexOf("sha256:")))
+                .distinct()
+                .toList();
+        return digests.size() == 1 ? digests.get(0) : null;
     }
 
     String describePods(List<Pod> pods) {
@@ -221,7 +269,8 @@ public class KubernetesManifestGenerator {
     /** Deployment 수준에서 결론이 나면 결과를, 아직 진행 중이면 null을 반환한다. */
     RolloutResult evaluateDeployment(Deployment deployment, long generation) {
         if (deployment == null || deployment.getMetadata() == null) {
-            return RolloutResult.failed("rollout 실패: Deployment를 찾을 수 없음 (generation=" + generation + ")");
+            return RolloutResult.failed("rollout 실패: Deployment를 찾을 수 없음 (generation=" + generation + ")",
+                    FailureKind.DEPLOYMENT_MISSING);
         }
         long current = valueOrZero(deployment.getMetadata().getGeneration());
         if (current != generation) {
@@ -231,13 +280,13 @@ public class KubernetesManifestGenerator {
             return null;
         }
         if (isDeploymentRolloutComplete(deployment)) {
-            return RolloutResult.succeeded();
+            return RolloutResult.succeeded(null);
         }
         return deployment.getStatus().getConditions() == null ? null : deployment.getStatus().getConditions().stream()
                 .filter(c -> "Progressing".equals(c.getType()) && "False".equals(c.getStatus()))
                 .findFirst()
                 .map(c -> RolloutResult.failed("rollout 실패: " + c.getReason() + " (generation=" + generation + "): "
-                        + truncate(c.getMessage())))
+                        + truncate(c.getMessage()), FailureKind.PROGRESS_DEADLINE))
                 .orElse(null);
     }
 
@@ -250,11 +299,19 @@ public class KubernetesManifestGenerator {
                 if (waiting != null && FAILED_WAITING_REASONS.contains(waiting.getReason())) {
                     return RolloutResult.failed("rollout 실패: " + waiting.getReason() + " (pod=" + pod.getMetadata().getName()
                             + ", generation=" + generation + describeLastTermination(status) + "): "
-                            + truncate(waiting.getMessage()));
+                            + truncate(waiting.getMessage()), waitingKind(waiting.getReason()));
                 }
             }
         }
         return null;
+    }
+
+    private static FailureKind waitingKind(String reason) {
+        return switch (reason) {
+            case "CrashLoopBackOff" -> FailureKind.CRASH_LOOP;
+            case "CreateContainerConfigError" -> FailureKind.CONFIG_ERROR;
+            default -> FailureKind.IMAGE_PULL; // ImagePullBackOff, InvalidImageName, ErrImageNeverPull
+        };
     }
 
     private boolean isObserved(Deployment deployment, long generation) {

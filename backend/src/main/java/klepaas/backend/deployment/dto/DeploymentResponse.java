@@ -2,6 +2,8 @@ package klepaas.backend.deployment.dto;
 
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentStatus;
+import klepaas.backend.deployment.entity.FailureKind;
+import klepaas.backend.deployment.entity.TriggerSource;
 
 import java.time.LocalDateTime;
 
@@ -16,7 +18,13 @@ public record DeploymentResponse(
         String failReason,
         LocalDateTime startedAt,
         LocalDateTime finishedAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // 요청 기록 (#95). 이전 배포는 null
+        TriggerSource triggerSource,
+        Long requestedByUserId,
+        Long commandLogId,
+        String imageDigest,
+        FailureKind failureKind
 ) {
     public static DeploymentResponse from(Deployment entity) {
         return new DeploymentResponse(
@@ -30,7 +38,12 @@ public record DeploymentResponse(
                 entity.getFailReason(),
                 entity.getStartedAt(),
                 entity.getFinishedAt(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getTriggerSource(),
+                entity.getRequestedByUserId(),
+                entity.getCommandLogId(),
+                entity.getImageDigest(),
+                entity.getFailureKind()
         );
     }
 }
