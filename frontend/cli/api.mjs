@@ -87,6 +87,10 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${deploymentId}/status`);
   }
 
+  async getDeploymentLogs(deploymentId, lines = 100) {
+    return this.request(`/api/v1/deployments/${deploymentId}/logs?lines=${lines}`);
+  }
+
   async restartDeployment(deploymentId) {
     return this.request(`/api/v1/deployments/${deploymentId}/restart`, {
       method: "POST",

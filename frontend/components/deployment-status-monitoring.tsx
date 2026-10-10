@@ -953,11 +953,11 @@ export function DeploymentStatusMonitoring({
         />
       )}
       {/* Logs Dialog */}
-      {actionRepo && (
+      {actionRepo?.latest_deployment && (
         <DeploymentLogsDialog
           open={logsDialogOpen}
           onOpenChange={setLogsDialogOpen}
-          namespace="default"
+          deploymentId={actionRepo.latest_deployment.id}
           appName={`${actionRepo.owner}-${actionRepo.repo}`.toLowerCase()}
         />
       )}

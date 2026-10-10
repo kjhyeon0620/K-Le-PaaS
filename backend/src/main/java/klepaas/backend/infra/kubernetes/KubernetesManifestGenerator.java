@@ -4,6 +4,7 @@ import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentCondition;
+import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -167,7 +169,50 @@ public class KubernetesManifestGenerator {
             sleepBeforeNextRolloutCheck(appName);
         }
         return RolloutResult.failed("rollout 타임아웃(" + rolloutTimeoutMs / 1000 + "초, generation=" + generation + "): "
-                + describeReplicas(last));
+                + describeReplicas(last) + describePodsAtTimeout(last, generation));
+    }
+
+    // 타임아웃 시 관측한 새 Pod 상태를 근거로 덧붙인다. 원인을 추정하지 않고 상태만 적는다
+    private String describePodsAtTimeout(Deployment last, long generation) {
+        if (last == null || !isObserved(last, generation)
+                || valueOrZero(last.getMetadata().getGeneration()) != generation) return "";
+        try {
+            String pods = describePods(findNewReplicaSetPods(last));
+            return pods.isEmpty() ? "" : "; " + pods;
+        } catch (KubernetesClientException e) {
+            return "";
+        }
+    }
+
+    String describePods(List<Pod> pods) {
+        return pods.stream().map(this::describePod).filter(d -> !d.isEmpty()).collect(Collectors.joining("; "));
+    }
+
+    private String describePod(Pod pod) {
+        String name = "pod=" + pod.getMetadata().getName();
+        if (pod.getStatus() == null) return "";
+        if (pod.getStatus().getConditions() != null) {
+            var unschedulable = pod.getStatus().getConditions().stream()
+                    .filter(c -> "PodScheduled".equals(c.getType()) && "False".equals(c.getStatus())).findFirst();
+            if (unschedulable.isPresent()) {
+                return name + " 스케줄 불가: " + truncate(unschedulable.get().getMessage());
+            }
+        }
+        if (pod.getStatus().getContainerStatuses() == null) return "";
+        for (ContainerStatus status : pod.getStatus().getContainerStatuses()) {
+            if (status.getState() != null && status.getState().getWaiting() != null) {
+                return name + " 대기: " + status.getState().getWaiting().getReason() + describeLastTermination(status);
+            }
+            if (status.getState() != null && status.getState().getRunning() != null && !Boolean.TRUE.equals(status.getReady())) {
+                return name + " 실행 중이나 Ready 아님 (restarts=" + status.getRestartCount() + describeLastTermination(status) + ")";
+            }
+        }
+        return "";
+    }
+
+    private String describeLastTermination(ContainerStatus status) {
+        var terminated = status.getLastState() == null ? null : status.getLastState().getTerminated();
+        return terminated == null ? "" : ", 마지막 종료=" + terminated.getReason() + ", exit=" + terminated.getExitCode();
     }
 
     /** Deployment 수준에서 결론이 나면 결과를, 아직 진행 중이면 null을 반환한다. */
@@ -201,7 +246,8 @@ public class KubernetesManifestGenerator {
                 ContainerStateWaiting waiting = status.getState() == null ? null : status.getState().getWaiting();
                 if (waiting != null && FAILED_WAITING_REASONS.contains(waiting.getReason())) {
                     return RolloutResult.failed("rollout 실패: " + waiting.getReason() + " (pod=" + pod.getMetadata().getName()
-                            + ", generation=" + generation + "): " + truncate(waiting.getMessage()));
+                            + ", generation=" + generation + describeLastTermination(status) + "): "
+                            + truncate(waiting.getMessage()));
                 }
             }
         }
@@ -214,21 +260,25 @@ public class KubernetesManifestGenerator {
 
     // 현재 revision의 ReplicaSet(= 이 generation의 Pod template)이 만든 Pod만 본다. 이전 ReplicaSet의 Pod는 제외한다
     private List<Pod> findNewReplicaSetPods(Deployment deployment) {
-        String revision = annotation(deployment.getMetadata(), REVISION_ANNOTATION);
-        if (revision == null) return List.of();
-        String appName = deployment.getMetadata().getName();
-        return kubernetesClient.apps().replicaSets().inNamespace(namespace)
-                .withLabel("app.kubernetes.io/name", appName).list().getItems().stream()
-                .filter(rs -> revision.equals(annotation(rs.getMetadata(), REVISION_ANNOTATION)))
-                .filter(rs -> rs.getMetadata().getOwnerReferences() != null && rs.getMetadata().getOwnerReferences().stream()
-                        .anyMatch(owner -> owner.getUid() != null && owner.getUid().equals(deployment.getMetadata().getUid())))
-                .findFirst()
+        return currentReplicaSet(kubernetesClient, namespace, deployment)
                 .map(rs -> kubernetesClient.pods().inNamespace(namespace)
                         .withLabels(rs.getSpec().getSelector().getMatchLabels()).list().getItems())
                 .orElse(List.of());
     }
 
-    private String annotation(ObjectMeta metadata, String key) {
+    /** Deployment가 소유하고 revision이 Deployment의 현재 revision과 같은 ReplicaSet. */
+    static Optional<ReplicaSet> currentReplicaSet(KubernetesClient client, String namespace, Deployment deployment) {
+        String revision = annotation(deployment.getMetadata(), REVISION_ANNOTATION);
+        if (revision == null) return Optional.empty();
+        return client.apps().replicaSets().inNamespace(namespace)
+                .withLabel("app.kubernetes.io/name", deployment.getMetadata().getName()).list().getItems().stream()
+                .filter(rs -> revision.equals(annotation(rs.getMetadata(), REVISION_ANNOTATION)))
+                .filter(rs -> rs.getMetadata().getOwnerReferences() != null && rs.getMetadata().getOwnerReferences().stream()
+                        .anyMatch(owner -> owner.getUid() != null && owner.getUid().equals(deployment.getMetadata().getUid())))
+                .findFirst();
+    }
+
+    static String annotation(ObjectMeta metadata, String key) {
         return metadata == null || metadata.getAnnotations() == null ? null : metadata.getAnnotations().get(key);
     }
 

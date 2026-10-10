@@ -252,6 +252,37 @@ class KubernetesManifestGeneratorTest {
     }
 
     @Test
+    @DisplayName("반복 종료 실패에는 마지막 종료 사유(OOMKilled)와 exit code를 남긴다")
+    void evaluatePods_includesLastTerminationReason() {
+        var pod = new io.fabric8.kubernetes.api.model.PodBuilder()
+                .withNewMetadata().withName("owner-repo-abc").endMetadata()
+                .withNewStatus().addNewContainerStatus()
+                .withNewState().withNewWaiting().withReason("CrashLoopBackOff").withMessage("back-off").endWaiting().endState()
+                .withNewLastState().withNewTerminated().withReason("OOMKilled").withExitCode(137).endTerminated().endLastState()
+                .endContainerStatus().endStatus().build();
+
+        assertThat(generator.evaluatePods(List.of(pod), 3).reason())
+                .contains("CrashLoopBackOff", "마지막 종료=OOMKilled", "exit=137");
+    }
+
+    @Test
+    @DisplayName("타임아웃 근거로 스케줄 불가와 Ready가 아닌 실행 중 Pod 상태를 적는다")
+    void describePods_reportsUnschedulableAndNotReady() {
+        var unschedulable = new io.fabric8.kubernetes.api.model.PodBuilder()
+                .withNewMetadata().withName("p1").endMetadata()
+                .withNewStatus().addNewCondition().withType("PodScheduled").withStatus("False")
+                .withMessage("0/1 nodes are available: 1 Insufficient memory.").endCondition().endStatus().build();
+        var notReady = new io.fabric8.kubernetes.api.model.PodBuilder()
+                .withNewMetadata().withName("p2").endMetadata()
+                .withNewStatus().addNewContainerStatus().withReady(false).withRestartCount(0)
+                .withNewState().withNewRunning().endRunning().endState().endContainerStatus().endStatus().build();
+
+        assertThat(generator.describePods(List.of(unschedulable, notReady)))
+                .isEqualTo("pod=p1 스케줄 불가: 0/1 nodes are available: 1 Insufficient memory.; "
+                        + "pod=p2 실행 중이나 Ready 아님 (restarts=0)");
+    }
+
+    @Test
     @DisplayName("시간 안에 결론이 없으면 타임아웃 실패로 마지막 관측 상태를 남긴다")
     void waitForRollout_timesOutWithLastObservedStatus() {
         KubernetesClient client = mockScopedClient();

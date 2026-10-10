@@ -90,6 +90,13 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
                `kubernetes.rollout.timeout-ms`(120초) 타임아웃 (readiness 실패, 스케줄 불가 등)
        CANCELED: 대기 중 다른 apply·restart·scale로 generation이 바뀜 (대체)
   → SUCCESS / FAILED / CANCELED (사유는 fail_reason), Slack·WebSocket 알림
+       fail_reason에는 관측 근거를 적는다: 반복 종료는 마지막 종료 사유·exit code(OOMKilled 등),
+       타임아웃은 새 Pod 상태(스케줄 불가 메시지, 실행 중이나 Ready 아님) (#54)
+GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
+  → 소유권 검사 후, 클러스터 Deployment의 klepaas.io/deployment-id가 이 배포일 때만
+    현재 revision ReplicaSet의 Pod(최대 5) 상태·최근 로그(재시작했으면 직전 컨테이너 로그)와 그 Pod·ReplicaSet 이벤트(최대 20)
+  → observation: AVAILABLE / NOT_CURRENT(다른 요청이 적용, 적용 기록 없음, Deployment 없음) / UNAVAILABLE(Kubernetes 조회 실패)
+  → 로그는 저장하지 않는다. 사용자 메시지에는 Kubernetes API 주소를 넣지 않는다
 ```
 
 - 빌드 경로 기본값: `NCP → KANIKO`, `ON_PREMISE → GITHUB_ACTIONS_GHCR` ([ADR-0001](adr/0001-external-image-build.md)).
@@ -212,11 +219,11 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
 | 격차 | 영향 | 이슈 |
 |---|---|---|
 | rollout 타임아웃(`kubernetes.rollout.timeout-ms`, 120초)이 앱의 startup probe 허용 시간(`period_seconds × startup_failure_threshold`)과 무관한 고정값이다 | 기동이 120초보다 오래 걸리는 앱은 정상이어도 타임아웃 FAILED로 기록된다 | 이슈 후보 (#53에서 확인) |
-| `GET /deployments/{id}/logs`가 placeholder 응답이다 | 실패 원인을 API에서 볼 수 없다 | #54 |
 | 승인한 뒤 실행 시점에 설정을 다시 조회한다 | 승인 대기 중에 바뀐 설정으로 실행될 수 있다 | #56 |
 | 백엔드 재시작 후 진행 중이던 배포·명령 상태를 대조하지 않는다 | 영원히 진행 중으로 남는다 | #57 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
-| 콘솔 Deployments 화면의 Rollback·Logs 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환하고, `getDeploymentLogs()`는 빈 로그를 반환한다 (Config·Scale·Restart는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다. 추후 구현: 로그는 #54, 롤백은 이전 성공 배포 목록·롤백 API 이슈 후보 | #54, 이슈 후보 |
+| 콘솔 Deployments 화면의 Rollback 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환한다 (Config·Scale·Restart·Logs는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다 | 이슈 후보 (이전 성공 배포 목록·롤백 API) |
+| manifest 적용(apply) 실패 시 `fail_reason`에 Fabric8 예외 메시지를 그대로 넣는다(`KubernetesManifestGenerator.deploy`) | Kubernetes API 서버 주소가 배포 기록·로그 화면에 노출될 수 있다 | 이슈 후보 (#54에서 확인) |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | 이슈 후보 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |

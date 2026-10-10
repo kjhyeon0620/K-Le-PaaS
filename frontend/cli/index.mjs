@@ -408,6 +408,26 @@ async function handleDeployments(args, globalOptions, client) {
       console.log(response?.message || "스케일링 요청이 접수되었습니다.");
       return;
     }
+    case "logs": {
+      const deploymentId = Number(args.shift());
+      const lines = Number(takeOption(args, "--lines") || "100");
+      assertNoUnknownOptions(args);
+
+      if (!Number.isFinite(deploymentId)) {
+        throw new CliError("조회할 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      if (!Number.isInteger(lines) || lines < 1 || lines > 200) {
+        throw new CliError("`--lines`는 1~200 사이의 정수여야 합니다.", EXIT_CODES.INPUT);
+      }
+
+      const response = await client.getDeploymentLogs(deploymentId, lines);
+      if (globalOptions.json) {
+        printJson(response);
+        return;
+      }
+      printDeploymentLogs(response);
+      return;
+    }
     case "wait": {
       const deploymentId = Number(args.shift());
       const timeoutSeconds = Number(takeOption(args, "--timeout") || "600");
@@ -466,9 +486,49 @@ async function handleDeployments(args, globalOptions, client) {
     }
     default:
       throw new CliError(
-        "`deployments` 하위 명령은 `list`, `get`, `restart`, `scale`, `wait`, `export` 중 하나여야 합니다.",
+        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export` 중 하나여야 합니다.",
         EXIT_CODES.INPUT
       );
+  }
+}
+
+// 이 배포 요청이 적용한 Pod만 보여 준다. 관측할 수 없으면 이유를 보여 주고 빈 로그를 정상처럼 보이지 않는다 (#54)
+function printDeploymentLogs(response) {
+  printKeyValues([
+    ["Deployment", response.deployment_id],
+    ["Status", response.status],
+    ["Fail Reason", response.fail_reason || "-"],
+    ["Observation", response.observation],
+  ]);
+  if (response.observation_message) {
+    console.log(`  ${response.observation_message}`);
+  }
+
+  for (const pod of response.pods || []) {
+    const state = [pod.state, pod.state_reason].filter(Boolean).join(" ") || "-";
+    const last = pod.last_termination_reason ? `, last=${pod.last_termination_reason}(exit ${pod.last_exit_code})` : "";
+    console.log(`\n== Pod ${pod.name} (${pod.phase || "-"}, ready=${pod.ready}, restarts=${pod.restart_count}, ${state}${last})`);
+    if (pod.state_message) console.log(`   ${pod.state_message}`);
+    if (pod.logs_error) console.log(`   [logs unavailable] ${pod.logs_error}`);
+    if (pod.previous_logs) {
+      console.log("-- previous container logs");
+      for (const line of pod.previous_logs) console.log(line);
+    }
+    console.log("-- logs");
+    if ((pod.logs || []).length === 0) console.log("(no log lines)");
+    for (const line of pod.logs || []) console.log(line);
+  }
+
+  if ((response.events || []).length > 0) {
+    console.log("\n== Events");
+    printRows(response.events.map((event) => ({ ...event, last_seen: formatKst(event.last_seen), count: event.count ?? "-" })), [
+      { key: "last_seen", label: "Last Seen" },
+      { key: "type", label: "Type" },
+      { key: "reason", label: "Reason" },
+      { key: "object", label: "Object" },
+      { key: "count", label: "Count" },
+      { key: "message", label: "Message" },
+    ]);
   }
 }
 
@@ -797,6 +857,7 @@ Commands:
 
   deployments list --repository-id <id> [--page <n>] [--size <n>]
   deployments get <deployment-id>
+  deployments logs <deployment-id> [--lines <n>]
   deployments restart <deployment-id>
   deployments scale <deployment-id> --replicas <n>
   deployments wait <deployment-id> [--timeout <sec>] [--interval <sec>]

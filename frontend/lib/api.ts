@@ -410,18 +410,11 @@ class ApiClient {
     return { repositories }
   }
 
-  // ─── Deployment logs/pods (not fully in Java backend) ────────────────────
+  // ─── Deployment logs (#54) ──────────────────────────────────────────────
 
-  async getDeploymentPods(namespace: string, app: string): Promise<any> {
-    return { pods: [] }
-  }
-
-  async getDeploymentLogs(
-    namespace: string,
-    app: string,
-    params: { pod?: string; lines?: number; previous?: boolean } = {}
-  ): Promise<any> {
-    return { logs: [] }
+  // 이 배포 요청이 적용한 Pod의 상태·최근 로그·이벤트. 관측할 수 없으면 observation으로 구분한다
+  async getDeploymentLogs(deploymentId: number, lines: number = 100): Promise<DeploymentLogs> {
+    return this.request<DeploymentLogs>(`/api/v1/deployments/${deploymentId}/logs?lines=${lines}`)
   }
 
   // ─── NLP ──────────────────────────────────────────────────────────────────
@@ -831,6 +824,44 @@ export interface DeploymentSummary {
   started_at: string | null
   finished_at: string | null
   created_at: string
+}
+
+// GET /api/v1/deployments/{id}/logs 응답 (DeploymentLogResponse)
+export type DeploymentObservation = 'AVAILABLE' | 'NOT_CURRENT' | 'UNAVAILABLE'
+
+export interface DeploymentPodLog {
+  name: string
+  phase: string | null
+  ready: boolean
+  restart_count: number
+  state: 'waiting' | 'running' | 'terminated' | null
+  state_reason: string | null
+  state_message: string | null
+  last_termination_reason: string | null
+  last_exit_code: number | null
+  logs: string[]
+  previous_logs: string[] | null
+  logs_error: string | null
+}
+
+export interface DeploymentPodEvent {
+  type: string | null
+  reason: string | null
+  message: string | null
+  object: string
+  count: number | null
+  last_seen: string | null
+}
+
+export interface DeploymentLogs {
+  deployment_id: number
+  status: DeploymentStatus
+  fail_reason: string | null
+  observation: DeploymentObservation
+  observation_message: string | null
+  applied_deployment_id: number | null
+  pods: DeploymentPodLog[]
+  events: DeploymentPodEvent[]
 }
 
 export interface RepositoryWorkload {

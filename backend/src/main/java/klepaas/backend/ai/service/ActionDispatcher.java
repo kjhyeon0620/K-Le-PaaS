@@ -206,23 +206,31 @@ public class ActionDispatcher {
 
     private Object executeLogs(Map<String, Object> args, Long userId) {
         Long deploymentId = toLong(args.get("deployment_id"));
-        var logs = deploymentService.getDeploymentLogs(deploymentId, userId);
+        var logs = deploymentService.getDeploymentLogs(deploymentId, 100, userId);
+        // 이 배포 요청이 적용한 첫 Pod의 로그. 이 요청의 Pod가 아니면(관측 상태) 빈 로그와 이유를 준다
+        var pod = logs.pods().isEmpty() ? null : logs.pods().get(0);
+        List<String> lines = pod == null ? List.of() : pod.logs();
 
         Map<String, Object> formatted = new LinkedHashMap<>();
-        formatted.put("pod_name", "deployment-" + deploymentId);
+        formatted.put("pod_name", pod == null ? null : pod.name());
         formatted.put("namespace", kubectlService.getDefaultNamespace());
-        formatted.put("lines", logs.logs().size());
-        formatted.put("log_lines", logs.logs());
-        formatted.put("total_lines", logs.logs().size());
+        formatted.put("lines", lines.size());
+        formatted.put("log_lines", lines);
+        formatted.put("total_lines", lines.size());
 
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("namespace", kubectlService.getDefaultNamespace());
         metadata.put("lines_requested", 100);
-        metadata.put("lines_returned", logs.logs().size());
+        metadata.put("lines_returned", lines.size());
+        metadata.put("deployment_status", logs.status());
+        metadata.put("fail_reason", logs.failReason());
+        metadata.put("observation", logs.observation());
+        if (logs.observationMessage() != null) metadata.put("observation_message", logs.observationMessage());
+        if (pod != null && pod.logsError() != null) metadata.put("logs_error", pod.logsError());
 
         return FormattedResponseDto.of("logs",
-                "배포 ID " + deploymentId + " 로그",
-                "로그 " + logs.logs().size() + "줄",
+                "배포 ID " + deploymentId + " 로그" + (logs.observationMessage() == null ? "" : " (" + logs.observationMessage() + ")"),
+                "로그 " + lines.size() + "줄",
                 formatted, metadata);
     }
 

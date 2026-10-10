@@ -49,7 +49,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | WebSocket deployment events | 구현 MVP | 인증된 WebSocket endpoint와 배포 update publisher 구현 |
 | GitHub webhook | 구현 MVP | push webhook 서명 검증과 배포 trigger 구현 |
 | Scaling history | 구현 MVP | scale 작업 이력 저장 및 조회 API 구현 |
-| Deployment logs | 일부 구현 | API는 있으나 현재 placeholder 응답 |
+| Deployment logs | 구현 MVP | 배포 요청이 적용한 Pod의 상태·최근 로그·이벤트와 실패 원인 (API, CLI `deployments logs`, 콘솔 Logs). 저장·스트리밍 없음 |
 | Monitoring metrics | 일부 구현 | UI는 있으나 backend metrics API는 미구현 |
 | MCP connector | 예정 | frontend stub / 설계 방향만 존재 |
 | IaC / Terraform | 예정 | 현재 Terraform/OpenTofu 구현 없음, 향후 방향 |
