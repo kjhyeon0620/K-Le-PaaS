@@ -30,6 +30,10 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
 
     Optional<Deployment> findByGithubDeliveryId(String githubDeliveryId);
 
+    // 상세 화면의 비교 대상: 같은 저장소에서 이 배포보다 먼저 만들어진 마지막 성공 배포 (#95)
+    Optional<Deployment> findFirstBySourceRepositoryIdAndStatusAndIdLessThanOrderByIdDesc(
+            Long sourceRepositoryId, DeploymentStatus status, Long id);
+
     Optional<Deployment> findFirstBySourceRepositoryIdAndStatusInAndUpdatedAtAfterOrderByIdDesc(
             Long sourceRepositoryId, Collection<DeploymentStatus> statuses, LocalDateTime updatedAfter);
 

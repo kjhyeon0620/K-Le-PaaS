@@ -4,6 +4,7 @@ import klepaas.backend.auth.service.GitHubInstallationTokenService;
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.deployment.entity.FailureKind;
 import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.DeploymentRepository;
@@ -35,6 +36,7 @@ public class DeploymentPipelineStepService {
     private final GitHubInstallationTokenService installationTokenService;
     private final NotificationService notificationService;
     private final ExternalImageResolver externalImageResolver;
+    private final DeploymentConfigSnapshots configSnapshots;
 
     @Transactional(readOnly = true)
     public BuildStrategy getBuildStrategy(Long deploymentId) {
@@ -100,13 +102,17 @@ public class DeploymentPipelineStepService {
     }
 
     /**
-     * apply 전에 DEPLOYING과 배포할 이미지를 커밋한다. 이후 apply·대기가 실패하거나 백엔드가 멈춰도 이 요청이 무엇을 배포하려 했는지 남는다.
+     * apply 전에 DEPLOYING, 배포할 이미지, 적용할 배포 설정 스냅샷(#95)을 커밋한다.
+     * 이후 apply·대기가 실패하거나 백엔드가 멈춰도 이 요청이 무엇을 배포하려 했는지 남는다.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void startK8sDeploy(Long deploymentId, String imageUri) {
         Deployment deployment = getDeployment(deploymentId);
         deployment.startDeploying();
         deployment.setImageUri(imageUri);
+        deploymentConfigRepository.findBySourceRepositoryId(deployment.getSourceRepository().getId())
+                .ifPresent(config -> deployment.recordAppliedConfig(
+                        configSnapshots.toJson(configSnapshots.capture(config))));
         deploymentRepository.save(deployment);
     }
 
@@ -133,9 +139,14 @@ public class DeploymentPipelineStepService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markSuccess(Long deploymentId) {
+        markSuccess(deploymentId, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markSuccess(Long deploymentId, String imageDigest) {
         Deployment deployment = getDeployment(deploymentId);
         notificationService.notifyDeploymentSuccess(deployment);
-        deployment.completeSuccess();
+        deployment.completeSuccess(imageDigest);
         deploymentRepository.save(deployment);
     }
 
@@ -149,10 +160,15 @@ public class DeploymentPipelineStepService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Long deploymentId, String reason) {
+        markFailed(deploymentId, reason, FailureKind.OTHER);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markFailed(Long deploymentId, String reason, FailureKind failureKind) {
         try {
             Deployment deployment = getDeployment(deploymentId);
             notificationService.notifyDeploymentFailed(deployment, reason);
-            deployment.fail(reason);
+            deployment.fail(reason, failureKind);
             deploymentRepository.save(deployment);
         } catch (Exception e) {
             log.error("Failed to mark deployment as failed: deploymentId={}", deploymentId, e);

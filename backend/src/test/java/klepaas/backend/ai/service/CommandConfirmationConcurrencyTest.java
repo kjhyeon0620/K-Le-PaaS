@@ -49,7 +49,7 @@ class CommandConfirmationConcurrencyTest {
         Long userId = users.save(User.builder().name("owner").email("owner@example.com").role(Role.USER).build()).getId();
         Long id = pending(userId);
         AtomicInteger dispatched = new AtomicInteger();
-        when(dispatcher.dispatch(any(), eq(userId))).thenAnswer(inv -> {
+        when(dispatcher.dispatch(any(), eq(userId), any())).thenAnswer(inv -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             assertThat(jdbc.queryForObject("select status from command_log where id = ?", String.class, id))
                     .isEqualTo("EXECUTING");

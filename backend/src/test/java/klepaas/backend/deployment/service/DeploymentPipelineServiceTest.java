@@ -1,5 +1,6 @@
 package klepaas.backend.deployment.service;
 
+import klepaas.backend.deployment.entity.FailureKind;
 import klepaas.backend.deployment.entity.BuildStrategy;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.Deployment;
@@ -25,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Optional;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -129,7 +131,7 @@ class DeploymentPipelineServiceTest {
         verify(stepService).startK8sDeploy(1L, "registry.example.com/testowner-testrepo:abcdef1");
         verify(stepService).applyK8sManifests(1L, "registry.example.com/testowner-testrepo:abcdef1");
         verify(stepService).awaitK8sRollout(APPLIED);
-        verify(stepService).markSuccess(1L);
+        verify(stepService).markSuccess(1L, null);
     }
 
     @Test
@@ -153,7 +155,7 @@ class DeploymentPipelineServiceTest {
         verify(stepService).startK8sDeploy(2L, imageUri);
         verify(stepService).applyK8sManifests(2L, imageUri);
         verify(stepService).awaitK8sRollout(APPLIED);
-        verify(stepService).markSuccess(2L);
+        verify(stepService).markSuccess(2L, null);
     }
 
     @Test
@@ -166,13 +168,39 @@ class DeploymentPipelineServiceTest {
         given(stepService.applyK8sManifests(2L, imageUri)).willReturn(APPLIED);
         given(stepService.awaitK8sRollout(APPLIED))
                 .willReturn(new RolloutResult(RolloutResult.Outcome.SUPERSEDED, "다른 변경으로 대체됨: generation 3 → 4"))
-                .willReturn(new RolloutResult(RolloutResult.Outcome.FAILED, "rollout 실패: ImagePullBackOff"));
+                .willReturn(new RolloutResult(RolloutResult.Outcome.FAILED, "rollout 실패: ImagePullBackOff",
+                        FailureKind.IMAGE_PULL, null));
 
         deploymentPipelineService.executePipeline(2L);
         deploymentPipelineService.executePipeline(2L);
 
         verify(stepService).markCanceled(2L, "다른 변경으로 대체됨: generation 3 → 4");
-        verify(stepService).markFailed(2L, "rollout 실패: ImagePullBackOff");
-        verify(stepService, never()).markSuccess(2L);
+        verify(stepService).markFailed(2L, "rollout 실패: ImagePullBackOff", FailureKind.IMAGE_PULL);
+        verify(stepService, never()).markSuccess(eq(2L), any());
+    }
+
+    @Test
+    @DisplayName("성공은 관측한 digest와 함께, 예외는 단계별 실패 종류(빌드·apply)로 기록한다")
+    void executePipeline_recordsDigestAndStageFailureKind() {
+        String imageUri = "ghcr.io/o/r:sha-1";
+        given(deploymentRepository.findUserIdByDeploymentId(2L)).willReturn(Optional.of(10L));
+        given(stepService.getBuildStrategy(2L)).willReturn(BuildStrategy.PREBUILT_IMAGE);
+        given(stepService.resolveExternalImage(2L))
+                .willReturn(imageUri)
+                .willReturn(imageUri)
+                .willThrow(new IllegalStateException("image_uri가 없습니다"));
+        given(stepService.applyK8sManifests(2L, imageUri))
+                .willReturn(APPLIED)
+                .willThrow(new IllegalStateException("apply 실패"));
+        given(stepService.awaitK8sRollout(APPLIED))
+                .willReturn(new RolloutResult(RolloutResult.Outcome.SUCCEEDED, null, null, "sha256:abc"));
+
+        deploymentPipelineService.executePipeline(2L);
+        deploymentPipelineService.executePipeline(2L);
+        deploymentPipelineService.executePipeline(2L);
+
+        verify(stepService).markSuccess(2L, "sha256:abc");
+        verify(stepService).markFailed(2L, "apply 실패", FailureKind.APPLY_FAILED);
+        verify(stepService).markFailed(2L, "image_uri가 없습니다", FailureKind.BUILD_FAILED);
     }
 }

@@ -1,5 +1,6 @@
 package klepaas.backend.deployment.service;
 
+import klepaas.backend.deployment.entity.TriggerSource;
 import klepaas.backend.deployment.dto.CreateDeploymentRequest;
 import klepaas.backend.deployment.dto.DeploymentResponse;
 import klepaas.backend.deployment.dto.DeploymentStatusResponse;
@@ -48,6 +49,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class DeploymentServiceTest {
+
+    private static final DeploymentOrigin WEB_ORIGIN = new DeploymentOrigin(TriggerSource.WEB, 1L, null);
 
     @Mock
     private DeploymentRepository deploymentRepository;
@@ -110,9 +113,9 @@ class DeploymentServiceTest {
             given(resourceAccessService.requireRepository(1L, null))
                     .willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.REPOSITORY_NOT_FOUND));
 
-            assertThatThrownBy(() -> deploymentService.createDeployment(request, 2L))
+            assertThatThrownBy(() -> deploymentService.createDeployment(request, 2L, null, WEB_ORIGIN))
                     .isInstanceOf(EntityNotFoundException.class);
-            assertThatThrownBy(() -> deploymentService.createDeployment(request, null))
+            assertThatThrownBy(() -> deploymentService.createDeployment(request, null, null, WEB_ORIGIN))
                     .isInstanceOf(EntityNotFoundException.class);
             verifyNoInteractions(pipelineService, deploymentRepository, k8sGenerator);
         }
@@ -127,9 +130,15 @@ class DeploymentServiceTest {
 
             TransactionSynchronizationManager.initSynchronization();
             try {
-                DeploymentResponse response = deploymentService.createDeployment(request, 1L);
+                DeploymentResponse response = deploymentService.createDeployment(request, 1L, null,
+                        DeploymentOrigin.nlp(1L, 42L)).deployment();
 
                 assertThat(response.branchName()).isEqualTo("main");
+                var saved = org.mockito.ArgumentCaptor.forClass(Deployment.class);
+                verify(deploymentRepository).save(saved.capture());
+                assertThat(saved.getValue().getTriggerSource()).isEqualTo(TriggerSource.NLP);
+                assertThat(saved.getValue().getRequestedByUserId()).isEqualTo(1L);
+                assertThat(saved.getValue().getCommandLogId()).isEqualTo(42L);
                 assertThat(response.commitHash()).isEqualTo("abc1234");
                 assertThat(response.status()).isEqualTo(DeploymentStatus.PENDING);
 
@@ -148,7 +157,7 @@ class DeploymentServiceTest {
             var request = new CreateDeploymentRequest(999L, "main", "abc1234");
             given(resourceAccessService.requireRepository(999L, 1L)).willThrow(new EntityNotFoundException(klepaas.backend.global.exception.ErrorCode.REPOSITORY_NOT_FOUND));
 
-            assertThatThrownBy(() -> deploymentService.createDeployment(request, 1L))
+            assertThatThrownBy(() -> deploymentService.createDeployment(request, 1L, null, WEB_ORIGIN))
                     .isInstanceOf(EntityNotFoundException.class);
         }
     }

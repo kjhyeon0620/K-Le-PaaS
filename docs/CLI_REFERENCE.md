@@ -105,6 +105,8 @@ klepaas deployments export 42 --format yaml --output klepaas-export.yaml
 - 실패 종료 상태: `FAILED`, `CANCELED`
 - timeout 시 종료 코드 `5`
 
+`deployments get`은 배포 기록과 함께 실패 종류(`Failure Kind`), 요청 경로(`Trigger`), 자연어 승인 명령(`Command`), 관측한 이미지 digest(`Image Digest`)를 보여 준다. #95 이전 배포는 `-`(기록 없음)이다. `--json`에는 `failure_kind`, `trigger_source`, `requested_by_user_id`, `command_log_id`, `image_digest`가 추가된다.
+
 `deployments logs`는 배포 상태·실패 원인과, 그 배포 요청이 적용한 Pod의 조회 시점 상태·최근 로그·Kubernetes 이벤트를 보여 준다.
 
 - `--lines`: Pod별 최근 로그 줄 수, 1~200 (기본 100). 범위 밖이면 종료 코드 `1`

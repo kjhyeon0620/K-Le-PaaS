@@ -133,6 +133,10 @@ class Stage2HttpAccessTest {
         JsonNode ownLogs = ok("A JWT own logs", send("GET", deploymentUrl + "/logs", aJwt, null)).path("data");
         assertEquals(deployment.getId().longValue(), ownLogs.path("deployment_id").asLong());
         assertEquals("NOT_CURRENT", ownLogs.path("observation").asText());
+        JsonNode ownDetail = ok("A JWT own detail", send("GET", deploymentUrl + "/detail", aJwt, null)).path("data");
+        assertEquals(deployment.getId().longValue(), ownDetail.path("deployment").path("id").asLong());
+        assertTrue(ownDetail.path("config").isNull(), "기록이 없는 배포는 설정을 추정하지 않는다");
+        assertEquals("NO_PREVIOUS", ownDetail.path("comparison").asText());
         reject("A JWT logs lines out of range", 400, send("GET", deploymentUrl + "/logs?lines=201", aJwt, null));
         when(observationReader.readReplicas(any(), any())).thenReturn(new ReplicaStatusResponse(repo.getId(),
                 ReplicaStatusResponse.Observation.AVAILABLE, null, 2, 2, 2, 2));
@@ -149,6 +153,7 @@ class Stage2HttpAccessTest {
             hidden(identity + " deployment", send("GET", deploymentUrl, token, null));
             hidden(identity + " deployment status", send("GET", deploymentUrl + "/status", token, null));
             hidden(identity + " deployment logs", send("GET", deploymentUrl + "/logs", token, null));
+            hidden(identity + " deployment detail", send("GET", deploymentUrl + "/detail", token, null));
             hidden(identity + " repository deployments", send("GET", "/api/v1/deployments?repositoryId=" + repo.getId(), token, null));
             hidden(identity + " scaling history", send("GET", repoUrl + "/scaling-history", token, null));
             hidden(identity + " replicas", send("GET", repoUrl + "/replicas", token, null));

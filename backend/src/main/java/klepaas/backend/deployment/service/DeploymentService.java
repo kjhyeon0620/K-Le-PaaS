@@ -62,10 +62,6 @@ public class DeploymentService {
     @Value("${kubernetes.rollout.timeout-ms:120000}")
     private long rolloutTimeoutMs;
 
-    @Transactional
-    public DeploymentResponse createDeployment(CreateDeploymentRequest request, Long userId) {
-        return createDeployment(request, userId, null).deployment();
-    }
 
     /**
      * 같은 저장소의 배포는 하나씩만 진행한다. 진행 중 배포와 같은 요청(재시도)이면 그 배포를,
@@ -73,7 +69,7 @@ public class DeploymentService {
      */
     @Transactional
     public CreateDeploymentResult createDeployment(CreateDeploymentRequest request, Long userId,
-                                                   String githubDeliveryId) {
+                                                   String githubDeliveryId, DeploymentOrigin origin) {
         SourceRepository repository = resourceAccessService.requireRepository(request.repositoryId(), userId);
         sourceRepositoryRepository.findByIdForUpdate(repository.getId());
 
@@ -106,6 +102,7 @@ public class DeploymentService {
             deployment.setImageUri(imageUri);
         }
         deployment.setGithubDeliveryId(githubDeliveryId);
+        deployment.recordRequest(origin.source(), origin.requestedByUserId(), origin.commandLogId());
         deploymentRepository.save(deployment);
 
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),

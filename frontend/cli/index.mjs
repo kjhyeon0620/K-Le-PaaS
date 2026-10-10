@@ -370,6 +370,11 @@ async function handleDeployments(args, globalOptions, client) {
         ["Started", formatKst(response.started_at)],
         ["Finished", formatKst(response.finished_at)],
         ["Fail Reason", response.fail_reason || "-"],
+        ["Failure Kind", response.failure_kind || "-"],
+        // 요청 기록(#95)은 이전 배포에 없다: "-"는 기록 없음
+        ["Trigger", response.trigger_source || "-"],
+        ["Command", response.command_log_id ?? "-"],
+        ["Image Digest", response.image_digest || "-"],
       ]);
       return;
     }

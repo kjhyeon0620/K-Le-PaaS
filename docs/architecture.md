@@ -90,6 +90,13 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
                `kubernetes.rollout.timeout-ms`(120초) 타임아웃 (readiness 실패, 스케줄 불가 등)
        CANCELED: 대기 중 다른 apply·restart·scale로 generation이 바뀜 (대체)
   → SUCCESS / FAILED / CANCELED (사유는 fail_reason), Slack·WebSocket 알림
+  배포 요청 기록 (#95, 이전 배포는 null이고 "기록 없음"으로 표시, 추정하지 않음)
+       생성 시: 요청 경로(WEB·CLI·CI_TOKEN·CI_OIDC·WEBHOOK·NLP), 요청자(사람일 때), 자연어 승인 명령 ID
+       apply 직전 커밋: 적용한 배포 설정 스냅샷 (env 값은 저장하지 않고 이름별 HMAC 지문만. 키는 jwt.secret에서 파생)
+       판정 시: 성공이면 새 Pod imageID의 digest, 실패·대체면 실패 종류(FailureKind)
+GET /api/v1/deployments/{id}/detail
+  → 요청 기록, 적용 설정(env 이름만), 같은 저장소의 직전 SUCCESS 배포 대비 변경(이미지·digest·설정, env는 추가·삭제·값 변경·판정 불가),
+    실패 종류별 고정 설명. 한쪽 설정 기록이 없으면 이미지만 비교(NOT_RECORDED)
        fail_reason에는 관측 근거를 적는다: 반복 종료는 마지막 종료 사유·exit code(OOMKilled 등),
        타임아웃은 새 Pod 상태(스케줄 불가 메시지, 실행 중이나 Ready 아님) (#54)
 GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
@@ -144,6 +151,8 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 | 모델 | 값 | 비고 |
 |---|---|---|
 | `DeploymentStatus` | `PENDING → UPLOADING_SOURCE → BUILDING → DEPLOYING → SUCCESS`, `FAILED`, `CANCELED` | 외부 이미지 경로는 업로드·빌드 단계를 건너뛴다. `CANCELED`는 rollout 대기 중 다른 변경으로 대체된 배포 (§3.2) |
+| `TriggerSource` | `WEB`, `CLI`, `CI_TOKEN`, `CI_OIDC`, `WEBHOOK`, `NLP` | 배포 요청 경로 (#95). 웹 JWT와 CLI 전체 권한 토큰은 인증 주체의 CLI 토큰 여부로 구분 |
+| `FailureKind` | `IMAGE_PULL`, `CRASH_LOOP`, `CONFIG_ERROR`, `READINESS_TIMEOUT`, `UNSCHEDULABLE`, `ROLLOUT_TIMEOUT`, `PROGRESS_DEADLINE`, `DEPLOYMENT_MISSING`, `SUPERSEDED`, `BUILD_FAILED`, `APPLY_FAILED`, `OTHER` | 판정 시점에 정하는 실패 종류 (#95). 예외는 단계(이미지 준비·apply)로 분류 |
 | `CommandStatus` | `PENDING → EXECUTING → SUCCEEDED / FAILED`, `PENDING → EXPIRED / CANCELLED`, `UNKNOWN` | `UNKNOWN`은 결과를 판단할 수 없는 상태. 자동으로 재실행하지 않는다 |
 | `RiskLevel` | `LOW`, `MEDIUM`, `HIGH` | §3.1 매핑 |
 | `CliTokenScope` | `READ_ONLY`, `PROPOSE_ONLY`, `DEPLOY`, `FULL` | §4.1 |
@@ -225,7 +234,8 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
 | 콘솔 Deployments 화면의 Rollback 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환한다 (Config·Scale·Restart·Logs는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다 | 이슈 후보 (이전 성공 배포 목록·롤백 API) |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | 이슈 후보 (Fabric8·Jackson 버전 정합) |
-| 배포 기록(`deployments`)에 배포 설정(env, probe, 자원 등)이 남지 않는다 | 같은 commit·이미지로 실패와 성공이 함께 기록되면 이력만으로 원인과 복구 내용을 구분할 수 없다 (#55 배포 #10·#11) | 로드맵 배포 요청 상세, #56 |
+| #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
+| 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | 이슈 후보 |
 | NodePort만 쓰는 앱도 `domain_url`이 필수다 (비우면 400) | 쓰지 않는 기본 도메인 Ingress가 만들어진다 (#55 샘플 앱) | 이슈 후보 |
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | 이슈 후보 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | 이슈 후보 (#55에서 확인) |

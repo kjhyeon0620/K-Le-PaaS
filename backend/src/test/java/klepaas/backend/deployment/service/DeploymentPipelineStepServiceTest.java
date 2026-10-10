@@ -58,6 +58,9 @@ class DeploymentPipelineStepServiceTest {
     @Mock
     private ExternalImageResolver externalImageResolver;
 
+    @Mock
+    private DeploymentConfigSnapshots configSnapshots;
+
     @InjectMocks
     private DeploymentPipelineStepService stepService;
 
@@ -84,9 +87,13 @@ class DeploymentPipelineStepServiceTest {
         given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         given(k8sGenerator.deploy("kjhyeon0620-smart-sousvide-iot-platform", imageUri, config, 10L, 1L)).willReturn(5L);
+        var snapshot = org.mockito.Mockito.mock(DeploymentConfigSnapshot.class);
+        given(configSnapshots.capture(config)).willReturn(snapshot);
+        given(configSnapshots.toJson(snapshot)).willReturn("{\"version\":1}");
 
         stepService.startK8sDeploy(1L, imageUri);
         assertThat(deployment.getStatus()).isEqualTo(DeploymentStatus.DEPLOYING);
+        assertThat(deployment.getConfigSnapshot()).isEqualTo("{\"version\":1}");
         assertThat(deployment.getImageUri()).isEqualTo(imageUri);
         verify(deploymentRepository).save(deployment);
         verifyNoInteractions(k8sGenerator);
