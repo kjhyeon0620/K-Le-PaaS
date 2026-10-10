@@ -92,7 +92,7 @@ public class KubernetesManifestGenerator {
             throw e;
         } catch (Exception e) {
             log.error("K8s deployment failed: app={}, error={}", appName, e.getMessage(), e);
-            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: " + e.getMessage());
+            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: " + KubernetesErrorMessages.userMessage(e));
         }
     }
 

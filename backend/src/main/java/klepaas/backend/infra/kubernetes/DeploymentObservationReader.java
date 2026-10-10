@@ -81,7 +81,7 @@ public class DeploymentObservationReader {
                     podLogs, events(objects));
         } catch (KubernetesClientException e) {
             log.warn("Deployment observation failed: app={}, deploymentId={}, error={}", appName, deploymentId, e.getMessage());
-            return Observed.unavailable("Kubernetes 조회 실패: " + clientMessage(e));
+            return Observed.unavailable("Kubernetes 조회 실패: " + KubernetesErrorMessages.clientMessage(e));
         }
     }
 
@@ -108,7 +108,7 @@ public class DeploymentObservationReader {
         } catch (KubernetesClientException e) {
             log.warn("Replica observation failed: app={}, error={}", appName, e.getMessage());
             return ReplicaStatusResponse.unobserved(repositoryId, ReplicaStatusResponse.Observation.UNAVAILABLE,
-                    "Kubernetes 조회 실패: " + clientMessage(e));
+                    "Kubernetes 조회 실패: " + KubernetesErrorMessages.clientMessage(e));
         }
     }
 
@@ -144,7 +144,7 @@ public class DeploymentObservationReader {
             logs = splitLines(kubernetesClient.pods().inNamespace(namespace).withName(name)
                     .inContainer(containerName).tailingLines(lines).getLog());
         } catch (KubernetesClientException e) {
-            logsError = clientMessage(e);
+            logsError = KubernetesErrorMessages.clientMessage(e);
         }
         List<String> previousLogs = null;
         if (restarts > 0) {
@@ -152,7 +152,7 @@ public class DeploymentObservationReader {
                 previousLogs = splitLines(kubernetesClient.pods().inNamespace(namespace).withName(name)
                         .inContainer(containerName).terminated().tailingLines(lines).getLog());
             } catch (KubernetesClientException e) {
-                logsError = logsError == null ? "직전 로그 조회 실패: " + clientMessage(e) : logsError;
+                logsError = logsError == null ? "직전 로그 조회 실패: " + KubernetesErrorMessages.clientMessage(e) : logsError;
             }
         }
         return new PodLog(name, phase, Boolean.TRUE.equals(status.getReady()), restarts, stateName, reason,
@@ -198,15 +198,6 @@ public class DeploymentObservationReader {
 
     private static List<String> splitLines(String log) {
         return log == null || log.isEmpty() ? List.of() : Arrays.asList(log.split("\n"));
-    }
-
-    // 예외 메시지에는 Kubernetes API 서버 주소가 들어 있어 사용자에게는 Kubernetes가 돌려준 status 메시지만 준다
-    static String clientMessage(KubernetesClientException e) {
-        log.debug("Kubernetes client error: code={}, message={}", e.getCode(), e.getMessage());
-        if (e.getStatus() != null && e.getStatus().getMessage() != null) {
-            return truncate(e.getStatus().getMessage());
-        }
-        return e.getCode() > 0 ? "Kubernetes API 오류 (HTTP " + e.getCode() + ")" : "Kubernetes API에 연결하지 못했습니다";
     }
 
     private static Instant parseTime(String value) {

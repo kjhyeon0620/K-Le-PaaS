@@ -12,6 +12,7 @@ import klepaas.backend.ai.repository.CommandLogRepository;
 import klepaas.backend.ai.repository.ConversationSessionRepository;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.global.exception.BusinessException;
+import klepaas.backend.infra.kubernetes.KubernetesErrorMessages;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
@@ -114,7 +115,7 @@ public class NlpCommandService {
                 }
             } catch (Exception e) {
                 log.error("명령 실행 실패: intent={}", parsedIntent.intent(), e);
-                commandLog.markFailed(e.getMessage());
+                commandLog.markFailed(KubernetesErrorMessages.userMessage(e));
                 result = null;
                 commandLogRepository.save(commandLog);
                 if (e instanceof BusinessException businessException) throw businessException;
@@ -171,8 +172,9 @@ public class NlpCommandService {
             }
         } catch (Exception e) {
             log.error("확인 명령 실행 실패: intent={}", commandLog.getInterpretedIntent(), e);
-            confirmations.fail(commandLog.getId(), e.getMessage());
-            message = "명령 실행에 실패했습니다: " + e.getMessage();
+            String reason = KubernetesErrorMessages.userMessage(e);
+            confirmations.fail(commandLog.getId(), reason);
+            message = "명령 실행에 실패했습니다: " + reason;
             result = null;
         }
 

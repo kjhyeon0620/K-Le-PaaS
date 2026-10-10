@@ -64,12 +64,13 @@
 | 7-3 | #74 | 공개 이미지 배포에서 pull secret 끄기 | 완료 (PR #77), 운영 V2, IoT 재배포 성공 | [0074](specs/0074-optional-image-pull-secret/spec.md) |
 | 7-4 | #79 | 명령·배포 이력 조회 인덱스와 전후 측정 | 완료 (PR #80) | [0079](specs/0079-history-query-indexes/spec.md) |
 | 7-5 | #78 | 콘솔 배포 화면과 백엔드 응답 필드 불일치 (#66 포함) | 완료 (PR #82) | [0078](specs/0078-console-deployments-api-contract/spec.md) |
-| 7-6 | #81 | API 시각 시간대 포함, 콘솔·CLI 한국 시간 표시 | 진행 중 | [0081](specs/0081-kst-time-display/spec.md) |
+| 7-6 | #81 | API 시각 시간대 포함, 콘솔·CLI 한국 시간 표시 | 완료 (PR #83) | [0081](specs/0081-kst-time-display/spec.md) |
 | 8 | #53 | 요청 단위 rollout 판정 | 완료 (PR #84) | [0053](specs/0053-request-scoped-rollout/spec.md) |
 | 9 | #54 | 배포 실패 원인, 배포 로그 API | 완료 (PR #85) | [0054](specs/0054-deployment-failure-logs/spec.md) |
 | 9-1 | #86 | restart·scale이 managedFields 직렬화 오류로 500 실패 | 완료 (PR #87) | - |
 | 9-2 | #88 | 배포 로그 대화상자 폭·스크롤 | 완료 (PR #89) | - |
 | 9-3 | #90 | 스케일 대화상자가 설정값을 현재 레플리카로 표시 | 완료 (PR #91) | [0090](specs/0090-observed-replicas/spec.md) |
+| 9-4 | #92 | Kubernetes 호출 실패 메시지의 API 서버 주소 노출 | 완료 (PR #93) | - |
 | 10 | #55 | 두 번째 앱 배포·실패·복구 실증 | 미착수 | - |
 | 11 | #56 | 승인한 배포 설정 버전 고정, 변경 시 재승인 | 데모 이후 | - |
 | 12 | #57 | 재시작 후 미완료 배포·명령 상태 대조 | 데모 이후 | - |
