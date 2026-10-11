@@ -101,6 +101,33 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${targetDeploymentId}/recovery-plan`);
   }
 
+  // 앱 운영 문서·확정 사건 (#104)
+  async getKnowledge(repositoryId) {
+    return this.request(`/api/v1/repositories/${repositoryId}/knowledge`);
+  }
+
+  async putKnowledge(repositoryId, slug, title, content) {
+    return this.request(`/api/v1/repositories/${repositoryId}/knowledge/${encodeURIComponent(slug)}`, {
+      method: "PUT",
+      body: { title, content },
+    });
+  }
+
+  async deleteKnowledge(repositoryId, slug) {
+    return this.request(`/api/v1/repositories/${repositoryId}/knowledge/${encodeURIComponent(slug)}`, { method: "DELETE" });
+  }
+
+  async confirmIncident(deploymentId, category, rootCause, resolution) {
+    return this.request(`/api/v1/deployments/${deploymentId}/incident`, {
+      method: "PUT",
+      body: { category, root_cause: rootCause, resolution },
+    });
+  }
+
+  async deleteIncident(deploymentId) {
+    return this.request(`/api/v1/deployments/${deploymentId}/incident`, { method: "DELETE" });
+  }
+
   // 에이전트의 복구 제안 (#102). 승인 대기 명령만 만든다
   async proposeRecovery(targetDeploymentId, reason) {
     return this.request(`/api/v1/deployments/${targetDeploymentId}/recovery-proposal`, {

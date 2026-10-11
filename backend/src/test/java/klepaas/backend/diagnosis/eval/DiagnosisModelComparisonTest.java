@@ -3,6 +3,9 @@ package klepaas.backend.diagnosis.eval;
 import com.fasterxml.jackson.databind.JsonNode;
 import klepaas.backend.ai.client.GeminiClient;
 import klepaas.backend.ai.diagnosis.DiagnosisPrompt;
+import klepaas.backend.ai.knowledge.Embeddings;
+import klepaas.backend.ai.knowledge.KnowledgeDtos.KnowledgeItem;
+import klepaas.backend.ai.knowledge.KnowledgeText;
 import klepaas.backend.ai.llm.AnthropicLlmClient;
 import klepaas.backend.ai.llm.GeminiLlmClient;
 import klepaas.backend.ai.llm.LlmClient;
@@ -31,7 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * #99 사례로 공급사·모델·절감 변형별 진단 품질·사용량·비용·지연을 비교한다 (#100, #115).
  * DIAGNOSIS_EVAL_MODELS=provider:model[@옵션+옵션],... 와 해당 공급사 키가 있을 때만 실행한다. CI에서는 건너뛴다.
- * 옵션: effort=<reasoning_effort>(OpenAI), prompt=compact(출력 분량 제한), input=trim(null·중복 로그 제거).
+ * 옵션: effort=<reasoning_effort>(OpenAI), prompt=compact(출력 분량 제한), input=trim(null·중복 로그 제거),
+ * knowledge=on(플랫폼 runbook과 사례 지식을 실제 임베딩으로 검색해 입력에 넣음, #104).
+ * DIAGNOSIS_EVAL_CASES=rag면 RAG 사례(rag-cases)를 쓰고 검색 적중·지식 근거 일치를 함께 채점한다.
  * DIAGNOSIS_EVAL_REPEAT=N이면 사례마다 N번 호출한다. 호출마다 지시문 뒤·입력 앞에 고유 값을 넣어
  * 이전 호출의 입력이 캐시되지 않게 한다 (운영처럼 공통 지시문만 캐시될 수 있다).
  * 정확도로 실패시키지 않는다. 결과는 build/diagnosis-eval/compare-<시각>.json·.md에 남기고 스펙에 기록한다.
@@ -44,17 +49,29 @@ class DiagnosisModelComparisonTest {
     @Test
     void compareModelsOnCases() throws Exception {
         JsonNode pricing = DiagnosisEval.JSON.readTree(Path.of("src/test/resources/diagnosis-eval/pricing.json").toFile()).path("models");
-        List<Case> cases = DiagnosisEval.loadCases();
+        boolean ragCases = "rag".equals(System.getenv("DIAGNOSIS_EVAL_CASES"));
+        List<Case> cases = DiagnosisEval.loadCases(ragCases ? DiagnosisEval.RAG_CASES : DiagnosisEval.CASES);
+        List<String> items = new ArrayList<>(DiagnosisEval.ITEMS);
+        if (ragCases) items.addAll(List.of("knowledge_hit", "knowledge_supported"));
         int repeat = Integer.parseInt(System.getenv().getOrDefault("DIAGNOSIS_EVAL_REPEAT", "1"));
         Map<String, Object> report = new LinkedHashMap<>();
-        StringBuilder table = new StringBuilder("| 변형 | 호출 | 범주 | 구체 원인 | 근거 유효 | 근거 일치 | 판단 보류 | 지시문 | 일반 입력 | 캐시 입력 | 출력 (추론) | 금액 USD | 호출당 USD | 지연 중앙·p90 ms | 오류 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        StringBuilder table = new StringBuilder("| 변형 | 호출 | 범주 | 구체 원인 | 근거 유효 | 근거 일치 | 판단 보류 | 지시문 |"
+                + (ragCases ? " 검색 적중 | 지식 근거 |" : "") + " 일반 입력 | 캐시 입력 | 출력 (추론) | 금액 USD | 호출당 USD | 지연 중앙·p90 ms | 오류 |\n|"
+                + "---|".repeat(ragCases ? 17 : 15) + "\n");
+        Map<String, List<KnowledgeItem>> retrieved = new LinkedHashMap<>();
 
         for (String spec : System.getenv("DIAGNOSIS_EVAL_MODELS").split(",")) {
             Variant v = Variant.parse(spec.trim());
             LlmClient llm = v.client();
+            // 검색은 사례마다 한 번 (질의가 반복 호출마다 같다). 호출 전에 순서대로 끝낸다
+            if (v.knowledge() && retrieved.isEmpty()) {
+                EvalKnowledge knowledge = new EvalKnowledge(cases);
+                for (Case c : cases) retrieved.put(c.id(), knowledge.search(c));
+            }
             List<Callable<Map<String, Object>>> calls = new ArrayList<>();
             for (Case c : cases) {
-                for (int rep = 0; rep < repeat; rep++) calls.add(() -> call(llm, v, c));
+                List<KnowledgeItem> found = v.knowledge() ? retrieved.get(c.id()) : List.of();
+                for (int rep = 0; rep < repeat; rep++) calls.add(() -> call(llm, v, c, found));
             }
             ExecutorService pool = Executors.newFixedThreadPool(PARALLEL);
             List<Map<String, Object>> runs = new ArrayList<>();
@@ -85,7 +102,7 @@ class DiagnosisModelComparisonTest {
                 latencies.add((Long) run.get("latency_ms"));
             }
 
-            Map<String, String> totals = totals(scores);
+            Map<String, String> totals = totals(scores, items);
             JsonNode price = pricing.path(llm.model());
             Double cost = price.isMissingNode() ? null
                     : ((input - cached) * price.path("input").asDouble() + cached * price.path("cached_input").asDouble()
@@ -104,10 +121,11 @@ class DiagnosisModelComparisonTest {
             summary.put("latency_ms_median", median);
             summary.put("latency_ms_p90", p90);
             summary.put("errors", errors);
+            if (v.knowledge()) summary.put("retrieved", retrieved);
             summary.put("cases", perCase);
             report.put(spec, summary);
             table.append("| ").append(spec).append(" | ").append(runs.size());
-            DiagnosisEval.ITEMS.forEach(item -> table.append(" | ").append(totals.get(item)));
+            items.forEach(item -> table.append(" | ").append(totals.get(item)));
             table.append(" | ").append(input - cached).append(" | ").append(cached)
                     .append(" | ").append(output).append(" (").append(reasoning).append(")")
                     .append(" | ").append(cost == null ? "-" : String.format("%.4f", cost))
@@ -127,14 +145,16 @@ class DiagnosisModelComparisonTest {
         assertThat(report).isNotEmpty();
     }
 
-    private static Map<String, Object> call(LlmClient llm, Variant v, Case c) {
-        String in = DiagnosisPrompt.redact(v.trim() ? DiagnosisPrompt.trim(c.input().toString()) : c.input().toString());
-        String prompt = DiagnosisPrompt.build(in, v.compact());
+    private static Map<String, Object> call(LlmClient llm, Variant v, Case c, List<KnowledgeItem> knowledge) {
+        String observed = DiagnosisPrompt.redact(v.trim() ? DiagnosisPrompt.trim(c.input().toString()) : c.input().toString());
+        String in = knowledge.isEmpty() ? observed : DiagnosisPrompt.withKnowledge(observed, knowledge);
+        String prompt = DiagnosisPrompt.build(in, v.compact(), !knowledge.isEmpty());
         int at = prompt.lastIndexOf("<input>\n");
         prompt = prompt.substring(0, at) + "평가 실행 " + UUID.randomUUID() + "\n" + prompt.substring(at);
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("case", c.id());
         Result result;
+        List<String> citedKnowledge = List.of();
         try {
             LlmClient.Response r = llm.completeJson(prompt);
             entry.put("model", r.model());
@@ -143,14 +163,24 @@ class DiagnosisModelComparisonTest {
             entry.put("raw", r.text());
             var d = DiagnosisPrompt.parse(in, r.text());
             entry.put("diagnosis", d);
+            // 지식 인용은 지식 id로 바꾸고, 관측 근거만 기존 항목으로 채점한다
+            List<String> pointers = d.cited().stream().map(DiagnosisPrompt.Citation::pointer).toList();
+            citedKnowledge = pointers.stream().filter(p -> p.startsWith("/knowledge/"))
+                    .map(p -> knowledge.get(Integer.parseInt(p.split("/")[2])).ref()).distinct().toList();
+            entry.put("cited_knowledge", citedKnowledge);
             result = new Result(d.category(), d.rootCause(), d.abstain(),
-                    d.cited().stream().map(DiagnosisPrompt.Citation::pointer).toList(), d.allText());
+                    pointers.stream().filter(p -> !p.startsWith("/knowledge/")).toList(), d.allText());
         } catch (RuntimeException e) {
             // 호출 실패·읽을 수 없는 응답은 근거 없는 판단 보류로 채점하고 따로 센다
             entry.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
             result = new Result(null, null, true, List.of(), "");
         }
-        entry.put("score", DiagnosisEval.score(c, result));
+        Map<String, Boolean> score = new LinkedHashMap<>(DiagnosisEval.score(c, result));
+        List<String> expectedKnowledge = c.expected().knowledgeIds();
+        boolean scoreKnowledge = v.knowledge() && !expectedKnowledge.isEmpty();
+        score.put("knowledge_hit", scoreKnowledge ? knowledge.stream().anyMatch(k -> expectedKnowledge.contains(k.ref())) : null);
+        score.put("knowledge_supported", scoreKnowledge ? citedKnowledge.stream().anyMatch(expectedKnowledge::contains) : null);
+        entry.put("score", score);
         return entry;
     }
 
@@ -158,17 +188,72 @@ class DiagnosisModelComparisonTest {
         return sorted.isEmpty() ? 0 : sorted.get(Math.min(sorted.size() - 1, sorted.size() * p / 100));
     }
 
-    /** provider:model@effort=low+prompt=compact+input=trim */
-    private record Variant(String provider, String model, String effort, boolean compact, boolean trim) {
+    /**
+     * 평가용 지식 검색 (#104): 플랫폼 runbook(src/main/resources/knowledge)과 사례의 knowledge를 서버와 같은 분할·질의·유사도로 검색한다.
+     * 사례 지식은 그 사례에서만 검색된다(서버의 앱별 필터와 같은 효과). 임베딩은 실제 OpenAI 호출이다.
+     */
+    private static final class EvalKnowledge {
+        private record Entry(String ref, String source, String title, String repository, String version, String text, float[] vector) {
+        }
+
+        private final Embeddings embeddings = new Embeddings(require("OPENAI_API_KEY"),
+                System.getenv().getOrDefault("DIAGNOSIS_EVAL_EMBEDDING_MODEL", "text-embedding-3-small"));
+        private final double minSimilarity = Double.parseDouble(System.getenv().getOrDefault("DIAGNOSIS_EVAL_MIN_SIMILARITY", "0.3"));
+        private final List<Entry> platform = new ArrayList<>();
+        private final Map<String, List<Entry>> perCase = new LinkedHashMap<>();
+
+        EvalKnowledge(List<Case> cases) throws Exception {
+            try (var files = Files.list(Path.of("src/main/resources/knowledge"))) {
+                for (Path file : files.filter(f -> f.toString().endsWith(".md")).sorted().toList()) {
+                    String content = Files.readString(file);
+                    String title = content.lines().filter(l -> l.startsWith("# ")).findFirst().map(l -> l.substring(2).strip()).orElse(file.toString());
+                    platform.addAll(entries("platform:" + file.getFileName(), "PLATFORM", title, "platform", null, content));
+                }
+            }
+            for (Case c : cases) {
+                List<Entry> own = new ArrayList<>();
+                if (c.knowledge() != null) {
+                    for (JsonNode k : c.knowledge()) {
+                        own.addAll(entries(k.path("id").asText(), k.path("source").asText(), k.path("title").asText(),
+                                c.input().at("/detail/deployment/repository_name").asText(), k.path("version").asText(null),
+                                DiagnosisPrompt.redact(k.path("text").asText())));
+                    }
+                }
+                perCase.put(c.id(), own);
+            }
+        }
+
+        private List<Entry> entries(String ref, String source, String title, String repository, String version, String content) {
+            List<KnowledgeText.Chunk> parts = KnowledgeText.split(title, content);
+            List<float[]> vectors = embeddings.embed(parts.stream().map(KnowledgeText.Chunk::text).toList());
+            List<Entry> out = new ArrayList<>();
+            for (int i = 0; i < parts.size(); i++) out.add(new Entry(ref, source, title, repository, version, parts.get(i).text(), vectors.get(i)));
+            return out;
+        }
+
+        List<KnowledgeItem> search(Case c) {
+            List<Entry> candidates = new ArrayList<>(platform);
+            candidates.addAll(perCase.get(c.id()));
+            float[] query = embeddings.embed(List.of(KnowledgeText.query(DiagnosisPrompt.redact(c.input().toString())))).get(0);
+            return KnowledgeText.top(query, candidates, Entry::vector, 4, minSimilarity).stream()
+                    .map(s -> new KnowledgeItem(s.item().source(), s.item().ref(), s.item().title(), s.item().repository(),
+                            s.item().version(), null, s.item().text(), Math.round(s.similarity() * 1000) / 1000.0))
+                    .toList();
+        }
+    }
+
+    /** provider:model@effort=low+prompt=compact+input=trim+knowledge=on */
+    private record Variant(String provider, String model, String effort, boolean compact, boolean trim, boolean knowledge) {
         static Variant parse(String spec) {
             String[] parts = spec.split("@", 2);
             String effort = null;
-            boolean compact = false, trim = false;
+            boolean compact = false, trim = false, knowledge = false;
             if (parts.length > 1) {
                 for (String opt : parts[1].split("\\+")) {
                     switch (opt) {
                         case "prompt=compact" -> compact = true;
                         case "input=trim" -> trim = true;
+                        case "knowledge=on" -> knowledge = true;
                         default -> {
                             if (!opt.startsWith("effort=")) throw new IllegalArgumentException("알 수 없는 옵션: " + opt);
                             effort = opt.substring("effort=".length());
@@ -177,7 +262,7 @@ class DiagnosisModelComparisonTest {
                 }
             }
             int colon = parts[0].indexOf(':');
-            return new Variant(parts[0].substring(0, colon), parts[0].substring(colon + 1), effort, compact, trim);
+            return new Variant(parts[0].substring(0, colon), parts[0].substring(colon + 1), effort, compact, trim, knowledge);
         }
 
         LlmClient client() {
@@ -193,9 +278,9 @@ class DiagnosisModelComparisonTest {
         }
     }
 
-    private static Map<String, String> totals(Map<String, Map<String, Boolean>> scores) {
+    private static Map<String, String> totals(Map<String, Map<String, Boolean>> scores, List<String> items) {
         Map<String, String> totals = new LinkedHashMap<>();
-        for (String item : DiagnosisEval.ITEMS) {
+        for (String item : items) {
             long applicable = scores.values().stream().filter(s -> s.get(item) != null).count();
             long passed = scores.values().stream().filter(s -> Boolean.TRUE.equals(s.get(item))).count();
             totals.put(item, passed + "/" + applicable);

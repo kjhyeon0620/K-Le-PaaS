@@ -1,0 +1,67 @@
+{
+  "id": "rag-insufficient-with-incident",
+  "group": "RAG",
+  "provenance": "derived: insufficient-observation-unavailable 그대로 + 같은 앱의 과거 사건",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 7,
+        "repository_id": 6,
+        "repository_name": "demo/mqtt-broker",
+        "branch_name": "main",
+        "commit_hash": "a7b8c9d",
+        "image_uri": "eclipse-mosquitto:2.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=1): observedGeneration=1, updated=1, available=0, unavailable=1",
+        "started_at": "2026-10-11T05:26:52.782338Z",
+        "finished_at": "2026-10-11T05:28:24.003607Z",
+        "created_at": "2026-10-11T05:26:52.782465Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "ROLLOUT_TIMEOUT",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "demo"
+      },
+      "command": null,
+      "config": null,
+      "previous_success": null,
+      "comparison": "NOT_RECORDED",
+      "changes": [],
+      "explanation": null
+    },
+    "logs": {
+      "deployment_id": 7,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=1): observedGeneration=1, updated=1, available=0, unavailable=1",
+      "observation": "UNAVAILABLE",
+      "observation_message": "Kubernetes API에 연결하지 못했습니다",
+      "applied_deployment_id": null,
+      "pods": [],
+      "events": []
+    }
+  },
+  "knowledge": [
+    {
+      "id": "k-mqtt-incident",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #4",
+      "version": "commit 5d6e7f8 · eclipse-mosquitto:2.0",
+      "updated_at": "2026-09-25T16:00:00",
+      "text": "확정된 과거 사건: 배포 #4 (commit 5d6e7f8, 이미지 eclipse-mosquitto:2.0)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃, Ready 아님\n확정 원인: READINESS / probe_port_closed\n해결: readiness를 TCP 1883으로 바꿈"
+    }
+  ],
+  "expected": {
+    "category": null,
+    "root_cause": null,
+    "evidence": [],
+    "abstain": true,
+    "forbidden": [],
+    "knowledge_ids": []
+  },
+  "notes": "Kubernetes 관측이 없어 이번 원인을 정할 수 없다. 과거 사건의 원인을 이번 원인으로 단정하면 안 된다."
+}
