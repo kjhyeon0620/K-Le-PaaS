@@ -148,6 +148,7 @@ POST /api/v1/deployments/{id}/diagnosis   (READ_ONLY 이상, 소유권 확인, F
 ```
 
 - 공급사는 `diagnosis.llm.provider`·`model`로 고른다. 기본값은 #99 사례 비교로 정했다 (스펙 0100). 자연어 명령은 Gemini를 그대로 쓴다.
+- 요청 하나의 출력(생각 포함)은 `LlmClient.MAX_OUTPUT_TOKENS`(2,048)로 묶는다. 로그에 입력·캐시 입력·출력·추론 토큰을 나눠 남기고, 금액은 토큰과 가격표로 계산한다. 비용 절감 후보(추론 강도, 출력 간결화, 입력 정리)는 #99 품질 기준을 넘지 못해 운영에 적용하지 않았다 (스펙 0115).
 - 모델 응답을 읽을 수 없으면 500 `AI_002`, 호출 실패·키 없음은 500 `AI_001`. 추정 결과로 채우지 않는다.
 
 #### 재시작 대조 (#57, `InterruptedWorkReconciler`)
@@ -261,6 +262,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `deployment.pipeline.poll-initial-interval` / `poll-max-interval` / `build-timeout` | 10s / 60s / 30m | 빌드 상태 polling |
 | `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | 자연어 해석 모델 |
 | `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai). 선택한 공급사 키가 없으면 진단만 실패 |
+| `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
 | `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |
 | `github.actions.oidc.allowed-refs` | `${GITHUB_ACTIONS_OIDC_ALLOWED_REFS:refs/heads/main}` | OIDC 배포를 허용할 ref (쉼표 구분) |

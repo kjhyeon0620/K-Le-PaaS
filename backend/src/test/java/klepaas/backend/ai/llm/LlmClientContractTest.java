@@ -94,20 +94,20 @@ class LlmClientContractTest {
                  "choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"{\\"abstain\\":true}"}}],
                  "usage":{"prompt_tokens":900,"completion_tokens":600,"total_tokens":1500,
                           "prompt_tokens_details":{"cached_tokens":300},"completion_tokens_details":{"reasoning_tokens":450}}}""");
-        var client = new OpenAiLlmClient(OpenAIOkHttpClient.builder().baseUrl(base).apiKey("k").maxRetries(0).build(), "gpt-5-mini");
+        var client = new OpenAiLlmClient(OpenAIOkHttpClient.builder().baseUrl(base).apiKey("k").maxRetries(0).build(), "gpt-5-mini", "low");
 
         var r = client.completeJson("prompt");
 
         assertThat(r.text()).isEqualTo("{\"abstain\":true}");
         assertThat(r.usage()).isEqualTo(new LlmClient.Usage(900, 600, 300L, 450L));
-        assertThat(requestBody.get()).contains("json_object");
+        assertThat(requestBody.get()).contains("json_object").contains("\"reasoning_effort\":\"low\"");
     }
 
     @Test
     void apiErrorsBecomeAiProcessingException() throws Exception {
         String base = serve(500, "{\"error\":{\"message\":\"boom\"}}");
         var anthropic = new AnthropicLlmClient(AnthropicOkHttpClient.builder().baseUrl(base).apiKey("k").maxRetries(0).build(), "m");
-        var openai = new OpenAiLlmClient(OpenAIOkHttpClient.builder().baseUrl(base).apiKey("k").maxRetries(0).build(), "m");
+        var openai = new OpenAiLlmClient(OpenAIOkHttpClient.builder().baseUrl(base).apiKey("k").maxRetries(0).build(), "m", "");
 
         assertThatThrownBy(() -> anthropic.completeJson("p")).isInstanceOf(AiProcessingException.class);
         assertThatThrownBy(() -> openai.completeJson("p")).isInstanceOf(AiProcessingException.class);

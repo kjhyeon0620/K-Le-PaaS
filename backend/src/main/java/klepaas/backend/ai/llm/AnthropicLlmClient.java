@@ -43,7 +43,7 @@ public class AnthropicLlmClient implements LlmClient {
         try {
             message = client.messages().create(MessageCreateParams.builder()
                     .model(model)
-                    .maxTokens(8192L)
+                    .maxTokens(MAX_OUTPUT_TOKENS)
                     .addUserMessage(prompt)
                     .build());
         } catch (AnthropicException e) {

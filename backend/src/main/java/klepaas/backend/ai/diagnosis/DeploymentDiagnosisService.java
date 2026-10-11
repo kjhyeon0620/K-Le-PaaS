@@ -54,9 +54,10 @@ public class DeploymentDiagnosisService {
             log.warn("Diagnosis response unreadable: deploymentId={}", deploymentId);
             throw new AiProcessingException(ErrorCode.AI_PARSE_ERROR, "진단 응답을 읽을 수 없습니다");
         }
-        log.info("Diagnosis: deploymentId={}, model={}, category={}, rootCause={}, abstain={}, warnings={}, inputTokens={}, outputTokens={}, latencyMs={}",
+        log.info("Diagnosis: deploymentId={}, model={}, category={}, rootCause={}, abstain={}, warnings={}, inputTokens={}, cachedInputTokens={}, outputTokens={}, reasoningTokens={}, latencyMs={}",
                 deploymentId, response.model(), d.category(), d.rootCause(), d.abstain(), d.warnings().size(),
-                response.usage().inputTokens(), response.usage().outputTokens(), response.latencyMs());
+                response.usage().inputTokens(), response.usage().cachedInputTokens(), response.usage().outputTokens(),
+                response.usage().reasoningTokens(), response.latencyMs());
         return new DeploymentDiagnosisResponse(deploymentId, response.model(), DiagnosisPrompt.VERSION, d.category(), d.rootCause(),
                 d.abstain(), d.summary(), d.observedFacts(), d.hypotheses(), d.nextChecks(), d.cited(),
                 List.copyOf(d.warnings()));

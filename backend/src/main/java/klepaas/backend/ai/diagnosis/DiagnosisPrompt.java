@@ -2,6 +2,7 @@ package klepaas.backend.ai.diagnosis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ public final class DiagnosisPrompt {
     // 역슬래시를 넘어가면 \" 같은 JSON 이스케이프가 깨져 입력 JSON 자체가 망가진다 (예: "-e POSTGRES_PASSWORD=password")
     private static final Pattern SECRET = Pattern.compile(
             "(?i)((?:password|passwd|secret|token|api[_-]?key|authorization)\\s*[=:]\\s*)[^\\s\"'\\\\,;]+");
+    private static final String COMPACT_RULE = "\n8. summary는 두 문장 이내로 쓴다. observed_facts·hypotheses·next_checks는 각 3개 이하, cited는 5개 이하로 원인 판단에 필요한 것만 적는다.";
     private static final Pattern BEARER = Pattern.compile("(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]+");
 
     public record Citation(String pointer, String excerpt) {
@@ -41,7 +43,30 @@ public final class DiagnosisPrompt {
         return BEARER.matcher(SECRET.matcher(inputJson).replaceAll("$1[REDACTED]")).replaceAll("$1[REDACTED]");
     }
 
+    /**
+     * 값이 null인 필드와, 직전 컨테이너 로그와 같은 현재 로그를 지운다 (#115). 배열은 건드리지 않으므로
+     * 남은 값의 위치(JSON Pointer)는 그대로다. 운영은 쓰지 않고 비용 비교 평가에서만 쓴다 (스펙 0115).
+     */
+    public static String trim(String inputJson) {
+        JsonNode root = read(inputJson);
+        dropNulls(root);
+        for (JsonNode pod : root.path("logs").path("pods")) {
+            if (pod instanceof ObjectNode o && o.has("logs") && o.get("logs").equals(o.get("previous_logs"))) o.remove("logs");
+        }
+        return root.toString();
+    }
+
+    private static void dropNulls(JsonNode node) {
+        if (node instanceof ObjectNode o) o.properties().removeIf(e -> e.getValue().isNull());
+        node.forEach(DiagnosisPrompt::dropNulls);
+    }
+
     public static String build(String redactedInputJson) {
+        return build(redactedInputJson, false);
+    }
+
+    /** compact는 출력 분량 제한 규칙을 더한다. 운영은 쓰지 않고 비용 비교 평가에서만 쓴다 (#115, 스펙 0115) */
+    public static String build(String redactedInputJson, boolean compact) {
         String categories = DiagnosisLabels.CATEGORIES.entrySet().stream()
                 .map(e -> "- " + e.getKey() + ": " + e.getValue()).collect(Collectors.joining("\n"));
         String causes = DiagnosisLabels.ROOT_CAUSES.entrySet().stream()
@@ -57,7 +82,7 @@ public final class DiagnosisPrompt {
                 4. 실패를 직접 일으킨 관측(오류 로그, 실패 이벤트)을 우선한다. 바뀌었지만 정상 동작한 것으로 관측된 항목은 원인으로 삼지 않는다.
                 5. 입력만으로 원인을 하나로 확정할 수 없으면 abstain을 true로 하고 category·root_cause는 null로 둔다.
                 6. 삭제, 롤백, 재시작, probe 끄기, 비밀값 출력 같은 조치를 권하지 않는다. next_checks에는 사람이 확인할 항목만 적는다.
-                7. 문장은 한국어로 쓴다.
+                7. 문장은 한국어로 쓴다.%s
 
                 category는 다음 중 하나:
                 %s
@@ -72,7 +97,7 @@ public final class DiagnosisPrompt {
                 <input>
                 %s
                 </input>
-                """.formatted(categories, causes, redactedInputJson);
+                """.formatted(compact ? COMPACT_RULE : "", categories, causes, redactedInputJson);
     }
 
     /** 모델 응답을 검증한다. 목록 밖 라벨·없는 근거는 버리고 warning을 남긴다. 근거 원문은 입력에서 잘라 쓴다. */
