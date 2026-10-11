@@ -97,3 +97,5 @@ diagnosis:
   llm:
     provider: ${DIAGNOSIS_LLM_PROVIDER:openai}
     model: ${DIAGNOSIS_LLM_MODEL:gpt-6-luna}
+    # OpenAI reasoning_effort (#115). 비우면 모델 기본값. none·low는 #99 품질 기준을 넘지 못해 기본값을 둔다 (스펙 0115)
+    reasoning-effort: ${DIAGNOSIS_LLM_REASONING_EFFORT:}

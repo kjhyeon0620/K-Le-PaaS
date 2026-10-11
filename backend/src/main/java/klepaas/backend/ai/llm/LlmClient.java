@@ -7,6 +7,9 @@ package klepaas.backend.ai.llm;
  */
 public interface LlmClient {
 
+    /** 요청 하나의 최대 출력(생각 포함) 토큰. 평균이 아니라 모델이 길게 늘어질 때의 비용 상한이다 (#115) */
+    long MAX_OUTPUT_TOKENS = 2048;
+
     String provider();
 
     String model();
