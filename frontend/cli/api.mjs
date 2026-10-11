@@ -91,6 +91,18 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${deploymentId}/logs?lines=${lines}`);
   }
 
+  // 이전 성공 배포로 복구 (#101)
+  async getRecoveryPlan(targetDeploymentId) {
+    return this.request(`/api/v1/deployments/${targetDeploymentId}/recovery-plan`);
+  }
+
+  async recoverDeployment(targetDeploymentId, planFingerprint) {
+    return this.request(`/api/v1/deployments/${targetDeploymentId}/recover`, {
+      method: "POST",
+      body: { plan_fingerprint: planFingerprint },
+    });
+  }
+
   async restartDeployment(deploymentId) {
     return this.request(`/api/v1/deployments/${deploymentId}/restart`, {
       method: "POST",

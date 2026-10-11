@@ -43,6 +43,10 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
     @Query("SELECT s.user.id FROM Deployment d JOIN d.sourceRepository s WHERE d.id = :id")
     Optional<Long> findUserIdByDeploymentId(@Param("id") Long id);
 
+    // 복구 후보 (#101): 같은 저장소의 이미지가 기록된 성공 배포, 최신순
+    List<Deployment> findTop20BySourceRepositoryIdAndStatusAndImageUriIsNotNullOrderByIdDesc(
+            Long sourceRepositoryId, DeploymentStatus status);
+
     // 재시작 대조(#57) 대상. 웹 서버가 요청을 받기 전에 읽는다
     @Query("SELECT d.id FROM Deployment d WHERE d.status IN :statuses ORDER BY d.id")
     List<Long> findIdsByStatusIn(@Param("statuses") Collection<DeploymentStatus> statuses);

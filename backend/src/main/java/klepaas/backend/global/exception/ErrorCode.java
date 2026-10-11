@@ -22,6 +22,8 @@ public enum ErrorCode {
     DEPLOYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "DEPLOY_001", "배포를 찾을 수 없습니다"),
     DEPLOYMENT_CONFIG_NOT_FOUND(HttpStatus.NOT_FOUND, "DEPLOY_002", "배포 설정을 찾을 수 없습니다"),
     DEPLOYMENT_IN_PROGRESS(HttpStatus.CONFLICT, "DEPLOY_003", "같은 저장소의 배포가 진행 중입니다"),
+    RECOVERY_PLAN_CHANGED(HttpStatus.CONFLICT, "DEPLOY_004", "복구 계획이 바뀌었습니다. 계획을 다시 확인하세요"),
+    RECOVERY_BLOCKED(HttpStatus.CONFLICT, "DEPLOY_005", "복구할 수 없습니다"),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다"),

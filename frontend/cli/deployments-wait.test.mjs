@@ -72,3 +72,45 @@ test("ask는 승인 대상을 보여 주고, 설정이 바뀐 confirm 409는 기
   assert.equal(confirm.error?.code, 1);
   assert.match(confirm.stderr, /명령을 다시 보내 승인하세요/);
 });
+
+test("recover는 계획을 보여 주고 확인한 계획 지문으로만 실행한다 (#101)", async (t) => {
+  const posted = [];
+  const plan = { target_deployment_id: 3, target_commit: "aaaaaaa1", image: "ghcr.io/owner/app@sha256:111", image_digest: "sha256:111",
+    digest_pinned: true, config_changes: [{ field: "min_replicas", before: "2", after: "1", kind: "CHANGED" }],
+    env_differences: [], executable: true, blocked_reasons: [], plan_fingerprint: "plan-fp" };
+  const server = createServer((request, response) => {
+    response.setHeader("Content-Type", "application/json");
+    if (request.method === "GET" && request.url === "/api/v1/deployments/3/recovery-plan") {
+      response.end(JSON.stringify({ status: "success", data: plan }));
+      return;
+    }
+    let body = "";
+    request.on("data", (chunk) => { body += chunk; });
+    request.on("end", () => {
+      posted.push({ url: request.url, body: JSON.parse(body) });
+      response.statusCode = 201;
+      response.end(JSON.stringify({ status: "success", data: { id: 9, recovered_from_deployment_id: 3 } }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const shown = await runCli(server, ["deployments", "recovery-plan", "3"]);
+  assert.equal(shown.error, null, shown.stderr);
+  assert.match(shown.stdout, /ghcr\.io\/owner\/app@sha256:111/);
+  assert.match(shown.stdout, /min_replicas: 2 → 1/);
+  assert.equal(posted.length, 0);
+
+  const recovered = await runCli(server, ["deployments", "recover", "3", "--yes", "--json"]);
+  assert.equal(recovered.error, null, recovered.stderr);
+  assert.equal(JSON.parse(recovered.stdout).deployment.id, 9);
+  assert.deepEqual(posted, [{ url: "/api/v1/deployments/3/recover", body: { plan_fingerprint: "plan-fp" } }]);
+
+  plan.executable = false;
+  plan.plan_fingerprint = null;
+  plan.blocked_reasons = ["현재 env가 대상 배포와 다릅니다"];
+  const blocked = await runCli(server, ["deployments", "recover", "3", "--yes"]);
+  assert.equal(blocked.error?.code, 1);
+  assert.match(blocked.stderr, /현재 env가 대상 배포와 다릅니다/);
+  assert.equal(posted.length, 1);
+});

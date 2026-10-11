@@ -6,6 +6,7 @@ import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.service.DeploymentDetailService;
 import klepaas.backend.deployment.service.DeploymentOrigin;
 import klepaas.backend.deployment.service.DeploymentService;
+import klepaas.backend.deployment.service.RecoveryService;
 import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.global.dto.ApiResponse;
 import klepaas.backend.global.exception.BusinessException;
@@ -30,6 +31,7 @@ public class DeploymentController {
     private final DeploymentService deploymentService;
     private final DeploymentDetailService deploymentDetailService;
     private final ResourceAccessService resourceAccessService;
+    private final RecoveryService recoveryService;
 
     @PostMapping("/deployments")
     public ResponseEntity<ApiResponse<DeploymentResponse>> createDeployment(
@@ -46,6 +48,30 @@ public class DeploymentController {
         // 진행 중 배포와 같은 요청(재시도)이면 새로 만들지 않고 그 배포를 200으로 돌려준다
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.success(result.deployment()));
+    }
+
+    // ─── 이전 배포로 복구 (#101) ───────────────────────────────────────────
+
+    @GetMapping("/repositories/{repositoryId}/recovery-candidates")
+    public ApiResponse<java.util.List<RecoveryCandidateResponse>> getRecoveryCandidates(@PathVariable Long repositoryId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(recoveryService.candidates(repositoryId, userDetails.getUserId()));
+    }
+
+    @GetMapping("/deployments/{id}/recovery-plan")
+    public ApiResponse<RecoveryPlanResponse> getRecoveryPlan(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(recoveryService.plan(id, userDetails.getUserId()));
+    }
+
+    // 기본 scope 규칙상 FULL만 허용된다
+    @PostMapping("/deployments/{id}/recover")
+    public ResponseEntity<ApiResponse<DeploymentResponse>> recoverDeployment(@PathVariable Long id,
+            @Valid @RequestBody RecoverDeploymentRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        CreateDeploymentResult result = recoveryService.recover(id, request.planFingerprint(), userDetails.getUserId(),
+                DeploymentOrigin.of(userDetails));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(result.deployment()));
     }
 
     @GetMapping("/deployments")

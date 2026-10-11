@@ -59,6 +59,9 @@ public class Deployment extends BaseTimeEntity {
     @Column(length = 64)
     private String approvedConfigFingerprint;
 
+    // 복구 배포가 되돌린 이전 성공 배포 (#101). 일반 배포는 null
+    private Long recoveredFromDeploymentId;
+
     // 적용한 배포 설정 JSON. env 값은 저장하지 않는다 (DeploymentConfigSnapshot)
     @Column(columnDefinition = "TEXT")
     private String configSnapshot;
@@ -121,6 +124,10 @@ public class Deployment extends BaseTimeEntity {
 
     public void pinApprovedConfig(String fingerprint) {
         this.approvedConfigFingerprint = fingerprint;
+    }
+
+    public void recordRecoveredFrom(Long deploymentId) {
+        this.recoveredFromDeploymentId = deploymentId;
     }
 
     public void recordAppliedConfig(String configSnapshot) {

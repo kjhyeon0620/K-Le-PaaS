@@ -55,6 +55,7 @@ class ApprovalPinningTest {
     @MockitoBean private GeminiClient geminiClient;
     @MockitoBean private IntentParser intentParser;
     @MockitoBean private ActionDispatcher dispatcher;
+    @MockitoBean private klepaas.backend.deployment.service.RecoveryService recoveryService;
 
     @Test
     void approvedConfigIsPinnedUntilExecution() {

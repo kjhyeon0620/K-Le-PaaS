@@ -241,6 +241,9 @@ export function DeploymentRequestDetail({ deploymentId, onBack }: { deploymentId
                   <span>#{detail.command.id} {detail.command.raw_command ? `"${detail.command.raw_command}"` : ""}</span>
                 ) : "-"}
               </Field>
+              {d.recovered_from_deployment_id != null && (
+                <Field label="복구 대상">배포 #{d.recovered_from_deployment_id}의 이미지·설정으로 복구</Field>
+              )}
               <Field label="Branch · Commit"><span className="font-mono">{d.branch_name} · {d.commit_hash}</span></Field>
               <Field label="이미지" wide><span className="font-mono">{d.image_uri ?? "-"}</span></Field>
               <Field label="이미지 digest (실행 중 관측)" wide>

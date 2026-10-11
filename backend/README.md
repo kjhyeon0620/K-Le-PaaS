@@ -100,7 +100,12 @@ GET  /api/v1/deployments/{id}/logs
 GET  /api/v1/deployments/{id}/detail
 POST /api/v1/deployments/{id}/scale
 POST /api/v1/deployments/{id}/restart
+GET  /api/v1/repositories/{repositoryId}/recovery-candidates
+GET  /api/v1/deployments/{id}/recovery-plan
+POST /api/v1/deployments/{id}/recover
 ```
+
+이전 성공 배포로 복구(#101): `recovery-plan`이 배포할 이미지(관측 digest가 있으면 digest 고정), 되돌릴 설정(env 제외), env 차이, 실행 가능 여부와 `plan_fingerprint`를 돌려주고, `recover`는 같은 지문일 때만 env 외 설정을 복원하고 대상 이미지로 새 배포를 만듭니다. 계획이 바뀌면 409 `DEPLOY_004`, 설정 기록 없음·KANIKO·env 차이로 실행할 수 없으면 409 `DEPLOY_005`입니다. 복구 배포의 `recovered_from_deployment_id`에 대상이 남습니다.
 
 `POST /api/v1/deployments`는 같은 저장소에 진행 중인 배포가 있으면 409(`DEPLOY_003`)를 반환합니다. 진행 중 배포와 같은 요청(branch·commit·image_uri)을 다시 보내면 새로 만들지 않고 그 배포를 200으로 반환합니다.
 

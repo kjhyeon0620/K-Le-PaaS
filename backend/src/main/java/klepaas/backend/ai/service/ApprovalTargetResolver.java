@@ -6,6 +6,7 @@ import klepaas.backend.deployment.entity.SourceRepository;
 import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.service.DeploymentConfigSnapshots;
+import klepaas.backend.deployment.service.RecoveryService;
 import klepaas.backend.deployment.service.ResourceAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,7 @@ public class ApprovalTargetResolver {
     private final SourceRepositoryRepository sourceRepositoryRepository;
     private final DeploymentConfigRepository deploymentConfigRepository;
     private final DeploymentConfigSnapshots configSnapshots;
+    private final RecoveryService recoveryService;
 
     public boolean isPinned(Intent intent) {
         return PINNED.contains(intent);
@@ -40,14 +42,13 @@ public class ApprovalTargetResolver {
     public Optional<Resolved> resolve(Intent intent, Map<String, Object> args, Long userId) {
         if (!isPinned(intent) || args == null) return Optional.empty();
         try {
-            SourceRepository repo = intent == Intent.DEPLOY
-                    ? resourceAccessService.requireRepository(toLong(args.get("repository_id")), userId)
-                    : resourceAccessService.requireRepository(sourceRepositoryRepository
-                            .findByOwnerAndRepoName(text(args.get("owner")), text(args.get("repo")))
-                            .map(SourceRepository::getId).orElse(null), userId);
+            if (intent != Intent.DEPLOY) {
+                return resolveRecovery(args, userId);
+            }
+            SourceRepository repo = resourceAccessService.requireRepository(toLong(args.get("repository_id")), userId);
             // ActionDispatcher가 배포 요청을 만들 때 쓰는 기본값과 같다
-            String branch = intent == Intent.DEPLOY ? textOr(args.get("branch_name"), "main") : "main";
-            String commit = intent == Intent.DEPLOY ? textOr(args.get("commit_hash"), "HEAD") : text(args.get("commit_hash"));
+            String branch = textOr(args.get("branch_name"), "main");
+            String commit = textOr(args.get("commit_hash"), "HEAD");
             return deploymentConfigRepository.findBySourceRepositoryId(repo.getId()).map(config -> {
                 String fingerprint = configSnapshots.fingerprint(config);
                 return new Resolved(new ApprovalTarget(repo.getId(), repo.getOwner() + "/" + repo.getRepoName(),
@@ -59,6 +60,25 @@ public class ApprovalTargetResolver {
         } catch (RuntimeException e) {
             return Optional.empty();
         }
+    }
+
+    // 복구 명령 (#101): 대상 배포의 복구 계획. 실행할 수 없으면 지문 없이 이유를 보인다
+    private Optional<Resolved> resolveRecovery(Map<String, Object> args, Long userId) {
+        SourceRepository repo = resourceAccessService.requireRepository(sourceRepositoryRepository
+                .findByOwnerAndRepoName(text(args.get("owner")), text(args.get("repo")))
+                .map(SourceRepository::getId).orElse(null), userId);
+        return recoveryService.findTarget(repo.getId(), text(args.get("commit_hash"))).map(target -> {
+            RecoveryService.Plan plan = recoveryService.computePlan(target);
+            var restore = plan.targetConfig(configSnapshots);
+            var envNames = deploymentConfigRepository.findBySourceRepositoryId(repo.getId())
+                    .map(c -> c.getEnvVars().keySet().stream().sorted().toList()).orElse(java.util.List.of());
+            return new Resolved(new ApprovalTarget(repo.getId(), repo.getOwner() + "/" + repo.getRepoName(),
+                    target.getBranchName(), target.getCommitHash(), restore.map(s -> s.buildStrategy()).orElse(null),
+                    plan.image(), restore.map(s -> s.minReplicas()).orElse(0), restore.map(s -> s.maxReplicas()).orElse(0),
+                    restore.map(s -> s.containerPort()).orElse(0), envNames,
+                    plan.fingerprint() == null ? null : plan.fingerprint().substring(0, 8),
+                    target.getId(), plan.blockedReasons()), plan.fingerprint());
+        });
     }
 
     private static String text(Object value) {

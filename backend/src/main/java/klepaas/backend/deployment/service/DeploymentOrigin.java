@@ -31,6 +31,11 @@ public record DeploymentOrigin(TriggerSource source, Long requestedByUserId, Lon
         return nlp(userId, commandLogId, null);
     }
 
+    /** 복구 실행이 복원한 설정 지문으로 고정한다 (#101) */
+    public DeploymentOrigin withApprovedConfigFingerprint(String fingerprint) {
+        return new DeploymentOrigin(source, requestedByUserId, commandLogId, fingerprint);
+    }
+
     /** approvedConfigFingerprint: 승인한 배포 설정 지문 (#56). apply 직전 비교한다 */
     public static DeploymentOrigin nlp(Long userId, Long commandLogId, String approvedConfigFingerprint) {
         return new DeploymentOrigin(TriggerSource.NLP, userId, commandLogId, approvedConfigFingerprint);

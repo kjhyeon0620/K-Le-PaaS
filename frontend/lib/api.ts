@@ -566,24 +566,27 @@ class ApiClient {
 
   // ─── Rollback (not in Java backend — stub) ────────────────────────────────
 
-  async getRollbackList(owner: string, repo: string): Promise<RollbackListResponse> {
-    return {
-      owner,
-      repo,
-      current_state: null,
-      available_versions: [],
-      total_available: 0,
-      rollback_history: [],
-      total_rollbacks: 0,
-    }
+  // ─── 이전 배포로 복구 (#101) ────────────────────────────────────────────
+
+  async getRecoveryCandidates(owner: string, repo: string): Promise<RecoveryCandidate[]> {
+    const repos = await this.request<any[]>('/api/v1/repositories')
+    const targetRepo = (repos || []).find(
+      (r: any) => r.owner === owner && r.repo_name === repo
+    )
+    if (!targetRepo) throw new Error('Repository not found')
+    return this.request<RecoveryCandidate[]>(`/api/v1/repositories/${targetRepo.id}/recovery-candidates`)
   }
 
-  async rollbackToCommit(owner: string, repo: string, commitSha: string): Promise<any> {
-    return {}
+  async getRecoveryPlan(targetDeploymentId: number): Promise<RecoveryPlan> {
+    return this.request<RecoveryPlan>(`/api/v1/deployments/${targetDeploymentId}/recovery-plan`)
   }
 
-  async rollbackToPrevious(owner: string, repo: string, stepsBack: number = 1): Promise<any> {
-    return {}
+  // 확인한 계획의 지문을 보낸다. 계획이 바뀌었으면 서버가 409로 거절한다
+  async recoverDeployment(targetDeploymentId: number, planFingerprint: string): Promise<DeploymentSummary> {
+    return this.request<DeploymentSummary>(`/api/v1/deployments/${targetDeploymentId}/recover`, {
+      method: 'POST',
+      body: JSON.stringify({ plan_fingerprint: planFingerprint }),
+    })
   }
 
   // ─── Scale / Restart → look up latest deployment ID ──────────────────────
@@ -807,35 +810,30 @@ function mapDeploymentStatus(status: string): 'running' | 'success' | 'failed' |
 
 // ─── Type exports ──────────────────────────────────────────────────────────────
 
-export interface RollbackCandidate {
-  steps_back: number
-  commit_sha: string
-  commit_sha_short: string
-  commit_message: string
-  deployed_at: string | null
-  is_current: boolean
+// GET /api/v1/repositories/{id}/recovery-candidates 항목 (#101)
+export interface RecoveryCandidate {
+  deployment_id: number
+  commit_hash: string
+  image_uri: string
+  image_digest: string | null
+  finished_at: string | null
+  config_recorded: boolean
 }
 
-export interface RollbackListResponse {
-  owner: string
-  repo: string
-  current_state: {
-    commit_sha: string
-    commit_sha_short: string
-    commit_message: string
-    deployed_at: string | null
-    is_rollback: boolean
-    deployment_id: number
-  } | null
-  available_versions: RollbackCandidate[]
-  total_available: number
-  rollback_history: Array<{
-    commit_sha_short: string
-    commit_message: string
-    rolled_back_at: string | null
-    rollback_from_id: number | null
-  }>
-  total_rollbacks: number
+export type ConfigChange = DeploymentDetail['changes'][number]
+
+// GET /api/v1/deployments/{id}/recovery-plan 응답 (#101)
+export interface RecoveryPlan {
+  target_deployment_id: number
+  target_commit: string
+  image: string
+  image_digest: string | null
+  digest_pinned: boolean
+  config_changes: ConfigChange[]
+  env_differences: ConfigChange[]
+  executable: boolean
+  blocked_reasons: string[]
+  plan_fingerprint: string | null
 }
 
 export type DeploymentStatus =
@@ -860,6 +858,8 @@ export interface DeploymentSummary {
   command_log_id?: number | null
   image_digest?: string | null
   failure_kind?: FailureKind | null
+  // 복구 배포가 되돌린 이전 성공 배포 (#101)
+  recovered_from_deployment_id?: number | null
 }
 
 export type TriggerSource = 'WEB' | 'CLI' | 'CI_TOKEN' | 'CI_OIDC' | 'WEBHOOK' | 'NLP'
