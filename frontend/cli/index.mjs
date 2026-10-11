@@ -544,6 +544,13 @@ async function handleDeployments(args, globalOptions, client) {
           console.log(`  [${k.source}] ${k.title} (${k.repository}, ${k.version ?? "-"}${k.updated_at ? `, ${formatKst(k.updated_at)}` : ""})\n    ${k.excerpt}`);
         }
       }
+      if (result.retrieved_knowledge?.length) {
+        // 검색돼 입력에 들어간 지식 전체 (#125). * 표시는 모델이 인용한 것
+        console.log(`\n지식 검색: ${result.retrieved_knowledge.length}건 (인용 ${result.retrieved_knowledge.filter((r) => r.cited).length})`);
+        for (const r of result.retrieved_knowledge) {
+          console.log(`  ${r.cited ? "*" : " "} [${r.source}] ${r.title} (유사도 ${r.similarity})`);
+        }
+      }
       if (result.warnings.length) console.log(`\n검증 메모:\n${result.warnings.map((w) => `  - ${w}`).join("\n")}`);
       return;
     }

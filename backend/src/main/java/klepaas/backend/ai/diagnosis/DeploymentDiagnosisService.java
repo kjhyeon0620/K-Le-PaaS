@@ -17,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import klepaas.backend.ai.knowledge.KnowledgeDtos.KnowledgeCitation;
 import klepaas.backend.ai.knowledge.KnowledgeDtos.KnowledgeItem;
+import klepaas.backend.ai.knowledge.KnowledgeDtos.RetrievedKnowledge;
 import klepaas.backend.ai.knowledge.KnowledgeService;
 
 import java.util.ArrayList;
@@ -70,7 +71,7 @@ public class DeploymentDiagnosisService {
             return save(new DeploymentDiagnosisResponse(deploymentId, RULE_MODEL, NO_EVIDENCE_VERSION, null, null, true,
                     "Pod·이벤트·설정 변경이 관측되지 않고 실패 종류가 원인을 가리키지 않아 원인을 판단할 수 없습니다.",
                     List.of(), List.of(), List.of("배포 대상 Pod와 Kubernetes 이벤트를 직접 확인합니다."), List.of(),
-                    List.of("관측 근거가 없어 모델을 호출하지 않았습니다"), List.of(), false, null), RULE_MODEL, null);
+                    List.of("관측 근거가 없어 모델을 호출하지 않았습니다"), List.of(), List.of(), false, null), RULE_MODEL, null);
         }
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("detail", detail);
@@ -105,13 +106,20 @@ public class DeploymentDiagnosisService {
                     item.text().length() > 200 ? item.text().substring(0, 200) + "…" : item.text()));
         }
         warnings.addAll(0, d.warnings());
-        log.info("Diagnosis: deploymentId={}, model={}, version={}, knowledge={}/{}, category={}, rootCause={}, abstain={}, warnings={}, inputTokens={}, cachedInputTokens={}, outputTokens={}, reasoningTokens={}, latencyMs={}",
-                deploymentId, response.model(), version, cited.size(), knowledge.size(), d.category(), d.rootCause(), d.abstain(), warnings.size(),
+        List<RetrievedKnowledge> retrieved = new ArrayList<>();
+        for (int i = 0; i < knowledge.size(); i++) {
+            KnowledgeItem item = knowledge.get(i);
+            retrieved.add(new RetrievedKnowledge(item.source(), item.ref(), item.title(), item.repository(), item.version(),
+                    item.similarity(), cited.containsKey(i)));
+        }
+        log.info("Diagnosis: deploymentId={}, model={}, version={}, knowledge cited/retrieved={}/{}, topSimilarity={}, category={}, rootCause={}, abstain={}, warnings={}, inputTokens={}, cachedInputTokens={}, outputTokens={}, reasoningTokens={}, latencyMs={}",
+                deploymentId, response.model(), version, cited.size(), knowledge.size(),
+                knowledge.isEmpty() ? null : knowledge.get(0).similarity(), d.category(), d.rootCause(), d.abstain(), warnings.size(),
                 response.usage().inputTokens(), response.usage().cachedInputTokens(), response.usage().outputTokens(),
                 response.usage().reasoningTokens(), response.latencyMs());
         return save(new DeploymentDiagnosisResponse(deploymentId, response.model(), version, d.category(), d.rootCause(),
                 d.abstain(), d.summary(), d.observedFacts(), d.hypotheses(), d.nextChecks(), observed,
-                List.copyOf(warnings), List.copyOf(cited.values()), false, null), diagnosisLlm.model(), response);
+                List.copyOf(warnings), List.copyOf(cited.values()), List.copyOf(retrieved), false, null), diagnosisLlm.model(), response);
     }
 
     /** 지식 검색 실패는 진단을 막지 않는다. 지식 없이 진단하고 warning을 남긴다 */
