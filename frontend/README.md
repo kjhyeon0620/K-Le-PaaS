@@ -37,7 +37,7 @@ K-Le-PaaS 프론트엔드는 agent-safe Kubernetes control plane을 사람이 �
 |---|---|---|
 | 인증 UI | 구현 MVP | OAuth callback, auth context, token 저장/검증 흐름 존재 |
 | 저장소 / 배포 UI | 구현 MVP | backend repository/deployment API와 일부 연동 |
-| 자연어 명령 UI | 구현 MVP | `/api/v1/nlp/command`, `/api/v1/nlp/confirm`, history 연동 |
+| 자연어 명령 UI | 구현 MVP | `/api/v1/nlp/command`, `/api/v1/nlp/confirm`, history 연동. 배포 명령 확인 시 승인 대상(저장소·이미지·레플리카·포트·env 이름·설정 지문) 표시 (#56) |
 | CLI token UI | 구현 MVP | `/api/v1/cli-tokens` 연동 |
 | WebSocket | 구현 MVP | `/api/v1/ws/deployments?token={jwt}` 연결 |
 | CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`(`logs` 포함), `cost`, `doctor` |

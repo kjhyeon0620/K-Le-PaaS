@@ -43,7 +43,7 @@ K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 
 | KLEPAAS CI/CD | 구현 | main 빌드 성공 후 Oracle ARM64 systemd 자동 배포, 버전·readiness 확인 및 실패 시 앱 버전 복구 |
 | Commit SHA image tags | 구현 | 짧은 commit SHA를 이미지 태그로 사용 |
 | Natural language operations | 구현 MVP | Gemini client, intent parser, dispatcher, command log, confirmation flow 구현 |
-| Risk confirmation | 구현 MVP | MEDIUM / HIGH 명령은 확인 후 실행 |
+| Risk confirmation | 구현 MVP | MEDIUM / HIGH 명령은 확인 후 실행. 승인한 배포는 승인 당시 설정 지문으로 고정해 설정이 바뀌면 실행·적용하지 않음 (#56) |
 | Resource access | 구현 | 저장소 소유권·namespace·라벨·허용 참조 검사, 명령 승인 만료·동시 중복 차단 |
 | CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor` 제공, 토큰 권한 범위(`read-only`/`propose-only`/배포 전용/`full`) 서버 강제 |
 | Cost guardrails | 구현 MVP | spec 기반 비용 추정, diff, explain, budget check 제공 |

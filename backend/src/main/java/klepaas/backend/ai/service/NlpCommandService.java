@@ -36,6 +36,7 @@ public class NlpCommandService {
     private final GeminiClient geminiClient;
     private final IntentParser intentParser;
     private final ActionDispatcher actionDispatcher;
+    private final ApprovalTargetResolver approvalTargets;
     private final CommandLogRepository commandLogRepository;
     private final CommandConfirmationService confirmations;
     private final ConversationSessionRepository sessionRepository;
@@ -47,6 +48,7 @@ public class NlpCommandService {
             GeminiClient geminiClient,
             IntentParser intentParser,
             ActionDispatcher actionDispatcher,
+            ApprovalTargetResolver approvalTargets,
             CommandLogRepository commandLogRepository,
             CommandConfirmationService confirmations,
             ConversationSessionRepository sessionRepository,
@@ -56,6 +58,7 @@ public class NlpCommandService {
         this.geminiClient = geminiClient;
         this.intentParser = intentParser;
         this.actionDispatcher = actionDispatcher;
+        this.approvalTargets = approvalTargets;
         this.commandLogRepository = commandLogRepository;
         this.confirmations = confirmations;
         this.sessionRepository = sessionRepository;
@@ -90,6 +93,11 @@ public class NlpCommandService {
         // 인자 직렬화
         String intentArgsJson = serializeArgs(parsedIntent);
 
+        // 승인할 배포 설정을 고정한다 (#56). 확인하지 못하면 지문 없이 저장되고 confirm에서 거절된다
+        var approval = requiresConfirmation
+                ? approvalTargets.resolve(parsedIntent.intent(), parsedIntent.args(), userId)
+                : java.util.Optional.<ApprovalTargetResolver.Resolved>empty();
+
         // CommandLog 저장
         CommandLog commandLog = CommandLog.builder()
                 .user(user)
@@ -101,6 +109,7 @@ public class NlpCommandService {
                 .aiResponse(responseText)
                 .session(session)
                 .build();
+        approval.ifPresent(resolved -> commandLog.pinApprovedConfig(resolved.fingerprint()));
         commandLogRepository.save(commandLog);
 
         // LOW 리스크는 즉시 실행
@@ -133,7 +142,8 @@ public class NlpCommandService {
                 result,
                 riskLevel,
                 requiresConfirmation,
-                session.getSessionToken()
+                session.getSessionToken(),
+                approval.map(ApprovalTargetResolver.Resolved::target).orElse(null)
         );
     }
 
@@ -161,9 +171,20 @@ public class NlpCommandService {
         // 저장된 Intent 정보로 실행
         Object result;
         String message = "명령이 실행되었습니다.";
+        ApprovalTarget approvalTarget = null;
         try {
             ParsedIntent parsedIntent = deserializeParsedIntent(commandLog);
-            result = actionDispatcher.dispatch(parsedIntent, userId, commandLog.getId());
+            String approvedFingerprint = null;
+            // 승인 후 설정이 바뀌었거나 승인 대상을 확인할 수 없으면 실행하지 않는다 (#56)
+            if (approvalTargets.isPinned(parsedIntent.intent())) {
+                var current = approvalTargets.resolve(parsedIntent.intent(), parsedIntent.args(), userId).orElse(null);
+                if (current == null || !current.fingerprint().equals(commandLog.getApprovedConfigFingerprint())) {
+                    throw new BusinessException(ErrorCode.APPROVAL_TARGET_CHANGED);
+                }
+                approvalTarget = current.target();
+                approvedFingerprint = current.fingerprint();
+            }
+            result = actionDispatcher.dispatch(parsedIntent, userId, commandLog.getId(), approvedFingerprint);
             if (result instanceof FormattedResponseDto formatted && "error".equals(formatted.type())) {
                 confirmations.fail(commandLog.getId(), formatted.message());
                 message = formatted.message();
@@ -174,6 +195,9 @@ public class NlpCommandService {
             log.error("확인 명령 실행 실패: intent={}", commandLog.getInterpretedIntent(), e);
             String reason = KubernetesErrorMessages.userMessage(e);
             confirmations.fail(commandLog.getId(), reason);
+            if (e instanceof BusinessException b && b.getErrorCode() == ErrorCode.APPROVAL_TARGET_CHANGED) {
+                throw b;
+            }
             message = "명령 실행에 실패했습니다: " + reason;
             result = null;
         }
@@ -185,7 +209,8 @@ public class NlpCommandService {
                 result,
                 commandLog.getRiskLevel(),
                 false,
-                commandLog.getSession() != null ? commandLog.getSession().getSessionToken() : null
+                commandLog.getSession() != null ? commandLog.getSession().getSessionToken() : null,
+                approvalTarget
         );
     }
 

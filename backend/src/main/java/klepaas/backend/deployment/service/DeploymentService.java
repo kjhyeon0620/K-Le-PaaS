@@ -103,6 +103,7 @@ public class DeploymentService {
         }
         deployment.setGithubDeliveryId(githubDeliveryId);
         deployment.recordRequest(origin.source(), origin.requestedByUserId(), origin.commandLogId());
+        deployment.pinApprovedConfig(origin.approvedConfigFingerprint());
         deploymentRepository.save(deployment);
 
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),

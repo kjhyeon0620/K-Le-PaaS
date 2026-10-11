@@ -245,6 +245,7 @@ async function handleAsk(args, globalOptions, client) {
     ["Risk", response.risk_level ?? "-"],
     ["Needs Confirm", response.requires_confirmation ? "yes" : "no"],
   ]);
+  printApprovalTarget(response.approval_target);
   if (response.message) {
     console.log(`\n${response.message}`);
   }
@@ -252,6 +253,22 @@ async function handleAsk(args, globalOptions, client) {
     console.log("\nResult:");
     printJson(response.result);
   }
+}
+
+// 승인할 배포 대상 (#56). env는 이름만 받는다. 설정이 바뀌면 confirm이 409로 거절된다
+function printApprovalTarget(target) {
+  if (!target) return;
+  console.log("\n승인 대상:");
+  printKeyValues([
+    ["Repository", `${target.repository} (#${target.repository_id})`],
+    ["Branch / Commit", `${target.branch} / ${target.commit ?? "-"}`],
+    ["Build", target.build_strategy ?? "-"],
+    ["Image", target.image ?? "-"],
+    ["Replicas", `${target.min_replicas}-${target.max_replicas}`],
+    ["Container Port", target.container_port],
+    ["Env Names", target.env_names?.length ? target.env_names.join(", ") : "-"],
+    ["Config", target.config_fingerprint],
+  ]);
 }
 
 async function handleConfirm(args, globalOptions, client) {

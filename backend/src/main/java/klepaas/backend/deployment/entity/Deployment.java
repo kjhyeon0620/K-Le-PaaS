@@ -55,6 +55,10 @@ public class Deployment extends BaseTimeEntity {
     // 자연어 명령으로 승인·실행된 배포의 명령 기록
     private Long commandLogId;
 
+    // 승인한 배포 설정 지문 (#56). 있으면 apply 직전 적용할 설정과 같아야 한다. 직접 요청 배포는 null
+    @Column(length = 64)
+    private String approvedConfigFingerprint;
+
     // 적용한 배포 설정 JSON. env 값은 저장하지 않는다 (DeploymentConfigSnapshot)
     @Column(columnDefinition = "TEXT")
     private String configSnapshot;
@@ -113,6 +117,10 @@ public class Deployment extends BaseTimeEntity {
         this.triggerSource = triggerSource;
         this.requestedByUserId = requestedByUserId;
         this.commandLogId = commandLogId;
+    }
+
+    public void pinApprovedConfig(String fingerprint) {
+        this.approvedConfigFingerprint = fingerprint;
     }
 
     public void recordAppliedConfig(String configSnapshot) {

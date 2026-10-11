@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { Fragment, useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -59,6 +59,22 @@ interface PendingAction {
   parameters: Record<string, any>
   estimated_cost?: CostEstimate
   risk_level?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  approval_target?: ApprovalTarget | null
+}
+
+// 승인할 배포 대상 (#56). 승인 후 설정이 바뀌면 서버가 실행을 거절한다
+interface ApprovalTarget {
+  repository_id: number
+  repository: string
+  branch: string
+  commit: string | null
+  build_strategy: string | null
+  image: string | null
+  min_replicas: number
+  max_replicas: number
+  container_port: number
+  env_names: string[]
+  config_fingerprint: string
 }
 
 const suggestedCommands = [
@@ -645,6 +661,27 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
                     {message.pending_action.risk_level}
                   </Badge>
                 </div>
+                {message.pending_action.approval_target && (
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border p-3 text-xs">
+                    {([
+                      ["저장소", message.pending_action.approval_target.repository],
+                      ["브랜치 / commit", `${message.pending_action.approval_target.branch} / ${message.pending_action.approval_target.commit ?? "-"}`],
+                      ["이미지", message.pending_action.approval_target.image ?? message.pending_action.approval_target.build_strategy ?? "-"],
+                      ["레플리카", `${message.pending_action.approval_target.min_replicas}-${message.pending_action.approval_target.max_replicas}`],
+                      ["포트", String(message.pending_action.approval_target.container_port)],
+                      ["env", message.pending_action.approval_target.env_names.join(", ") || "-"],
+                      ["설정 지문", message.pending_action.approval_target.config_fingerprint],
+                    ] as const).map(([label, value]) => (
+                      <Fragment key={label}>
+                        <dt className="text-muted-foreground">{label}</dt>
+                        <dd className="font-mono break-all">{value}</dd>
+                      </Fragment>
+                    ))}
+                    <p className="col-span-2 mt-1 text-muted-foreground">
+                      승인 후 배포 설정이 바뀌면 실행하지 않습니다. 이 경우 명령을 다시 보내 주세요.
+                    </p>
+                  </dl>
+                )}
                 <div className="flex gap-2">
                   <Button
                     size="sm"

@@ -89,6 +89,9 @@ klepaas confirm 123 --yes
 klepaas history --page 0 --size 20
 ```
 
+- 배포·롤백처럼 승인이 필요한 배포 명령이면 `ask`가 "승인 대상"(저장소, 브랜치/commit, 빌드, 이미지, 레플리카, 포트, env 이름, 설정 지문 8자리)을 출력한다. env 값은 출력하지 않는다. `--json`에서는 `approval_target` 필드다 (#56).
+- 승인 대기 중 배포 설정이 바뀌었거나 승인 대상을 확인할 수 없으면 `confirm`은 실행하지 않고 409(`AI_006`) 이유를 출력하며 종료 코드 `1`로 끝난다. 같은 자연어 명령을 다시 보내 새 설정으로 승인한다.
+
 ```bash
 klepaas deployments list --repository-id 1
 klepaas deployments get 42

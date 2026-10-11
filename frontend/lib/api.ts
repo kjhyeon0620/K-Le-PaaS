@@ -39,7 +39,16 @@ class ApiClient {
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`HTTP error! status: ${response.status}, response:`, errorText)
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
+        // 서버 ApiResponse의 message를 보여 준다. 호출부가 상태 코드로 분기하므로 코드는 남긴다
+        let serverMessage: string | undefined
+        try {
+          serverMessage = JSON.parse(errorText)?.message
+        } catch {
+          serverMessage = undefined
+        }
+        throw new Error(serverMessage
+          ? `${serverMessage} (HTTP ${response.status})`
+          : `HTTP error! status: ${response.status} - ${errorText}`)
       }
 
       const json = await response.json()
@@ -479,6 +488,7 @@ class ApiClient {
             parsed_intent: response?.intent || 'unknown',
             parameters: {},
             risk_level: response?.risk_level || 'LOW',
+            approval_target: response?.approval_target ?? null,
           }
         : null,
       cost_estimate: null,

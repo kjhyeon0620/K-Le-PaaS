@@ -125,6 +125,11 @@ public class DeploymentPipelineStepService {
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repo.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
+        // 승인한 설정과 다르면 적용하지 않는다 (#56). 적용할 바로 그 설정 객체로 비교한다
+        if (deployment.getApprovedConfigFingerprint() != null
+                && !deployment.getApprovedConfigFingerprint().equals(configSnapshots.fingerprint(config))) {
+            throw new BusinessException(ErrorCode.APPROVAL_TARGET_CHANGED, "승인 후 배포 설정이 바뀌어 적용하지 않음 (명령을 다시 보내 승인하세요)");
+        }
         var applied = k8sGenerator.deploy(appName, imageUri, config, repo.getId(), deploymentId);
         deployment.recordAppliedResource(applied.resourceUid(), applied.generation());
         deploymentRepository.save(deployment);
