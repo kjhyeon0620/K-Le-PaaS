@@ -261,6 +261,7 @@ public class NlpCommandService {
     }
 
     public Page<CommandLogResponse> getHistory(Long userId, Pageable pageable) {
+        confirmations.expireStale(userId);
         return commandLogRepository.findByUserId(userId, pageable)
                 .map(CommandLogResponse::from);
     }

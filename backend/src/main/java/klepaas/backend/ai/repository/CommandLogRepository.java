@@ -23,6 +23,11 @@ public interface CommandLogRepository extends JpaRepository<CommandLog, Long> {
     @Query("update CommandLog c set c.status = :expired where c.id = :id and c.user.id = :userId and c.status = :pending and c.createdAt <= :cutoff")
     int expire(Long id, Long userId, CommandStatus pending, CommandStatus expired, LocalDateTime cutoff);
 
+    /** 그 사용자의 만료된 승인 대기 명령을 한 번에 EXPIRED로 바꾼다 (#126). 승인 시 만료 판정과 같은 기준 */
+    @Modifying
+    @Query("update CommandLog c set c.status = :expired where c.user.id = :userId and c.requiresConfirmation = true and c.status = :pending and c.createdAt <= :cutoff")
+    int expireStale(Long userId, CommandStatus pending, CommandStatus expired, LocalDateTime cutoff);
+
     @Modifying
     @Query("update CommandLog c set c.status = :next, c.isExecuted = :executed, c.executionResult = :result, c.errorMessage = :error where c.id = :id and c.status = :executing")
     int finish(Long id, CommandStatus executing, CommandStatus next, boolean executed, String result, String error);

@@ -116,6 +116,24 @@ class CommandConfirmationConcurrencyTest {
         assertThat(logs.findById(legacy).orElseThrow().getStatus()).isEqualTo(CommandStatus.UNKNOWN);
     }
 
+    /** 만료된 승인 대기 명령은 이력 조회 때 EXPIRED로 보인다. 유효한 것·다른 사용자 것은 그대로 (#126) */
+    @Test
+    void historyShowsExpiredPendingCommandsAsExpired() {
+        Long owner = users.save(User.builder().name("owner").email("owner3@example.com").role(Role.USER).build()).getId();
+        Long other = users.save(User.builder().name("other").email("other3@example.com").role(Role.USER).build()).getId();
+        Long stale = pending(owner);
+        Long fresh = pending(owner);
+        Long othersStale = pending(other);
+        jdbc.update("update command_log set created_at = ? where id in (?, ?)", LocalDateTime.now().minusMinutes(11), stale, othersStale);
+
+        var history = commands.getHistory(owner, org.springframework.data.domain.PageRequest.of(0, 20));
+
+        assertThat(history.getContent()).extracting(c -> c.id() + ":" + c.status())
+                .contains(stale + ":EXPIRED", fresh + ":PENDING");
+        assertThat(logs.findById(othersStale).orElseThrow().getStatus()).isEqualTo(CommandStatus.PENDING);
+        assertThat(confirmations.claim(fresh, owner)).isNotNull();
+    }
+
     private Long pending(Long userId) {
         User user = users.findById(userId).orElseThrow();
         return logs.saveAndFlush(CommandLog.builder().user(user)
