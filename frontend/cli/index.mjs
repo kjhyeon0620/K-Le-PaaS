@@ -57,6 +57,9 @@ async function main() {
     case "deployments":
       await handleDeployments(rest, globalOptions, client);
       return;
+    case "repositories":
+      await handleRepositories(rest, globalOptions, client);
+      return;
     case "cost":
       await handleCost(rest, globalOptions, client);
       return;
@@ -238,7 +241,10 @@ async function handleAsk(args, globalOptions, client) {
     printJson(response);
     return;
   }
+  printCommandResponse(response);
+}
 
+function printCommandResponse(response) {
   printKeyValues([
     ["Command Log", response.command_log_id ?? "-"],
     ["Intent", response.intent ?? "-"],
@@ -325,6 +331,30 @@ async function handleHistory(args, globalOptions, client) {
     { key: "is_executed", label: "Executed" },
     { key: (row) => formatKst(row.created_at), label: "Created At" },
     { key: (row) => truncate(row.raw_command, 32), label: "Command" },
+  ]);
+}
+
+// 앱(저장소) 목록 (#102). 에이전트가 저장소 id를 얻는 출발점이다
+async function handleRepositories(args, globalOptions, client) {
+  const subcommand = args.shift();
+  if (subcommand !== "list") {
+    throw new CliError("`repositories` 하위 명령은 `list`여야 합니다.", EXIT_CODES.INPUT);
+  }
+  assertNoUnknownOptions(args);
+  const repositories = await client.getRepositories();
+  if (globalOptions.json) {
+    printJson(repositories);
+    return;
+  }
+  if (!repositories?.length) {
+    console.log("저장소가 없습니다.");
+    return;
+  }
+  printRows(repositories, [
+    { key: "id", label: "ID" },
+    { key: (row) => `${row.owner}/${row.repo_name}`, label: "Repository" },
+    { key: "cloud_vendor", label: "Vendor" },
+    { key: (row) => formatKst(row.created_at), label: "Created At" },
   ]);
 }
 
@@ -422,6 +452,24 @@ async function handleDeployments(args, globalOptions, client) {
         for (const c of result.cited) console.log(`  ${c.pointer}\n    ${c.excerpt}`);
       }
       if (result.warnings.length) console.log(`\n검증 메모:\n${result.warnings.map((w) => `  - ${w}`).join("\n")}`);
+      return;
+    }
+    case "propose-recovery": {
+      // 에이전트의 복구 제안 (#102). 승인 대기 명령만 만들고 실행은 사람이 confirm으로 한다
+      const targetId = Number(args.shift());
+      const reason = takeOption(args, "--reason");
+      assertNoUnknownOptions(args);
+      if (!Number.isFinite(targetId)) {
+        throw new CliError("복구 대상 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      const response = await client.proposeRecovery(targetId, reason);
+      if (globalOptions.json) {
+        printJson(response);
+        return;
+      }
+      printCommandResponse(response);
+      console.log(`
+사람이 전체 권한으로 10분 안에 승인해야 실행됩니다: klepaas confirm ${response.command_log_id}`);
       return;
     }
     case "recovery-plan":
@@ -567,7 +615,7 @@ async function handleDeployments(args, globalOptions, client) {
     }
     default:
       throw new CliError(
-        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export`, `diagnose`, `recovery-plan`, `recover` 중 하나여야 합니다.",
+        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export`, `diagnose`, `propose-recovery`, `recovery-plan`, `recover` 중 하나여야 합니다.",
         EXIT_CODES.INPUT
       );
   }
@@ -961,6 +1009,8 @@ Commands:
   confirm <command-log-id> [--yes|--no]
   history [--page <n>] [--size <n>]
 
+  repositories list
+
   deployments list --repository-id <id> [--page <n>] [--size <n>]
   deployments get <deployment-id>
   deployments logs <deployment-id> [--lines <n>]
@@ -969,6 +1019,7 @@ Commands:
   deployments wait <deployment-id> [--timeout <sec>] [--interval <sec>]
   deployments export <deployment-id> [--format json|yaml] [--output <file>]
   deployments diagnose <deployment-id> [--refresh]
+  deployments propose-recovery <target-deployment-id> [--reason <text>]
   deployments recovery-plan <target-deployment-id>
   deployments recover <target-deployment-id> [--yes]
 

@@ -68,6 +68,8 @@ public class SecurityConfig {
                         // 읽기 전용 진단 (#100): 상태를 바꾸지 않으므로 읽기 scope부터 허용한다
                         .requestMatchers(HttpMethod.POST, "/api/v1/deployments/*/diagnosis").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.POST, "/api/v1/nlp/command").hasAnyAuthority(PROPOSE_ONLY, FULL)
+                        // 에이전트 복구 제안 (#102): 승인 대기 명령만 만든다. 승인(nlp/confirm)은 FULL
+                        .requestMatchers(HttpMethod.POST, "/api/v1/deployments/*/recovery-proposal").hasAnyAuthority(PROPOSE_ONLY, FULL)
                         .anyRequest().hasAuthority(FULL)
                 )
                 .exceptionHandling(ex -> ex

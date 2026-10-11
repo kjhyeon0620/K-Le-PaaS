@@ -133,6 +133,7 @@ POST /api/v1/deployments/{targetId}/recover          {plan_fingerprint}. 한 트
 ```
 
 - 계획 지문 = SHA-256(대상 ID | 배포할 이미지 | 현재 설정 지문). 계획은 저장하지 않는다.
+- 에이전트 제안 (#102): `POST /deployments/{targetId}/recovery-proposal`(PROPOSE_ONLY 이상)은 자연어 해석 없이 승인 대기 명령(ROLLBACK, 인자에 `target_deployment_id`, 계획 지문 고정)만 만든다. 승인은 `nlp/confirm`(FULL)이고, 지문 비교·10분 만료는 자연어 명령과 같다. ROLLBACK 인자에 `target_deployment_id`가 있으면 commit 대신 그 배포를 대상으로 쓴다.
 - 차단: 설정 기록 없음(#95 이전), 대상 빌드 경로 KANIKO(이미지를 다시 빌드함), 현재 env 이름·값 지문이 대상과 다름(env 값은 기록하지 않아 되돌릴 수 없음). 사용자가 env를 맞추면 다시 계획할 수 있다.
 - 자연어 LIST_ROLLBACK·ROLLBACK·ROLLBACK_EXECUTION도 이 경로를 쓴다. ROLLBACK은 commit 접두가 맞는 최신 후보(없으면 직전 성공 배포)의 계획을 `approval_target`으로 보이고 계획 지문을 고정한다.
 
@@ -188,7 +189,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | scope | 허용 | 용도 |
 |---|---|---|
 | `READ_ONLY` | 모든 GET, `POST /cost/**` | 모니터링 |
-| `PROPOSE_ONLY` | READ_ONLY + `POST /nlp/command` (승인은 불가) | AI agent |
+| `PROPOSE_ONLY` | READ_ONLY + `POST /nlp/command`, `POST /deployments/{id}/recovery-proposal` (승인은 불가) | AI agent |
 | `DEPLOY` | 지정한 저장소 1개의 `POST /deployments`만 | CI |
 | `FULL` | 전체 | 사람 (Web JWT는 항상 FULL) |
 

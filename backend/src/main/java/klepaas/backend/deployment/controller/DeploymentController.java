@@ -33,6 +33,7 @@ public class DeploymentController {
     private final ResourceAccessService resourceAccessService;
     private final RecoveryService recoveryService;
     private final klepaas.backend.ai.diagnosis.DeploymentDiagnosisService deploymentDiagnosisService;
+    private final klepaas.backend.ai.service.NlpCommandService nlpCommandService;
 
     @PostMapping("/deployments")
     public ResponseEntity<ApiResponse<DeploymentResponse>> createDeployment(
@@ -60,6 +61,15 @@ public class DeploymentController {
     }
 
     // ─── 이전 배포로 복구 (#101) ───────────────────────────────────────────
+
+    // 에이전트의 복구 제안 (#102). 승인 대기 명령만 만들고 실행하지 않는다. PROPOSE_ONLY부터 허용(SecurityConfig)
+    @PostMapping("/deployments/{id}/recovery-proposal")
+    public ApiResponse<klepaas.backend.ai.dto.NlpCommandResponse> proposeRecovery(@PathVariable Long id,
+            @Valid @RequestBody(required = false) klepaas.backend.ai.dto.RecoveryProposalRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(nlpCommandService.proposeRecovery(userDetails.getUserId(), id,
+                request == null ? null : request.reason()));
+    }
 
     @GetMapping("/repositories/{repositoryId}/recovery-candidates")
     public ApiResponse<java.util.List<RecoveryCandidateResponse>> getRecoveryCandidates(@PathVariable Long repositoryId,

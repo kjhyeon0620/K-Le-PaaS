@@ -32,6 +32,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
@@ -46,6 +47,7 @@ class NlpCommandServiceTest {
     @Mock private CommandConfirmationService confirmations;
     @Mock private ConversationSessionRepository sessionRepository;
     @Mock private UserRepository userRepository;
+    @Mock private klepaas.backend.deployment.service.ResourceAccessService resourceAccessService;
 
     private NlpCommandService nlpCommandService;
     private User testUser;
@@ -56,7 +58,7 @@ class NlpCommandServiceTest {
         var systemPromptResource = new ByteArrayResource("테스트 시스템 프롬프트".getBytes());
         nlpCommandService = new NlpCommandService(
                 geminiClient, intentParser, actionDispatcher, approvalTargets,
-                commandLogRepository, confirmations, sessionRepository, userRepository,
+                commandLogRepository, confirmations, sessionRepository, userRepository, resourceAccessService,
                 systemPromptResource
         );
 
@@ -69,6 +71,63 @@ class NlpCommandServiceTest {
         ReflectionTestUtils.setField(testUser, "id", 1L);
 
         testSession = new ConversationSession(testUser);
+    }
+
+    private klepaas.backend.deployment.entity.Deployment proposalTarget() {
+        var repo = klepaas.backend.deployment.entity.SourceRepository.builder().user(testUser).owner("owner").repoName("app")
+                .gitUrl("https://example.test/owner/app").cloudVendor(klepaas.backend.deployment.entity.CloudVendor.ON_PREMISE).build();
+        ReflectionTestUtils.setField(repo, "id", 7L);
+        var target = klepaas.backend.deployment.entity.Deployment.builder().sourceRepository(repo).branchName("main")
+                .commitHash("abcdef1234").build();
+        ReflectionTestUtils.setField(target, "id", 3L);
+        return target;
+    }
+
+    @Test
+    @DisplayName("복구 제안은 지정 배포의 계획 지문을 고정한 승인 대기 명령만 만들고 실행하지 않는다 (#102)")
+    void recoveryProposalCreatesPendingCommandOnly() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(resourceAccessService.requireDeployment(3L, 1L)).willReturn(proposalTarget());
+        given(actionDispatcher.classifyRisk(Intent.ROLLBACK)).willReturn(RiskLevel.HIGH);
+        var target = new ApprovalTarget(7L, "owner/app", "main", "abcdef1234", BuildStrategy.PREBUILT_IMAGE, "img@sha256:1",
+                1, 1, 8080, List.of(), "planfp12", 3L, List.of());
+        given(approvalTargets.resolve(eq(Intent.ROLLBACK), any(), eq(1L)))
+                .willReturn(Optional.of(new ApprovalTargetResolver.Resolved(target, "planfp1234")));
+
+        NlpCommandResponse response = nlpCommandService.proposeRecovery(1L, 3L, "readiness 실패 후 이전 이미지로");
+
+        var saved = org.mockito.ArgumentCaptor.forClass(CommandLog.class);
+        verify(commandLogRepository).save(saved.capture());
+        assertThat(saved.getValue().getInterpretedIntent()).isEqualTo(Intent.ROLLBACK);
+        assertThat(saved.getValue().getStatus()).isEqualTo(CommandStatus.PENDING);
+        assertThat(saved.getValue().getApprovedConfigFingerprint()).isEqualTo("planfp1234");
+        assertThat(saved.getValue().getIntentArgs()).contains("\"target_deployment_id\":3");
+        assertThat(saved.getValue().getRawCommand()).isEqualTo("복구 제안: 배포 #3 (abcdef1) — readiness 실패 후 이전 이미지로");
+        assertThat(response.requiresConfirmation()).isTrue();
+        assertThat(response.approvalTarget()).isEqualTo(target);
+        verify(actionDispatcher, never()).dispatch(any(), any(), any());
+        verify(actionDispatcher, never()).dispatch(any(), any(), any(), any());
+        verifyNoInteractions(geminiClient);
+    }
+
+    @Test
+    @DisplayName("실행할 수 없는 복구 계획과 권한 밖 배포는 제안을 만들지 않는다 (#102)")
+    void recoveryProposalRejectsBlockedOrForeignTarget() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(resourceAccessService.requireDeployment(3L, 1L)).willReturn(proposalTarget());
+        var blocked = new ApprovalTarget(7L, "owner/app", "main", "abcdef1234", null, "img", 0, 0, 0, List.of(), null, 3L,
+                List.of("대상 배포의 설정 기록이 없습니다 (#95 이전 배포)"));
+        given(approvalTargets.resolve(eq(Intent.ROLLBACK), any(), eq(1L)))
+                .willReturn(Optional.of(new ApprovalTargetResolver.Resolved(blocked, null)));
+        assertThatThrownBy(() -> nlpCommandService.proposeRecovery(1L, 3L, null))
+                .isInstanceOfSatisfying(BusinessException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RECOVERY_BLOCKED);
+                    assertThat(e.getMessage()).contains("설정 기록이 없습니다");
+                });
+
+        given(resourceAccessService.requireDeployment(4L, 1L)).willThrow(new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
+        assertThatThrownBy(() -> nlpCommandService.proposeRecovery(1L, 4L, null)).isInstanceOf(EntityNotFoundException.class);
+        verify(commandLogRepository, never()).save(any());
     }
 
     @Test

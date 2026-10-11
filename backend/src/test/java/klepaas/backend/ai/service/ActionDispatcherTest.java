@@ -94,6 +94,30 @@ class ActionDispatcherTest {
     }
 
     @Test
+    @DisplayName("에이전트 제안의 ROLLBACK은 commit이 아니라 지정한 배포 ID로 복구한다 (#102)")
+    void rollbackUsesProposedTargetDeploymentId() {
+        User owner = User.builder().name("owner").email("owner@example.com").role(Role.USER).build();
+        ReflectionTestUtils.setField(owner, "id", 1L);
+        SourceRepository repo = SourceRepository.builder().user(owner).owner("owner").repoName("app")
+                .gitUrl("https://github.com/owner/app").cloudVendor(CloudVendor.ON_PREMISE).build();
+        ReflectionTestUtils.setField(repo, "id", 7L);
+        Deployment older = Deployment.builder().sourceRepository(repo).branchName("main").commitHash("aaaaaaa1").build();
+        ReflectionTestUtils.setField(older, "id", 2L);
+        given(sourceRepositoryRepository.findByOwnerAndRepoName("owner", "app")).willReturn(Optional.of(repo));
+        given(resourceAccessService.requireDeployment(2L, 1L)).willReturn(older);
+        var recovered = new DeploymentResponse(9L, 7L, "owner/app", "main", "aaaaaaa1", "img",
+                DeploymentStatus.PENDING, null, null, null, null, null, 1L, 42L, null, null, 2L);
+        given(recoveryService.recover(eq(2L), eq("plan-fp"), eq(1L), any()))
+                .willReturn(new klepaas.backend.deployment.dto.CreateDeploymentResult(recovered, true));
+
+        actionDispatcher.dispatch(new ParsedIntent(Intent.ROLLBACK, Map.of("owner", "owner", "repo", "app",
+                "commit_hash", "aaaaaaa1", "target_deployment_id", 2), 1.0, ""), 1L, 42L, "plan-fp");
+
+        verify(recoveryService).recover(eq(2L), eq("plan-fp"), eq(1L), any());
+        verify(recoveryService, org.mockito.Mockito.never()).findTarget(any(), any());
+    }
+
+    @Test
     @DisplayName("DEPLOY는 HIGH 리스크")
     void classifyDeployAsHigh() {
         assertThat(actionDispatcher.classifyRisk(Intent.DEPLOY)).isEqualTo(RiskLevel.HIGH);
