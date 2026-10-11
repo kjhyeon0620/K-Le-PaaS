@@ -63,6 +63,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // CLI 토큰 scope: 아래에 없는 변경(토큰 발급·폐기 포함)은 FULL만 허용
                         .requestMatchers(HttpMethod.POST, "/api/v1/deployments").hasAnyAuthority(FULL, DEPLOY, GITHUB_ACTIONS) // 저장소는 컨트롤러에서 확인
+                        // MCP 서버 (#103): 조회·제안 도구만 있다. 도구별 scope는 McpTools가 REST 규칙과 같게 확인한다
+                        .requestMatchers("/api/v1/mcp").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.POST, "/api/v1/cost/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         // 읽기 전용 진단 (#100): 상태를 바꾸지 않으므로 읽기 scope부터 허용한다
