@@ -578,8 +578,8 @@ class ApiClient {
   }
 
   // 근거 기반 읽기 전용 진단 (#100). 요청마다 모델을 호출하므로 사용자가 누를 때만 부른다
-  async diagnoseDeployment(deploymentId: number): Promise<DeploymentDiagnosis> {
-    return this.request<DeploymentDiagnosis>(`/api/v1/deployments/${deploymentId}/diagnosis`, { method: 'POST' })
+  async diagnoseDeployment(deploymentId: number, refresh = false): Promise<DeploymentDiagnosis> {
+    return this.request<DeploymentDiagnosis>(`/api/v1/deployments/${deploymentId}/diagnosis${refresh ? '?refresh=true' : ''}`, { method: 'POST' })
   }
 
   async getRecoveryPlan(targetDeploymentId: number): Promise<RecoveryPlan> {
@@ -841,6 +841,8 @@ export interface DeploymentDiagnosis {
   next_checks: string[]
   cited: { pointer: string; excerpt: string }[]
   warnings: string[]
+  reused: boolean
+  diagnosed_at: string | null
 }
 
 // GET /api/v1/deployments/{id}/recovery-plan 응답 (#101)

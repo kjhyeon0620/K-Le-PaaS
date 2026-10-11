@@ -167,7 +167,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   SCHEDULING: "스케줄링",
 }
 
-// AI 진단 (실험, #100). 누를 때만 호출하고 결과는 저장하지 않는다. 근거 원문은 서버가 입력에서 잘라 준 값이다
+// AI 진단 (실험, #100). 누를 때만 호출한다. 서버가 저장한 최근 결과가 있으면 그것을 받고, "다시 진단"은 새로 진단한다 (#117).
+// 근거 원문은 서버가 입력에서 잘라 준 값이다
 function DiagnosisCard({ deploymentId }: { deploymentId: number }) {
   const [result, setResult] = useState<DeploymentDiagnosis | null>(null)
   const [loading, setLoading] = useState(false)
@@ -177,7 +178,7 @@ function DiagnosisCard({ deploymentId }: { deploymentId: number }) {
     setLoading(true)
     setError(null)
     try {
-      setResult(await api.diagnoseDeployment(deploymentId))
+      setResult(await api.diagnoseDeployment(deploymentId, result !== null))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -220,7 +221,10 @@ function DiagnosisCard({ deploymentId }: { deploymentId: number }) {
                     <span className="font-mono text-xs">{result.root_cause}</span>
                   </>
                 )}
-                <span className="ml-auto text-xs text-muted-foreground">{result.model} · {result.prompt_version}</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {result.model} · {result.prompt_version}
+                  {result.reused && result.diagnosed_at && ` · 저장된 결과 (${formatKst(result.diagnosed_at)})`}
+                </span>
               </div>
               {result.summary && <p className="text-sm">{result.summary}</p>}
               {list("관측 사실", result.observed_facts)}

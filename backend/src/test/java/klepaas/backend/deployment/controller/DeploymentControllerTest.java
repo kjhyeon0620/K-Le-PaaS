@@ -131,6 +131,16 @@ class DeploymentControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/deployments/{id}/diagnosis - refresh는 선택 (#117)")
+    void diagnoseRefreshIsOptional() throws Exception {
+        mockMvc.perform(post("/api/v1/deployments/7/diagnosis").with(user(testUser))).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/deployments/7/diagnosis?refresh=true").with(user(testUser))).andExpect(status().isOk());
+
+        verify(deploymentDiagnosisService).diagnose(7L, 1L, false);
+        verify(deploymentDiagnosisService).diagnose(7L, 1L, true);
+    }
+
+    @Test
     @DisplayName("인증 없이 요청 시 401 Unauthorized")
     void unauthorizedWithoutToken() throws Exception {
         mockMvc.perform(post("/api/v1/deployments")

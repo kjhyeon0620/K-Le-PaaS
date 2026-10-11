@@ -84,7 +84,7 @@
 | 14 | #99 | 배포 실패 진단 평가 사례와 판정 기준 | 완료 (PR #114) (M) | [0099](specs/0099-diagnosis-eval-cases/spec.md) |
 | 15 | #100 | 배포 요청 상세의 근거 기반 읽기 전용 진단 | 완료 (PR #116) (L), 공급사 교체·비용 비교 포함 | [0100](specs/0100-evidence-based-diagnosis/spec.md) |
 | 15-1 | #115 | AI 진단 호출 비용 절감과 전후 측정 | 완료 (M), 품질 기준을 지킨 절감은 출력 상한뿐 | [0115](specs/0115-diagnosis-cost-reduction/spec.md) |
-| 15-2 | #117 | AI 진단 결과 재사용과 근거 없는 입력의 모델 호출 생략 | 미착수 (M), 선행 #115 | - |
+| 15-2 | #117 | AI 진단 결과 재사용과 근거 없는 입력의 모델 호출 생략 | 완료 (M) | [0117](specs/0117-diagnosis-result-reuse/spec.md) |
 | 16 | #56 | 승인한 배포 설정 버전 고정, 변경 시 재승인 | 완료 (PR #112) (L) | [0056](specs/0056-pin-approved-deployment-config/spec.md) |
 | 17 | #101 | 이전 배포 이미지·설정으로 복구 계획 생성·승인·실행 | 완료 (PR #113) (L) | [0101](specs/0101-recover-previous-deployment/spec.md) |
 | 18 | #105 | Node 앱 배포·실패·진단·승인·복구 대표 시나리오 실증 | 미착수 (M), 선행 #100·#101 | - |
