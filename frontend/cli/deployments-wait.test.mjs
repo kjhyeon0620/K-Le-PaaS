@@ -124,7 +124,8 @@ test("diagnose는 진단 결과와 서버가 자른 근거를 보여 준다 (#10
       deployment_id: 7, model: "gemini-2.5-flash", prompt_version: "diagnosis-v1", category: "ENV_CONFIG",
       root_cause: "required_env_missing", abstain: false, summary: "POSTGRES_PASSWORD가 없어 종료를 반복합니다",
       observed_facts: ["직전 컨테이너가 exit 1로 종료"], hypotheses: [], next_checks: ["배포 설정의 env 확인"],
-      cited: [{ pointer: "/logs/pods/0/previous_logs/1", excerpt: "You must specify POSTGRES_PASSWORD" }], warnings: [] } }));
+      cited: [{ pointer: "/logs/pods/0/previous_logs/1", excerpt: "You must specify POSTGRES_PASSWORD" }], warnings: [],
+      reused: false, diagnosed_at: "2026-10-11T16:00:00" } }));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => server.close(resolve)));
@@ -134,4 +135,27 @@ test("diagnose는 진단 결과와 서버가 자른 근거를 보여 준다 (#10
   assert.match(result.stdout, /ENV_CONFIG \/ required_env_missing/);
   assert.match(result.stdout, /\/logs\/pods\/0\/previous_logs\/1\n\s+You must specify POSTGRES_PASSWORD/);
   assert.match(result.stdout, /실험/);
+});
+
+test("diagnose는 저장된 결과를 표시하고 --refresh면 새로 진단을 요청한다 (#117)", async (t) => {
+  const urls = [];
+  const server = createServer((request, response) => {
+    urls.push(request.url);
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ status: "success", data: {
+      deployment_id: 7, model: "rule", prompt_version: "no-evidence-v1", category: null, root_cause: null, abstain: true,
+      summary: "근거 없음", observed_facts: [], hypotheses: [], next_checks: [], cited: [],
+      warnings: ["관측 근거가 없어 모델을 호출하지 않았습니다"], reused: !request.url.includes("refresh"),
+      diagnosed_at: "2026-10-11T16:00:00" } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const saved = await runCli(server, ["deployments", "diagnose", "7"]);
+  assert.equal(saved.error, null, saved.stderr);
+  assert.match(saved.stdout, /2026-10-11T16:00:00 \(저장된 결과/);
+  const fresh = await runCli(server, ["deployments", "diagnose", "7", "--refresh"]);
+  assert.equal(fresh.error, null, fresh.stderr);
+  assert.doesNotMatch(fresh.stdout, /저장된 결과/);
+  assert.deepEqual(urls, ["/api/v1/deployments/7/diagnosis", "/api/v1/deployments/7/diagnosis?refresh=true"]);
 });

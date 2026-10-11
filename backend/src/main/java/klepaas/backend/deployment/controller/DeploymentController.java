@@ -51,11 +51,12 @@ public class DeploymentController {
                 .body(ApiResponse.success(result.deployment()));
     }
 
-    // 근거 기반 읽기 전용 진단 (#100). 요청마다 모델을 호출한다. 읽기 scope부터 허용(SecurityConfig)
+    // 근거 기반 읽기 전용 진단 (#100). 저장한 최근 결과를 돌려주고 refresh면 새로 진단한다 (#117). 읽기 scope부터 허용(SecurityConfig)
     @PostMapping("/deployments/{id}/diagnosis")
     public ApiResponse<klepaas.backend.ai.diagnosis.DeploymentDiagnosisResponse> diagnoseDeployment(@PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean refresh,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(deploymentDiagnosisService.diagnose(id, userDetails.getUserId()));
+        return ApiResponse.success(deploymentDiagnosisService.diagnose(id, userDetails.getUserId(), refresh));
     }
 
     // ─── 이전 배포로 복구 (#101) ───────────────────────────────────────────

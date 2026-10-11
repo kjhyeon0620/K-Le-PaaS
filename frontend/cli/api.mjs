@@ -91,9 +91,9 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${deploymentId}/logs?lines=${lines}`);
   }
 
-  // 근거 기반 읽기 전용 진단 (#100)
-  async diagnoseDeployment(deploymentId) {
-    return this.request(`/api/v1/deployments/${deploymentId}/diagnosis`, { method: "POST" });
+  // 근거 기반 읽기 전용 진단 (#100). refresh가 아니면 저장한 최근 결과를 받는다 (#117)
+  async diagnoseDeployment(deploymentId, refresh = false) {
+    return this.request(`/api/v1/deployments/${deploymentId}/diagnosis${refresh ? "?refresh=true" : ""}`, { method: "POST" });
   }
 
   // 이전 성공 배포로 복구 (#101)

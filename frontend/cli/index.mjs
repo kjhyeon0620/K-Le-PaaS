@@ -396,13 +396,14 @@ async function handleDeployments(args, globalOptions, client) {
       return;
     }
     case "diagnose": {
-      // 근거 기반 읽기 전용 진단 (#100). 요청마다 모델을 호출한다
+      // 근거 기반 읽기 전용 진단 (#100). 저장한 최근 결과를 보여 주고 --refresh면 새로 진단한다 (#117)
       const deploymentId = Number(args.shift());
+      const refresh = takeFlag(args, "--refresh");
       assertNoUnknownOptions(args);
       if (!Number.isFinite(deploymentId)) {
         throw new CliError("진단할 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
       }
-      const result = await client.diagnoseDeployment(deploymentId);
+      const result = await client.diagnoseDeployment(deploymentId, refresh);
       if (globalOptions.json) {
         printJson(result);
         return;
@@ -410,6 +411,7 @@ async function handleDeployments(args, globalOptions, client) {
       printKeyValues([
         ["Result", result.abstain ? "판단 보류" : `${result.category} / ${result.root_cause}`],
         ["Model", `${result.model} (${result.prompt_version}, 실험)`],
+        ["Diagnosed", `${result.diagnosed_at ?? "-"}${result.reused ? " (저장된 결과, --refresh로 다시 진단)" : ""}`],
       ]);
       if (result.summary) console.log(`\n${result.summary}`);
       for (const [title, items] of [["관측 사실", result.observed_facts], ["가설", result.hypotheses], ["확인할 것", result.next_checks]]) {
@@ -966,7 +968,7 @@ Commands:
   deployments scale <deployment-id> --replicas <n>
   deployments wait <deployment-id> [--timeout <sec>] [--interval <sec>]
   deployments export <deployment-id> [--format json|yaml] [--output <file>]
-  deployments diagnose <deployment-id>
+  deployments diagnose <deployment-id> [--refresh]
   deployments recovery-plan <target-deployment-id>
   deployments recover <target-deployment-id> [--yes]
 

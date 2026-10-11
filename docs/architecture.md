@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `cost` | spec 기반 비용 plan/diff/explain/check (실제 billing 아님) |
@@ -139,12 +139,14 @@ POST /api/v1/deployments/{targetId}/recover          {plan_fingerprint}. 한 트
 #### 근거 기반 읽기 전용 진단 (#100, `DeploymentDiagnosisService`)
 
 ```
-POST /api/v1/deployments/{id}/diagnosis   (READ_ONLY 이상, 소유권 확인, FAILED·UNKNOWN만)
+POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소유권 확인, FAILED·UNKNOWN만)
+  → refresh가 아니면 그 배포의 최근 저장 결과를 돌려줌 (호출 생략 결과, 또는 현재 프롬프트·설정 모델 결과). 로그 조회·모델 호출 없음 (#117)
   → 입력 = {"detail": 배포 상세 응답, "logs": 로그 응답(40줄)}  (API와 같은 JSON)
+  → Pod·이벤트·설정 변경이 없고 실패 종류가 원인을 가리키지 않으면 모델 없이 판단 보류 (model=rule, no-evidence-v1)
   → 비밀값 패턴 가림 (JSON 구조·위치 유지)
   → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
   → 서버 검증: 라벨 목록(DiagnosisLabels) 밖이면 버림, 입력에 없는 근거 위치 버림, 근거 없는 단정은 판단 보류로, 근거 원문은 입력에서 잘라 넣음
-  → 저장하지 않음. 인프라 변경 없음
+  → 결과와 토큰 사용량을 deployment_diagnoses에 이력으로 저장 (실패하면 저장하지 않음). 인프라 변경 없음
 ```
 
 - 공급사는 `diagnosis.llm.provider`·`model`로 고른다. 기본값은 #99 사례 비교로 정했다 (스펙 0100). 자연어 명령은 Gemini를 그대로 쓴다.
