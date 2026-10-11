@@ -137,6 +137,48 @@ test("diagnose는 진단 결과와 서버가 자른 근거를 보여 준다 (#10
   assert.match(result.stdout, /실험/);
 });
 
+test("repositories list는 앱 목록을 보여 준다 (#102)", async (t) => {
+  const server = createServer((request, response) => {
+    assert.equal(request.url, "/api/v1/repositories");
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ status: "success", data: [
+      { id: 7, owner: "owner", repo_name: "app", git_url: "https://example.test/owner/app", cloud_vendor: "ON_PREMISE",
+        user_id: 1, created_at: "2026-10-11T00:00:00Z", updated_at: "2026-10-11T00:00:00Z" }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const result = await runCli(server, ["repositories", "list"]);
+  assert.equal(result.error, null, result.stderr);
+  assert.match(result.stdout, /7\s+owner\/app\s+ON_PREMISE/);
+});
+
+test("propose-recovery는 승인 대기 명령만 만들고 승인 방법을 안내한다 (#102)", async (t) => {
+  const requests = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      requests.push({ method: request.method, url: request.url, body: JSON.parse(body || "{}") });
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ status: "success", data: {
+        command_log_id: 21, intent: "ROLLBACK", message: "복구 제안을 만들었습니다.", result: null, risk_level: "HIGH",
+        requires_confirmation: true, session_id: null, approval_target: {
+          repository_id: 7, repository: "owner/app", branch: "main", commit: "abcdef1", build_strategy: "PREBUILT_IMAGE",
+          image: "ghcr.io/owner/app@sha256:1", min_replicas: 1, max_replicas: 1, container_port: 8080, env_names: [],
+          config_fingerprint: "planfp12", recovered_from_deployment_id: 3, blocked_reasons: [] } } }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const result = await runCli(server, ["deployments", "propose-recovery", "3", "--reason", "readiness 실패"]);
+  assert.equal(result.error, null, result.stderr);
+  assert.deepEqual(requests, [{ method: "POST", url: "/api/v1/deployments/3/recovery-proposal", body: { reason: "readiness 실패" } }]);
+  assert.match(result.stdout, /Needs Confirm\s+yes/);
+  assert.match(result.stdout, /klepaas confirm 21/);
+});
+
 test("diagnose는 저장된 결과를 표시하고 --refresh면 새로 진단을 요청한다 (#117)", async (t) => {
   const urls = [];
   const server = createServer((request, response) => {

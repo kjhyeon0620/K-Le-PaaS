@@ -10,6 +10,8 @@ import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.exception.AiProcessingException;
 import klepaas.backend.ai.repository.CommandLogRepository;
 import klepaas.backend.ai.repository.ConversationSessionRepository;
+import klepaas.backend.deployment.entity.Deployment;
+import klepaas.backend.deployment.service.ResourceAccessService;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.global.exception.BusinessException;
 import klepaas.backend.infra.kubernetes.KubernetesErrorMessages;
@@ -41,6 +43,7 @@ public class NlpCommandService {
     private final CommandConfirmationService confirmations;
     private final ConversationSessionRepository sessionRepository;
     private final UserRepository userRepository;
+    private final ResourceAccessService resourceAccessService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String systemPrompt;
 
@@ -53,6 +56,7 @@ public class NlpCommandService {
             CommandConfirmationService confirmations,
             ConversationSessionRepository sessionRepository,
             UserRepository userRepository,
+            ResourceAccessService resourceAccessService,
             @Value("classpath:prompts/system-prompt.txt") Resource systemPromptResource
     ) {
         this.geminiClient = geminiClient;
@@ -63,6 +67,7 @@ public class NlpCommandService {
         this.confirmations = confirmations;
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
+        this.resourceAccessService = resourceAccessService;
         try {
             this.systemPrompt = systemPromptResource.getContentAsString(StandardCharsets.UTF_8);
         } catch (IOException e) {
@@ -145,6 +150,46 @@ public class NlpCommandService {
                 session.getSessionToken(),
                 approval.map(ApprovalTargetResolver.Resolved::target).orElse(null)
         );
+    }
+
+    /**
+     * 에이전트의 복구 제안 (#102). 자연어 해석 없이 지정한 배포로 복구하는 승인 대기 명령(ROLLBACK)만 만든다.
+     * 계획 지문을 고정하고 아무것도 실행하지 않는다. 실행은 사람이 confirm으로 승인할 때 지문을 다시 비교한 뒤에 한다.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public NlpCommandResponse proposeRecovery(Long userId, Long targetDeploymentId, String reason) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+        // 권한 밖 배포는 404로 끝나고 명령을 만들지 않는다
+        Deployment target = resourceAccessService.requireDeployment(targetDeploymentId, userId);
+        var repo = target.getSourceRepository();
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("owner", repo.getOwner());
+        args.put("repo", repo.getRepoName());
+        args.put("commit_hash", target.getCommitHash());
+        args.put("target_deployment_id", target.getId());
+        var resolved = approvalTargets.resolve(Intent.ROLLBACK, args, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RECOVERY_BLOCKED));
+        if (resolved.fingerprint() == null) {
+            throw new BusinessException(ErrorCode.RECOVERY_BLOCKED,
+                    "복구할 수 없습니다: " + String.join("; ", resolved.target().blockedReasons()));
+        }
+        String commit = target.getCommitHash() == null ? "-" : target.getCommitHash().substring(0, Math.min(7, target.getCommitHash().length()));
+        String raw = "복구 제안: 배포 #" + target.getId() + " (" + commit + ")"
+                + (reason == null || reason.isBlank() ? "" : " — " + reason.strip());
+        CommandLog commandLog = CommandLog.builder()
+                .user(user)
+                .rawCommand(raw)
+                .interpretedIntent(Intent.ROLLBACK)
+                .intentArgs(serializeArgs(new ParsedIntent(Intent.ROLLBACK, args, 1.0, "")))
+                .riskLevel(actionDispatcher.classifyRisk(Intent.ROLLBACK))
+                .requiresConfirmation(true)
+                .build();
+        commandLog.pinApprovedConfig(resolved.fingerprint());
+        commandLogRepository.save(commandLog);
+        return new NlpCommandResponse(commandLog.getId(), Intent.ROLLBACK,
+                "복구 제안을 만들었습니다. 사람이 10분 안에 승인해야 실행됩니다.", null,
+                commandLog.getRiskLevel(), true, null, resolved.target());
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

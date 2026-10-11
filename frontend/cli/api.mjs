@@ -101,6 +101,14 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${targetDeploymentId}/recovery-plan`);
   }
 
+  // 에이전트의 복구 제안 (#102). 승인 대기 명령만 만든다
+  async proposeRecovery(targetDeploymentId, reason) {
+    return this.request(`/api/v1/deployments/${targetDeploymentId}/recovery-proposal`, {
+      method: "POST",
+      body: reason ? { reason } : {},
+    });
+  }
+
   async recoverDeployment(targetDeploymentId, planFingerprint) {
     return this.request(`/api/v1/deployments/${targetDeploymentId}/recover`, {
       method: "POST",

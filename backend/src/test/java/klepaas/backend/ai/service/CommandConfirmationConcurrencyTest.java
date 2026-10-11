@@ -44,6 +44,7 @@ class CommandConfirmationConcurrencyTest {
     @MockitoBean private IntentParser intentParser;
     @MockitoBean private ActionDispatcher dispatcher;
     @MockitoBean private ApprovalTargetResolver approvalTargets;
+    @MockitoBean private klepaas.backend.deployment.service.ResourceAccessService resourceAccessService;
 
     @Test
     void twoApprovalsClaimOnceAndCommitBeforeExternalWork() throws Exception {

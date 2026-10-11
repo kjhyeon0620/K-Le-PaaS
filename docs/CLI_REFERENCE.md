@@ -57,7 +57,7 @@ klepaas auth logout
 - 사람 사용자는 `--web`, Jenkins/AI/스크립트는 `Settings > CLI Tokens`에서 발급한 전용 토큰으로 `--token` 로그인을 사용하는 것을 권장한다.
 - CLI 토큰은 권한 범위(scope)를 가진다. 서버가 모든 요청에서 검사하며 CLI에서 명령을 숨기는 방식이 아니다.
   - `read-only`(조회 전용): 조회(GET)와 비용 계산(`cost plan/diff/explain/check`)만 허용한다. 배포·스케일·재시작·설정 변경·자연어 명령·토큰 발급/폐기는 HTTP 403으로 거부된다.
-  - `propose-only`(제안 전용): `read-only`에 자연어 명령 생성(`ask`)이 더해진다. MEDIUM/HIGH 명령은 확인 대기로 기록될 뿐이고, `confirm`은 403이다. 사람이 웹 또는 전체 권한 토큰으로 승인해야 실행된다.
+  - `propose-only`(제안 전용): `read-only`에 자연어 명령 생성(`ask`)과 복구 제안(`deployments propose-recovery`, #102)이 더해진다. MEDIUM/HIGH 명령은 확인 대기로 기록될 뿐이고, `confirm`은 403이다. 사람이 웹 또는 전체 권한 토큰으로 승인해야 실행된다.
   - 배포 전용(`DEPLOY`): 웹 `Settings > CLI Tokens`에서 저장소 1개를 골라 발급한다. 그 저장소의 `POST /api/v1/deployments`만 허용하며 조회를 포함한 다른 요청은 403이다. CI 배포 콜백용이며 `--web` 로그인으로는 받을 수 없다.
   - `full`(전체 권한): 발급한 사용자와 같은 권한. 기존 토큰과 `--scope`를 지정하지 않은 `--web` 로그인은 `full`이다.
   - CLI 로그인 승인과 토큰 발급은 전체 권한으로만 할 수 있어, 조회 전용 토큰으로 더 높은 권한의 토큰을 얻을 수 없다.
@@ -79,9 +79,39 @@ npm run cli -- auth login --web --scope propose-only
 npm run cli -- auth login --token "kpa_cli_..."
 ```
 
+### AI agent 사용 절차 (#102)
+
+Claude Code·Codex 같은 에이전트는 `propose-only` 토큰으로 조회·진단·제안까지만 하고, 실행은 사람이 승인한다. 모든 명령에 `--json`을 붙여 응답을 그대로 읽는다.
+
+```bash
+# 사람: 에이전트용 토큰을 발급한다 (웹 승인 화면에 제안 전용 권한이 표시된다)
+npm run cli -- auth login --web --scope propose-only
+
+# 에이전트: 조회
+klepaas --json repositories list
+klepaas --json deployments list --repository-id 7
+klepaas --json deployments get 42
+klepaas --json deployments logs 42 --lines 50
+# 에이전트: 실패 근거 (AI 진단, 저장된 결과 재사용)
+klepaas --json deployments diagnose 42
+# 에이전트: 복구 계획 확인 후 제안 (승인 대기 명령만 생성)
+klepaas --json deployments recovery-plan 40
+klepaas --json deployments propose-recovery 40 --reason "42가 readiness 실패, 40의 이미지·설정으로 복구"
+
+# 사람: 제안 내용(승인 대상·계획 지문)을 보고 전체 권한으로 승인
+klepaas confirm 21
+klepaas deployments wait <새 배포 id>
+```
+
+- 에이전트 토큰으로 `confirm`, `recover`, `restart`, `scale`, 배포 생성은 403 `CLI_005`다.
+- 다른 사용자의 저장소·배포는 404로, 존재를 드러내지 않는다.
+- 승인 전에 설정이 바뀌면 계획 지문이 달라져 승인이 409 `AI_006`로 거절된다. 에이전트가 계획을 다시 보고 다시 제안한다.
+
 ---
 
 ## 운영 명령
+
+`repositories list`는 내 앱(저장소) 목록(ID, 저장소, 클라우드)을 출력한다. `deployments list --repository-id`에 쓸 ID를 여기서 얻는다 (#102).
 
 ```bash
 klepaas ask "staging nginx 상태 보여줘"
@@ -102,6 +132,7 @@ klepaas deployments wait 42 --timeout 600 --interval 5
 klepaas deployments export 42 --format yaml --output klepaas-export.yaml
 klepaas deployments recovery-plan 40
 klepaas deployments recover 40 --yes
+klepaas deployments propose-recovery 40 --reason "readiness 실패, 직전 성공 이미지로"
 klepaas deployments diagnose 42
 klepaas deployments diagnose 42 --refresh
 ```
@@ -109,6 +140,8 @@ klepaas deployments diagnose 42 --refresh
 `deployments diagnose <id>`는 실패하거나 판정 불가인 배포의 AI 진단(실험)을 요청한다. 범주/구체 원인 또는 판단 보류, 요약, 관측 사실, 가설, 확인할 것, 근거(입력 위치와 원문), 검증 메모를 출력하고 `--json`은 응답 그대로다. 저장한 최근 결과가 있으면 그 결과와 진단 시각을 보여 주고(모델을 호출하지 않는다), `--refresh`면 새로 진단한다. 근거가 없는 배포는 모델 없이 판단 보류(`rule`)로 답한다 (#117). 성공·진행 중 배포는 400으로 종료 코드 `1`이다 (#100).
 
 `deployments recovery-plan <target-id>`는 이전 성공 배포 `<target-id>`로 복구하는 계획(배포할 이미지, digest 고정 여부, 되돌릴 설정, env 차이, 실행 불가 이유)을 출력한다. `deployments recover <target-id>`는 계획을 출력한 뒤 확인을 받고(`--yes`면 생략) 그 계획 지문으로 실행한다. 실행할 수 없는 계획이거나 확인 후 계획이 바뀌었으면(409) 종료 코드 `1`이다. `--json`은 `recovery-plan`에서 계획을, `recover`에서 `{plan, deployment}`를 출력한다. 결과는 `deployments wait <새 배포 id>`로 확인한다 (#101).
+
+`deployments propose-recovery <target-id>`는 이전 성공 배포 `<target-id>`로 복구하는 승인 대기 명령만 만든다(`propose-only` 이상). 자연어 해석 없이 그 배포의 복구 계획 지문을 고정하고, 아무것도 실행하지 않는다. 출력의 `Command Log` ID를 사람이 전체 권한으로 10분 안에 `klepaas confirm <id>`로 승인해야 실행된다. 실행할 수 없는 계획이면 409로 종료 코드 `1`이다. `--reason`(200자 이하)은 승인할 사람에게 보일 제안 사유로 명령 이력에 남는다 (#102).
 
 `deployments wait`는 배포 상태가 `SUCCESS`가 될 때까지 폴링한다.
 

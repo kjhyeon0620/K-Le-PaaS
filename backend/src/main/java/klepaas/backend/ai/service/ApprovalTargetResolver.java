@@ -62,23 +62,31 @@ public class ApprovalTargetResolver {
         }
     }
 
-    // 복구 명령 (#101): 대상 배포의 복구 계획. 실행할 수 없으면 지문 없이 이유를 보인다
+    // 복구 명령 (#101): 대상 배포의 복구 계획. 실행할 수 없으면 지문 없이 이유를 보인다.
+    // 에이전트 제안(#102)은 target_deployment_id로 대상을 지정하고, 자연어 명령은 commit으로 찾는다
     private Optional<Resolved> resolveRecovery(Map<String, Object> args, Long userId) {
+        Long targetId = toLong(args.get("target_deployment_id"));
+        if (targetId != null) {
+            var target = resourceAccessService.requireDeployment(targetId, userId);
+            return Optional.of(recoveryTarget(target.getSourceRepository(), target));
+        }
         SourceRepository repo = resourceAccessService.requireRepository(sourceRepositoryRepository
                 .findByOwnerAndRepoName(text(args.get("owner")), text(args.get("repo")))
                 .map(SourceRepository::getId).orElse(null), userId);
-        return recoveryService.findTarget(repo.getId(), text(args.get("commit_hash"))).map(target -> {
-            RecoveryService.Plan plan = recoveryService.computePlan(target);
-            var restore = plan.targetConfig(configSnapshots);
-            var envNames = deploymentConfigRepository.findBySourceRepositoryId(repo.getId())
-                    .map(c -> c.getEnvVars().keySet().stream().sorted().toList()).orElse(java.util.List.of());
-            return new Resolved(new ApprovalTarget(repo.getId(), repo.getOwner() + "/" + repo.getRepoName(),
-                    target.getBranchName(), target.getCommitHash(), restore.map(s -> s.buildStrategy()).orElse(null),
-                    plan.image(), restore.map(s -> s.minReplicas()).orElse(0), restore.map(s -> s.maxReplicas()).orElse(0),
-                    restore.map(s -> s.containerPort()).orElse(0), envNames,
-                    plan.fingerprint() == null ? null : plan.fingerprint().substring(0, 8),
-                    target.getId(), plan.blockedReasons()), plan.fingerprint());
-        });
+        return recoveryService.findTarget(repo.getId(), text(args.get("commit_hash"))).map(target -> recoveryTarget(repo, target));
+    }
+
+    private Resolved recoveryTarget(SourceRepository repo, klepaas.backend.deployment.entity.Deployment target) {
+        RecoveryService.Plan plan = recoveryService.computePlan(target);
+        var restore = plan.targetConfig(configSnapshots);
+        var envNames = deploymentConfigRepository.findBySourceRepositoryId(repo.getId())
+                .map(c -> c.getEnvVars().keySet().stream().sorted().toList()).orElse(java.util.List.of());
+        return new Resolved(new ApprovalTarget(repo.getId(), repo.getOwner() + "/" + repo.getRepoName(),
+                target.getBranchName(), target.getCommitHash(), restore.map(s -> s.buildStrategy()).orElse(null),
+                plan.image(), restore.map(s -> s.minReplicas()).orElse(0), restore.map(s -> s.maxReplicas()).orElse(0),
+                restore.map(s -> s.containerPort()).orElse(0), envNames,
+                plan.fingerprint() == null ? null : plan.fingerprint().substring(0, 8),
+                target.getId(), plan.blockedReasons()), plan.fingerprint());
     }
 
     private static String text(Object value) {

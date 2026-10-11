@@ -119,6 +119,8 @@ class CliTokenScopeHttpTest {
         assertEquals(400, send("POST", deploymentUrl + "/diagnosis", readOnly, null).statusCode());
         // 복구 실행(#101)은 FULL만 허용된다
         assertEquals(403, send("POST", deploymentUrl + "/recover", readOnly, "{\"plan_fingerprint\":\"x\"}").statusCode());
+        // 복구 제안(#102)은 PROPOSE_ONLY부터
+        assertEquals(403, send("POST", deploymentUrl + "/recovery-proposal", readOnly, null).statusCode());
         verifyNoInteractions(pipeline, gemini);
         verify(generator, never()).scale(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(), anyLong());
         verify(generator, never()).restart(org.mockito.ArgumentMatchers.anyString(), anyLong());
@@ -173,6 +175,19 @@ class CliTokenScopeHttpTest {
         assertEquals(200, send("GET", "/api/v1/deployments/" + deployment.getId(), agent, null).statusCode());
         verify(generator, never()).restart(org.mockito.ArgumentMatchers.anyString(), anyLong());
 
+        // 복구 제안(#102)은 scope를 통과하고, 설정 기록이 없는 배포는 실행할 수 없어 명령을 만들지 않는다
+        HttpResponse<String> blocked = send("POST", "/api/v1/deployments/" + deployment.getId() + "/recovery-proposal", agent,
+                "{\"reason\":\"test\"}");
+        assertEquals(409, blocked.statusCode(), blocked.body());
+        assertEquals("DEPLOY_005", mapper.readTree(blocked.body()).path("code").asText());
+        assertEquals(400, send("POST", "/api/v1/deployments/" + deployment.getId() + "/recovery-proposal", agent,
+                "{\"reason\":\"" + "x".repeat(201) + "\"}").statusCode());
+        User stranger = users.save(User.builder().name("stranger").email("scope-stranger@example.test").role(Role.USER).build());
+        String strangerAgent = cliTokens.createToken(stranger.getId(),
+                new CreateCliAccessTokenRequest("agent", 1, CliTokenScope.PROPOSE_ONLY)).token();
+        assertEquals(404, send("POST", "/api/v1/deployments/" + deployment.getId() + "/recovery-proposal", strangerAgent,
+                null).statusCode());
+
         // 사람이 전체 권한(웹 JWT)으로 승인하면 실행된다
         String webJwt = jwt.createAccessToken(owner.getId(), owner.getEmail(), owner.getRole());
         assertEquals(200, send("POST", "/api/v1/nlp/confirm", webJwt,
@@ -209,6 +224,7 @@ class CliTokenScopeHttpTest {
         assertEquals(403, send("GET", "/api/v1/repositories", ci, null).statusCode());
         assertEquals(403, send("POST", "/api/v1/deployments/" + existing.getId() + "/scale", ci, "{\"replicas\":2}").statusCode());
         assertEquals(403, send("POST", "/api/v1/nlp/command", ci, "{\"command\":\"deploy\"}").statusCode());
+        assertEquals(403, send("POST", "/api/v1/deployments/" + existing.getId() + "/recovery-proposal", ci, null).statusCode());
         assertEquals(deploymentsBefore + 1, deployments.count());
 
         // 배포 전용 토큰은 저장소를 골라야 하므로 CLI 웹 로그인으로는 받을 수 없다

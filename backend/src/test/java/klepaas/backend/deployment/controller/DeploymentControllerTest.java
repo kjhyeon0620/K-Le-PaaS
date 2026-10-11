@@ -73,6 +73,9 @@ class DeploymentControllerTest {
     @MockitoBean
     private CliAccessTokenService cliAccessTokenService;
 
+    @MockitoBean
+    private klepaas.backend.ai.service.NlpCommandService nlpCommandService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final CustomUserDetails testUser = new CustomUserDetails(1L, "test@test.com", Role.USER);

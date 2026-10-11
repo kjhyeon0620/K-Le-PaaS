@@ -358,7 +358,11 @@ public class ActionDispatcher {
         }
 
         resourceAccessService.requireRepository(srcRepo.getId(), userId);
-        var target = recoveryService.findTarget(srcRepo.getId(), commitHash).orElse(null);
+        // 에이전트 제안(#102)은 대상 배포를 ID로 지정한다. 자연어 명령은 commit으로 찾는다
+        Object targetId = args.get("target_deployment_id");
+        var target = targetId instanceof Number id
+                ? resourceAccessService.requireDeployment(id.longValue(), userId)
+                : recoveryService.findTarget(srcRepo.getId(), commitHash).orElse(null);
         if (target == null) {
             return FormattedResponseDto.of("error",
                     "복구할 이전 성공 배포를 찾을 수 없습니다: " + owner + "/" + repo,
