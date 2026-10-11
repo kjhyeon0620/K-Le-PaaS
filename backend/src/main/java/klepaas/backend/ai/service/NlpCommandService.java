@@ -178,7 +178,8 @@ public class NlpCommandService {
             // 승인 후 설정이 바뀌었거나 승인 대상을 확인할 수 없으면 실행하지 않는다 (#56)
             if (approvalTargets.isPinned(parsedIntent.intent())) {
                 var current = approvalTargets.resolve(parsedIntent.intent(), parsedIntent.args(), userId).orElse(null);
-                if (current == null || !current.fingerprint().equals(commandLog.getApprovedConfigFingerprint())) {
+                if (current == null || current.fingerprint() == null
+                        || !current.fingerprint().equals(commandLog.getApprovedConfigFingerprint())) {
                     throw new BusinessException(ErrorCode.APPROVAL_TARGET_CHANGED);
                 }
                 approvalTarget = current.target();

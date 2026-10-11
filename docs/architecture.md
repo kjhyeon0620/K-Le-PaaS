@@ -119,6 +119,23 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 - "진행 중"은 `PENDING`~`DEPLOYING` 상태이면서 마지막 갱신 후 `빌드 타임아웃 + rollout 타임아웃 + 10분` 이내인 배포다. 재시작 등으로 그보다 오래 멈춘 배포는 새 배포를 막지 않는다. 재시작 직후 대조 전에는 이전 프로세스의 배포도 이 규칙으로 새 요청을 막을 수 있다.
 - 생성하는 리소스에는 `klepaas.io/repository-id` 라벨을 붙이고, 조회와 변경도 이 라벨과 설정된 namespace 안으로 제한한다 ([ADR-0006](adr/0006-resource-access-scope.md)).
 
+#### 이전 배포로 복구 (#101, `RecoveryService`)
+
+```
+GET  /api/v1/repositories/{id}/recovery-candidates   이미지가 기록된 성공 배포, 최신순 20개
+GET  /api/v1/deployments/{targetId}/recovery-plan    배포할 이미지(관측 digest가 있으면 이름@digest), 되돌릴 설정(현재 → 대상, env 제외),
+                                                     env 차이, 실행 가능 여부·차단 이유, 계획 지문
+POST /api/v1/deployments/{targetId}/recover          {plan_fingerprint}. 한 트랜잭션에서
+  → 계획 재계산, 지문 다르면 409 DEPLOY_004, 실행 불가면 409 DEPLOY_005
+  → env 외 설정을 대상 스냅샷으로 복원 (기존 설정 검증·허용 참조 검사 경로, env는 현재 값 유지)
+  → 대상 이미지로 새 배포 요청 (recovered_from_deployment_id = 대상, 복원 설정 지문을 승인 지문으로 → #56 apply 직전 비교)
+  → 진행 중 배포가 있으면 409 DEPLOY_003, 설정 복원도 롤백
+```
+
+- 계획 지문 = SHA-256(대상 ID | 배포할 이미지 | 현재 설정 지문). 계획은 저장하지 않는다.
+- 차단: 설정 기록 없음(#95 이전), 대상 빌드 경로 KANIKO(이미지를 다시 빌드함), 현재 env 이름·값 지문이 대상과 다름(env 값은 기록하지 않아 되돌릴 수 없음). 사용자가 env를 맞추면 다시 계획할 수 있다.
+- 자연어 LIST_ROLLBACK·ROLLBACK·ROLLBACK_EXECUTION도 이 경로를 쓴다. ROLLBACK은 commit 접두가 맞는 최신 후보(없으면 직전 성공 배포)의 계획을 `approval_target`으로 보이고 계획 지문을 고정한다.
+
 #### 재시작 대조 (#57, `InterruptedWorkReconciler`)
 
 ```
@@ -199,7 +216,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 영역 | 코드 예 |
 |---|---|
 | 공통 | `COMMON_001` 404, `COMMON_002` 409, `COMMON_003` 400, `COMMON_004` 500 |
-| 저장소·배포 | `REPO_001/002`, `DEPLOY_001`~`DEPLOY_003` (`DEPLOY_003` 409: 같은 저장소 배포 진행 중) |
+| 저장소·배포 | `REPO_001/002`, `DEPLOY_001`~`DEPLOY_005` (`DEPLOY_003` 409: 같은 저장소 배포 진행 중, `DEPLOY_004` 409: 복구 계획 변경, `DEPLOY_005` 409: 복구 불가) |
 | 인프라 | `INFRA_001`~`INFRA_006` (업로드, 빌드, 배포, NCP 실패) |
 | AI·명령 | `AI_001`~`AI_006` (`AI_005` 409: 명령을 승인할 수 없음, `AI_006` 409: 승인 후 배포 설정 변경·승인 대상 확인 불가) |
 | CLI | `CLI_001`~`CLI_006` (`CLI_005` 403: scope 밖 요청) |
@@ -258,7 +275,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 |---|---|---|
 | rollout 타임아웃(`kubernetes.rollout.timeout-ms`, 120초)이 앱의 startup probe 허용 시간(`period_seconds × startup_failure_threshold`)과 무관한 고정값이다 | 기동이 120초보다 오래 걸리는 앱은 정상이어도 타임아웃 FAILED로 기록된다 | #108 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
-| 콘솔 Deployments 화면의 Rollback 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환한다 (Config·Scale·Restart·Logs는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다 | #101 |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
 | 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |

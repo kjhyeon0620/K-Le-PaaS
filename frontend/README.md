@@ -48,7 +48,7 @@ K-Le-PaaS 프론트엔드는 agent-safe Kubernetes control plane을 사람이 �
 | Deployment logs UI | 구현 | Deployments 화면 Logs: 최신 배포의 실패 원인, 이 배포 요청이 적용한 Pod 로그(직전 컨테이너 포함)·이벤트, 관측 불가 사유 (`/api/v1/deployments/{id}/logs`) |
 | Monitoring / alerts | 일부 구현 | UI와 client stub 중심, backend metrics API 없음 |
 | Slack 설정 UI | 일부 구현 | 화면은 있으나 실제 설정 저장 API 없음 |
-| Rollback direct API | 예정/Stub | 일부 자연어 flow UI는 있으나 direct backend API는 없음 |
+| 이전 배포로 복구 | 구현 | Deployments 화면 Rollback: 복구 후보 → 계획(이미지·digest 고정·되돌릴 설정·env 차이·차단 이유) → 계획 지문으로 실행 (`/recovery-candidates`, `/recovery-plan`, `/recover`). 배포 상세에 복구 대상 표시 (#101) |
 | Pull request 목록 | 예정/Stub | frontend client stub |
 | MCP connector | 예정/Stub | 설정 UI와 client stub, backend MCP server 없음 |
 

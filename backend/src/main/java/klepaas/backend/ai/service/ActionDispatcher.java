@@ -9,7 +9,7 @@ import klepaas.backend.deployment.dto.ScaleRequest;
 import klepaas.backend.deployment.service.DeploymentOrigin;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.deployment.service.ResourceAccessService;
-import klepaas.backend.deployment.repository.DeploymentRepository;
+import klepaas.backend.deployment.service.RecoveryService;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.deployment.entity.SourceRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +29,9 @@ public class ActionDispatcher {
 
     private final DeploymentService deploymentService;
     private final KubectlService kubectlService;
-    private final DeploymentRepository deploymentRepository;
     private final SourceRepositoryRepository sourceRepositoryRepository;
     private final ResourceAccessService resourceAccessService;
+    private final RecoveryService recoveryService;
 
     public RiskLevel classifyRisk(Intent intent) {
         return switch (intent) {
@@ -301,29 +301,19 @@ public class ActionDispatcher {
                     Map.of("error", "저장소 없음"), null);
         }
 
-        resourceAccessService.requireRepository(srcRepo.getId(), userId);
-
-        var deployments = deploymentRepository
-                .findBySourceRepositoryId(srcRepo.getId(), PageRequest.of(0, 10));
+        // 복구 후보 (#101): 이미지가 기록된 성공 배포만. 설정 기록이 없으면 복구할 수 없다
+        var candidates = recoveryService.candidates(srcRepo.getId(), userId);
 
         var versions = new ArrayList<Map<String, Object>>();
-        var history = new ArrayList<Map<String, Object>>();
-
-        deployments.getContent().forEach(d -> {
+        candidates.forEach(c -> {
             Map<String, Object> v = new LinkedHashMap<>();
-            v.put("steps_back", versions.size() + 1);
-            v.put("commit", d.getCommitHash() != null ? d.getCommitHash().substring(0, Math.min(7, d.getCommitHash().length())) : "");
-            v.put("message", "배포 #" + d.getId());
-            v.put("date", d.getCreatedAt() != null ? d.getCreatedAt().toString() : "");
-            v.put("can_rollback", true);
+            v.put("steps_back", versions.size());
+            v.put("commit", c.commitHash() != null ? c.commitHash().substring(0, Math.min(7, c.commitHash().length())) : "");
+            v.put("message", "배포 #" + c.deploymentId() + " " + c.imageUri());
+            v.put("date", c.finishedAt() != null ? c.finishedAt().toString() : "");
+            v.put("can_rollback", c.configRecorded() && !versions.isEmpty());
             v.put("is_current", versions.isEmpty());
             versions.add(v);
-
-            Map<String, Object> h = new LinkedHashMap<>();
-            h.put("commit", v.get("commit"));
-            h.put("message", v.get("message"));
-            h.put("date", v.get("date"));
-            history.add(h);
         });
 
         Map<String, Object> current = new LinkedHashMap<>();
@@ -337,21 +327,22 @@ public class ActionDispatcher {
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("current", current);
         formatted.put("versions", versions);
-        formatted.put("history", history);
+        formatted.put("history", List.of());
 
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("owner", owner);
         metadata.put("repo", repo);
         metadata.put("total_available", versions.size());
-        metadata.put("total_rollbacks", history.size());
+        metadata.put("total_rollbacks", 0);
 
         return FormattedResponseDto.of("list_rollback",
-                owner + "/" + repo + " 롤백 가능한 버전 목록입니다. 총 " + versions.size() + "개",
-                "롤백 버전 " + versions.size() + "개",
+                owner + "/" + repo + " 복구할 수 있는 이전 성공 배포 목록입니다. 총 " + versions.size() + "개",
+                "복구 후보 " + versions.size() + "개",
                 formatted, metadata);
     }
 
-    private Object executeRollback(Map<String, Object> args, Long userId, Long commandLogId, String approvedConfigFingerprint) {
+    // 이전 성공 배포의 이미지·설정으로 복구한다 (#101). planFingerprint는 승인 시 확인한 복구 계획 지문이다
+    private Object executeRollback(Map<String, Object> args, Long userId, Long commandLogId, String planFingerprint) {
         String owner = getString(args, "owner");
         String repo = getString(args, "repo");
         String commitHash = getString(args, "commit_hash");
@@ -367,22 +358,32 @@ public class ActionDispatcher {
         }
 
         resourceAccessService.requireRepository(srcRepo.getId(), userId);
+        var target = recoveryService.findTarget(srcRepo.getId(), commitHash).orElse(null);
+        if (target == null) {
+            return FormattedResponseDto.of("error",
+                    "복구할 이전 성공 배포를 찾을 수 없습니다: " + owner + "/" + repo,
+                    "오류",
+                    Map.of("error", "복구 대상 없음"), null);
+        }
+        var response = recoveryService.recover(target.getId(), planFingerprint, userId,
+                DeploymentOrigin.nlp(userId, commandLogId)).deployment();
 
-        var request = new CreateDeploymentRequest(srcRepo.getId(), "main", commitHash);
-        var response = deploymentService.createDeployment(request, userId, null,
-                DeploymentOrigin.nlp(userId, commandLogId, approvedConfigFingerprint)).deployment();
-
+        String targetCommit = target.getCommitHash() == null ? ""
+                : target.getCommitHash().substring(0, Math.min(7, target.getCommitHash().length()));
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("action_type", "rollback");
-        formatted.put("action_description", "이전 버전으로 롤백");
+        formatted.put("action_description", "이전 성공 배포 #" + target.getId() + "의 이미지·설정으로 복구");
         formatted.put("project", owner + "/" + repo);
-        formatted.put("target_commit", commitHash != null ? commitHash.substring(0, Math.min(7, commitHash.length())) : "");
+        formatted.put("target_commit", targetCommit);
         formatted.put("status", "started");
         formatted.put("timestamp", java.time.Instant.now().toString());
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("owner", owner);
         details.put("repo", repo);
-        details.put("target_commit_full", commitHash);
+        details.put("target_commit_full", target.getCommitHash());
+        details.put("recovered_from_deployment_id", target.getId());
+        details.put("deployment_id", response.id());
+        details.put("image", response.imageUri());
         details.put("action", "rollback");
         details.put("status", "started");
         formatted.put("details", details);
@@ -391,12 +392,12 @@ public class ActionDispatcher {
         metadata.put("owner", owner);
         metadata.put("repo", repo);
         metadata.put("action_type", "rollback");
-        metadata.put("target_commit", formatted.get("target_commit"));
+        metadata.put("target_commit", targetCommit);
         metadata.put("status", "started");
 
         return FormattedResponseDto.of("rollback_execution",
-                owner + "/" + repo + "을(를) " + formatted.get("target_commit") + " 커밋으로 롤백을 시작합니다.",
-                "롤백 시작",
+                owner + "/" + repo + "을(를) 배포 #" + target.getId() + "(" + targetCommit + ")로 복구합니다. 배포 ID: " + response.id(),
+                "복구 시작",
                 formatted, metadata);
     }
 

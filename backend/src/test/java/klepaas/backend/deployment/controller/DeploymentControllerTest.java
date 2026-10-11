@@ -62,6 +62,9 @@ class DeploymentControllerTest {
     private klepaas.backend.deployment.service.DeploymentDetailService deploymentDetailService;
 
     @MockitoBean
+    private klepaas.backend.deployment.service.RecoveryService recoveryService;
+
+    @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean

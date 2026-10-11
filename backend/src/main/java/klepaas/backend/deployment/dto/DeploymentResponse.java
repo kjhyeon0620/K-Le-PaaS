@@ -24,8 +24,18 @@ public record DeploymentResponse(
         Long requestedByUserId,
         Long commandLogId,
         String imageDigest,
-        FailureKind failureKind
+        FailureKind failureKind,
+        // 복구 배포가 되돌린 이전 성공 배포 (#101)
+        Long recoveredFromDeploymentId
 ) {
+    public DeploymentResponse(Long id, Long repositoryId, String repositoryName, String branchName, String commitHash,
+                              String imageUri, DeploymentStatus status, String failReason, LocalDateTime startedAt,
+                              LocalDateTime finishedAt, LocalDateTime createdAt, TriggerSource triggerSource,
+                              Long requestedByUserId, Long commandLogId, String imageDigest, FailureKind failureKind) {
+        this(id, repositoryId, repositoryName, branchName, commitHash, imageUri, status, failReason, startedAt,
+                finishedAt, createdAt, triggerSource, requestedByUserId, commandLogId, imageDigest, failureKind, null);
+    }
+
     public static DeploymentResponse from(Deployment entity) {
         return new DeploymentResponse(
                 entity.getId(),
@@ -43,7 +53,8 @@ public record DeploymentResponse(
                 entity.getRequestedByUserId(),
                 entity.getCommandLogId(),
                 entity.getImageDigest(),
-                entity.getFailureKind()
+                entity.getFailureKind(),
+                entity.getRecoveredFromDeploymentId()
         );
     }
 }

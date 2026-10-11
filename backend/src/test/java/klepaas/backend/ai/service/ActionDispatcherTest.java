@@ -62,6 +62,37 @@ class ActionDispatcherTest {
     @Mock
     private ResourceAccessService resourceAccessService;
 
+    @Mock
+    private klepaas.backend.deployment.service.RecoveryService recoveryService;
+
+    @Test
+    @DisplayName("ROLLBACK은 commit을 다시 빌드하지 않고 승인한 복구 계획 지문으로 이전 성공 배포를 복구한다 (#101)")
+    void rollbackRecoversPreviousDeploymentWithApprovedPlan() {
+        User owner = User.builder().name("owner").email("owner@example.com").role(Role.USER).build();
+        ReflectionTestUtils.setField(owner, "id", 1L);
+        SourceRepository repo = SourceRepository.builder().user(owner).owner("owner").repoName("app")
+                .gitUrl("https://github.com/owner/app").cloudVendor(CloudVendor.ON_PREMISE).build();
+        ReflectionTestUtils.setField(repo, "id", 7L);
+        Deployment target = Deployment.builder().sourceRepository(repo).branchName("main").commitHash("aaaaaaa1").build();
+        ReflectionTestUtils.setField(target, "id", 3L);
+        given(sourceRepositoryRepository.findByOwnerAndRepoName("owner", "app")).willReturn(Optional.of(repo));
+        given(recoveryService.findTarget(7L, null)).willReturn(Optional.of(target));
+        var recovered = new DeploymentResponse(9L, 7L, "owner/app", "main", "aaaaaaa1", "ghcr.io/owner/app@sha256:111",
+                DeploymentStatus.PENDING, null, null, null, null, null, 1L, 42L, null, null, 3L);
+        given(recoveryService.recover(eq(3L), eq("plan-fp"), eq(1L), any()))
+                .willReturn(new klepaas.backend.deployment.dto.CreateDeploymentResult(recovered, true));
+
+        var result = (FormattedResponseDto) actionDispatcher.dispatch(
+                new ParsedIntent(Intent.ROLLBACK, Map.of("owner", "owner", "repo", "app"), 0.9, "롤백"), 1L, 42L, "plan-fp");
+
+        assertThat(result.type()).isEqualTo("rollback_execution");
+        assertThat(result.message()).contains("배포 #3").contains("배포 ID: 9");
+        var origin = ArgumentCaptor.forClass(klepaas.backend.deployment.service.DeploymentOrigin.class);
+        verify(recoveryService).recover(eq(3L), eq("plan-fp"), eq(1L), origin.capture());
+        assertThat(origin.getValue().commandLogId()).isEqualTo(42L);
+        verify(deploymentService, org.mockito.Mockito.never()).createDeployment(any(), any(), any(), any());
+    }
+
     @Test
     @DisplayName("DEPLOY는 HIGH 리스크")
     void classifyDeployAsHigh() {

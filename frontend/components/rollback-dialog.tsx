@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -21,8 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { AlertCircle, CheckCircle, Clock, RotateCcw, GitCommit } from "lucide-react"
-import { api, RollbackListResponse, RollbackCandidate } from "@/lib/api"
+import { AlertCircle, RotateCcw } from "lucide-react"
+import { api, ConfigChange, RecoveryCandidate, RecoveryPlan } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { formatKst } from "@/lib/time"
 
@@ -34,6 +32,15 @@ interface RollbackDialogProps {
   onRollbackSuccess?: () => void
 }
 
+const ENV_KIND_LABEL: Record<ConfigChange["kind"], string> = {
+  CHANGED: "변경",
+  ADDED: "대상에만 있음",
+  REMOVED: "현재에만 있음",
+  VALUE_CHANGED: "값 다름",
+  UNKNOWN: "판정 불가",
+}
+
+// 이전 성공 배포의 이미지·설정으로 복구한다 (#101). 계획을 확인한 뒤 그 계획 지문으로만 실행한다
 export function RollbackDialog({
   open,
   onOpenChange,
@@ -42,28 +49,32 @@ export function RollbackDialog({
   onRollbackSuccess,
 }: RollbackDialogProps) {
   const [loading, setLoading] = useState(false)
-  const [rollbackData, setRollbackData] = useState<RollbackListResponse | null>(null)
-  const [selectedCommit, setSelectedCommit] = useState<RollbackCandidate | null>(null)
-  const [rolling, setRolling] = useState(false)
+  const [candidates, setCandidates] = useState<RecoveryCandidate[] | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [plan, setPlan] = useState<RecoveryPlan | null>(null)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
+  const [recovering, setRecovering] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     if (open) {
-      fetchRollbackList()
+      fetchCandidates()
     }
   }, [open, owner, repo])
 
-  const fetchRollbackList = async () => {
+  const fetchCandidates = async () => {
     try {
       setLoading(true)
-      const data = await api.getRollbackList(owner, repo)
-      setRollbackData(data)
-      setSelectedCommit(null)
+      setSelectedId(null)
+      setPlan(null)
+      setPlanError(null)
+      setCandidates(await api.getRecoveryCandidates(owner, repo))
     } catch (error) {
-      console.error("Failed to fetch rollback list:", error)
+      setCandidates(null)
       toast({
-        title: "롤백 목록 조회 실패",
-        description: String(error),
+        title: "복구 후보 조회 실패",
+        description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       })
     } finally {
@@ -71,40 +82,43 @@ export function RollbackDialog({
     }
   }
 
-  const handleRollback = async () => {
-    if (!selectedCommit) {
-      toast({
-        title: "커밋을 선택해주세요",
-        description: "롤백할 커밋을 먼저 선택해야 합니다.",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const selectCandidate = async (deploymentId: number) => {
+    setSelectedId(deploymentId)
+    setPlan(null)
+    setPlanError(null)
     try {
-      setRolling(true)
-      await api.rollbackToCommit(owner, repo, selectedCommit.commit_sha)
-
-      toast({
-        title: "롤백 시작",
-        description: `커밋 ${selectedCommit.commit_sha_short}로 롤백을 시작했습니다.`,
-      })
-
-      onOpenChange(false)
-      onRollbackSuccess?.()
+      setPlanLoading(true)
+      setPlan(await api.getRecoveryPlan(deploymentId))
     } catch (error) {
-      console.error("Rollback failed:", error)
-      toast({
-        title: "롤백 실패",
-        description: String(error),
-        variant: "destructive",
-      })
+      setPlanError(error instanceof Error ? error.message : String(error))
     } finally {
-      setRolling(false)
+      setPlanLoading(false)
     }
   }
 
-  const formatTime = (isoString: string | null) => formatKst(isoString)
+  const handleRecover = async () => {
+    if (!plan?.executable || !plan.plan_fingerprint) return
+    try {
+      setRecovering(true)
+      const deployment = await api.recoverDeployment(plan.target_deployment_id, plan.plan_fingerprint)
+      toast({
+        title: "복구 배포를 요청했습니다",
+        description: `배포 #${deployment.id}가 배포 #${plan.target_deployment_id}의 이미지·설정으로 진행됩니다. 결과는 배포 목록에서 확인하세요.`,
+      })
+      onOpenChange(false)
+      onRollbackSuccess?.()
+    } catch (error) {
+      toast({
+        title: "복구하지 못했습니다",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      })
+      // 계획이 바뀌었을 수 있으므로 다시 불러온다
+      await selectCandidate(plan.target_deployment_id)
+    } finally {
+      setRecovering(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,233 +126,140 @@ export function RollbackDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RotateCcw className="w-5 h-5" />
-            배포 롤백 - {owner}/{repo}
+            이전 배포로 복구 - {owner}/{repo}
           </DialogTitle>
           <DialogDescription>
-            롤백할 버전을 선택하세요. 선택한 커밋으로 배포가 되돌려집니다.
+            이전 성공 배포를 고르면 복구 계획을 보여 줍니다. 이미지와 env 외 배포 설정을 그 배포 시점으로 되돌립니다.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <span className="ml-4">롤백 정보 조회 중...</span>
-          </div>
-        ) : !rollbackData ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4" />
-            <p>롤백 정보를 불러올 수 없습니다.</p>
-          </div>
-        ) : (
-          <Tabs defaultValue="versions" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="versions">사용 가능한 버전</TabsTrigger>
-              <TabsTrigger value="history">롤백 히스토리</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="versions" className="space-y-4">
-              {/* Current Deployment State */}
-              {rollbackData.current_state && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle className="w-4 h-4 text-blue-600" />
-                        <span className="font-semibold text-blue-900 dark:text-blue-100">
-                          현재 배포 상태
-                        </span>
-                        {rollbackData.current_state.is_rollback && (
-                          <Badge variant="outline" className="text-xs">
-                            Rollback
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm space-y-1">
-                        <div className="flex items-center gap-2">
-                          <GitCommit className="w-3 h-3" />
-                          <code className="font-mono text-xs bg-blue-100 dark:bg-blue-900 px-2 py-0.5 rounded">
-                            {rollbackData.current_state.commit_sha_short}
-                          </code>
-                          <span className="text-muted-foreground truncate max-w-md">
-                            {rollbackData.current_state.commit_message}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          {formatTime(rollbackData.current_state.deployed_at)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Available Versions Table */}
-              <div className="border rounded-lg overflow-x-auto">
-                <div className="min-w-[800px]">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-muted z-10">
-                        <TableRow>
-                          <TableHead className="w-[60px] text-center">선택</TableHead>
-                          <TableHead className="w-[120px]">커밋</TableHead>
-                          <TableHead className="w-[200px]">메시지</TableHead>
-                          <TableHead className="w-[200px]">배포 시간</TableHead>
-                          <TableHead className="w-[100px] text-center">상태</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                    <TableBody>
-                    {!rollbackData.available_versions || rollbackData.available_versions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                          <p>사용 가능한 롤백 버전이 없습니다.</p>
+        <div className="flex-1 space-y-4 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <span className="ml-4">복구 후보 조회 중...</span>
+            </div>
+          ) : !candidates ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+              <p>복구 후보를 불러올 수 없습니다.</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[60px] text-center">선택</TableHead>
+                    <TableHead>배포</TableHead>
+                    <TableHead>커밋</TableHead>
+                    <TableHead>이미지</TableHead>
+                    <TableHead>완료 시각</TableHead>
+                    <TableHead className="text-center">설정 기록</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {candidates.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        이미지가 기록된 성공 배포가 없습니다.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    candidates.map((candidate, idx) => (
+                      <TableRow
+                        key={candidate.deployment_id}
+                        className={`cursor-pointer ${selectedId === candidate.deployment_id ? "bg-muted" : ""}`}
+                        onClick={() => selectCandidate(candidate.deployment_id)}
+                      >
+                        <TableCell className="text-center">
+                          <input
+                            type="radio"
+                            aria-label={`배포 #${candidate.deployment_id} 선택`}
+                            checked={selectedId === candidate.deployment_id}
+                            onChange={() => selectCandidate(candidate.deployment_id)}
+                            className="cursor-pointer w-4 h-4"
+                          />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          #{candidate.deployment_id}
+                          {idx === 0 && <Badge variant="outline" className="ml-2 text-xs">최근 성공</Badge>}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{candidate.commit_hash.slice(0, 7)}</TableCell>
+                        <TableCell className="font-mono text-xs break-all">{candidate.image_uri}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {formatKst(candidate.finished_at)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {candidate.config_recorded ? (
+                            <Badge variant="outline" className="text-xs">있음</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">없음</Badge>
+                          )}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      rollbackData.available_versions.map((version, idx) => (
-                        <TableRow
-                          key={`${version.commit_sha}-${idx}`}
-                          className={`cursor-pointer hover:bg-muted/50 transition-colors ${
-                            selectedCommit?.commit_sha === version.commit_sha
-                              ? "bg-blue-50 dark:bg-blue-900/20"
-                              : ""
-                          }`}
-                          onClick={() => setSelectedCommit(version)}
-                        >
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center">
-                              <input
-                                type="radio"
-                                checked={selectedCommit?.commit_sha === version.commit_sha}
-                                onChange={() => setSelectedCommit(version)}
-                                className="cursor-pointer w-4 h-4"
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <code className="font-mono text-xs bg-muted px-2 py-0.5 rounded whitespace-nowrap">
-                                {version.commit_sha_short}
-                              </code>
-                              {version.is_current && (
-                                <Badge variant="outline" className="text-xs whitespace-nowrap">
-                                  Current
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="truncate max-w-[300px]" title={version.commit_message || "메시지 없음"}>
-                              {version.commit_message || "메시지 없음"}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap w-[200px]">
-                            {formatTime(version.deployed_at)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {version.is_current ? (
-                              <Badge variant="default" className="text-xs whitespace-nowrap">현재</Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs whitespace-nowrap">
-                                {version.steps_back}번 전
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                    </TableBody>
-                    </Table>
-                </div>
-              </div>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-              {selectedCommit && (
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm font-semibold mb-2">선택된 커밋:</p>
-                  <div className="flex items-center gap-2">
-                    <code className="font-mono text-xs bg-background px-2 py-1 rounded">
-                      {selectedCommit.commit_sha_short}
-                    </code>
-                    <span className="text-sm truncate">{selectedCommit.commit_message}</span>
-                  </div>
+          {planLoading && <p className="text-sm text-muted-foreground">복구 계획 계산 중...</p>}
+          {planError && <p className="text-sm text-destructive">복구 계획을 불러오지 못했습니다: {planError}</p>}
+          {plan && (
+            <div className="space-y-3 rounded-lg border p-4">
+              <p className="text-sm font-semibold">복구 계획: 배포 #{plan.target_deployment_id}</p>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">배포할 이미지</dt>
+                <dd className="font-mono text-xs break-all">{plan.image}</dd>
+                <dt className="text-muted-foreground">digest 고정</dt>
+                <dd>{plan.digest_pinned ? "예 (관측한 digest로 배포)" : "아니요 (digest 기록 없음, 태그로 배포)"}</dd>
+              </dl>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">되돌릴 설정 (현재 → 대상)</p>
+                {plan.config_changes.length === 0 ? (
+                  <p className="text-sm">바뀌는 설정 없음</p>
+                ) : (
+                  <ul className="space-y-1 text-xs">
+                    {plan.config_changes.map((change) => (
+                      <li key={change.field} className="font-mono break-all">
+                        {change.field}: {change.before ?? "없음"} → {change.after ?? "없음"}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {plan.env_differences.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">env 차이 (값은 기록하지 않아 되돌릴 수 없음)</p>
+                  <ul className="space-y-1 text-xs">
+                    {plan.env_differences.map((change) => (
+                      <li key={change.field} className="font-mono">
+                        {change.field.replace(/^env:/, "")}: {ENV_KIND_LABEL[change.kind]}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="history" className="space-y-4">
-              <div className="border rounded-lg overflow-x-auto">
-                <div className="min-w-[800px]">
-                    {!rollbackData.rollback_history || rollbackData.rollback_history.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                        <p>롤백 히스토리가 없습니다.</p>
-                      </div>
-                    ) : (
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-muted z-10">
-                          <TableRow>
-                            <TableHead className="w-[120px]">커밋</TableHead>
-                            <TableHead className="w-[200px]">메시지</TableHead>
-                            <TableHead className="w-[200px]">롤백 시간</TableHead>
-                            <TableHead className="w-[100px] text-center">상태</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rollbackData.rollback_history.map((item, idx) => (
-                            <TableRow key={idx} className="hover:bg-muted/50 transition-colors">
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <RotateCcw className="w-3 h-3 text-orange-500" />
-                                  <code className="font-mono text-xs bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded">
-                                    {item.commit_sha_short}
-                                  </code>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="truncate max-w-[300px]" title={item.commit_message || "메시지 없음"}>
-                                  {item.commit_message || "메시지 없음"}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground whitespace-nowrap w-[200px]">
-                                {formatTime(item.rolled_back_at)}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="outline" className="text-xs">
-                                  Rollback
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
+              {!plan.executable && (
+                <div className="flex gap-2 text-sm text-destructive">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <ul className="space-y-1">
+                    {plan.blocked_reasons.map((reason) => <li key={reason}>{reason}</li>)}
+                  </ul>
                 </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        )}
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={rolling}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={recovering}>
             취소
           </Button>
-          <Button
-            onClick={handleRollback}
-            disabled={!selectedCommit || rolling || selectedCommit.is_current}
-          >
-            {rolling ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                롤백 중...
-              </>
-            ) : (
-              <>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                롤백 실행
-              </>
-            )}
+          <Button onClick={handleRecover} disabled={!plan?.executable || recovering || planLoading}>
+            <RotateCcw className="w-4 h-4 mr-2" />
+            {recovering ? "복구 요청 중..." : "이 계획으로 복구"}
           </Button>
         </DialogFooter>
       </DialogContent>

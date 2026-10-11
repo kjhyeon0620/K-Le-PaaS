@@ -395,6 +395,36 @@ async function handleDeployments(args, globalOptions, client) {
       ]);
       return;
     }
+    case "recovery-plan":
+    case "recover": {
+      // 이전 성공 배포의 이미지·env 외 설정으로 복구한다 (#101). 확인한 계획 지문으로만 실행한다
+      const targetId = Number(args.shift());
+      const approved = subcommand === "recover" && takeFlag(args, "--yes");
+      assertNoUnknownOptions(args);
+      if (!Number.isFinite(targetId)) {
+        throw new CliError("복구 대상 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      const plan = await client.getRecoveryPlan(targetId);
+      if (subcommand === "recovery-plan") {
+        globalOptions.json ? printJson(plan) : printRecoveryPlan(plan);
+        return;
+      }
+      if (!globalOptions.json) printRecoveryPlan(plan);
+      if (!plan.executable) {
+        throw new CliError(`복구할 수 없습니다: ${plan.blocked_reasons.join("; ")}`, EXIT_CODES.INPUT, plan);
+      }
+      if (!approved && !(await askConfirmation(`배포 #${targetId}의 이미지·설정으로 복구할까요?`))) {
+        if (!globalOptions.quiet) console.log("복구를 취소했습니다.");
+        return;
+      }
+      const deployment = await client.recoverDeployment(targetId, plan.plan_fingerprint);
+      if (globalOptions.json) {
+        printJson({ plan, deployment });
+        return;
+      }
+      console.log(`\n복구 배포 #${deployment.id}를 요청했습니다. 결과 확인: klepaas deployments wait ${deployment.id}`);
+      return;
+    }
     case "restart": {
       const deploymentId = Number(args.shift());
       assertNoUnknownOptions(args);
@@ -508,7 +538,7 @@ async function handleDeployments(args, globalOptions, client) {
     }
     default:
       throw new CliError(
-        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export` 중 하나여야 합니다.",
+        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export`, `recovery-plan`, `recover` 중 하나여야 합니다.",
         EXIT_CODES.INPUT
       );
   }
@@ -812,6 +842,31 @@ function assertNoUnknownOptions(args) {
   }
 }
 
+function printRecoveryPlan(plan) {
+  printKeyValues([
+    ["Target", `#${plan.target_deployment_id} (${plan.target_commit})`],
+    ["Image", plan.image],
+    ["Digest Pinned", plan.digest_pinned ? "yes" : "no (digest not recorded)"],
+    ["Executable", plan.executable ? "yes" : "no"],
+  ]);
+  if (plan.config_changes.length) {
+    console.log("\n되돌릴 설정 (현재 → 대상):");
+    for (const change of plan.config_changes) {
+      console.log(`  ${change.field}: ${change.before ?? "없음"} → ${change.after ?? "없음"}`);
+    }
+  }
+  if (plan.env_differences.length) {
+    console.log("\nenv 차이 (값은 기록하지 않아 되돌릴 수 없음):");
+    for (const change of plan.env_differences) {
+      console.log(`  ${change.field.replace(/^env:/, "")}: ${change.kind}`);
+    }
+  }
+  if (!plan.executable) {
+    console.log("\n복구할 수 없는 이유:");
+    for (const reason of plan.blocked_reasons) console.log(`  - ${reason}`);
+  }
+}
+
 async function askConfirmation(message) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new CliError("TTY 환경이 아니므로 `--yes` 또는 `--no`를 명시해야 합니다.", EXIT_CODES.INPUT);
@@ -884,6 +939,8 @@ Commands:
   deployments scale <deployment-id> --replicas <n>
   deployments wait <deployment-id> [--timeout <sec>] [--interval <sec>]
   deployments export <deployment-id> [--format json|yaml] [--output <file>]
+  deployments recovery-plan <target-deployment-id>
+  deployments recover <target-deployment-id> [--yes]
 
   cost plan --file <spec.json>
   cost diff --file <spec.json>
