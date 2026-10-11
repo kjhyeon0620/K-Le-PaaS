@@ -85,6 +85,10 @@ public class KubernetesManifestGenerator {
 
             if (config.getDomainUrl() != null && !config.getDomainUrl().isBlank()) {
                 createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels, existingIngress);
+            } else if (existingIngress != null) {
+                // 도메인을 비운 NodePort 앱: 이전 배포의 Ingress를 지운다 (#107). 소유권은 위에서 확인했다
+                kubernetesClient.network().v1().ingresses().inNamespace(namespace).withName(appName).delete();
+                log.info("Ingress removed (no domain): app={}, namespace={}", appName, namespace);
             }
 
             log.info("K8s resources deployed: app={}, namespace={}, generation={}", appName, namespace, applied.generation());

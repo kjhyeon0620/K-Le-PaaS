@@ -150,8 +150,8 @@ public class RepositoryService {
         DeploymentConfig config = deploymentConfigRepository.findBySourceRepositoryId(repositoryId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_CONFIG_NOT_FOUND));
 
-        String domainUrl = resolveUpdateDomainUrl(repositoryId, config, request.domainUrl());
         ServiceExposure serviceExposure = resolveServiceExposure(config, request);
+        String domainUrl = resolveUpdateDomainUrl(repositoryId, config, request.domainUrl(), serviceExposure.serviceType());
         List<String> envFromConfigMaps = normalizeEnvFromRefs(request.envFromConfigMaps(), "env_from_config_maps");
         List<String> envFromSecrets = normalizeEnvFromRefs(request.envFromSecrets(), "env_from_secrets");
         boolean imagePullSecretEnabled = request.imagePullSecretEnabled() != null
@@ -332,13 +332,18 @@ public class RepositoryService {
         return false;
     }
 
-    private String resolveUpdateDomainUrl(Long repositoryId, DeploymentConfig config, String domainUrl) {
+    private String resolveUpdateDomainUrl(Long repositoryId, DeploymentConfig config, String domainUrl,
+                                          KubernetesServiceType serviceType) {
         if (domainUrl == null) {
             return config.getDomainUrl();
         }
 
         if (!StringUtils.hasText(domainUrl)) {
-            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "domain_url은 비워둘 수 없습니다");
+            // NodePort로만 노출하는 앱은 도메인 없이 둔다. Ingress를 만들지 않는다 (#107)
+            if (serviceType == KubernetesServiceType.NODE_PORT) {
+                return null;
+            }
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "domain_url은 비워둘 수 없습니다 (NODE_PORT 앱만 비울 수 있습니다)");
         }
 
         String canonicalDomainUrl = canonicalizeDomainHost(domainUrl, "domain_url");

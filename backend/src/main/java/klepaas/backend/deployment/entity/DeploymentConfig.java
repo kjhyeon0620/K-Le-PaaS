@@ -50,7 +50,8 @@ public class DeploymentConfig extends BaseTimeEntity {
     @Column(nullable = false)
     private int containerPort;
 
-    @Column(name = "domain_url", nullable = false)
+    /** 외부 노출 도메인. NODE_PORT 앱은 비울 수 있고 그때 Ingress를 만들지 않는다 (#107) */
+    @Column(name = "domain_url")
     private String domainUrl;
 
     @Enumerated(EnumType.STRING)

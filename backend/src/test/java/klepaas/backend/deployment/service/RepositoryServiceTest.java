@@ -560,6 +560,26 @@ class RepositoryServiceTest {
         }
 
         @Test
+        @DisplayName("성공: NODE_PORT 앱은 domain_url을 비워 도메인 없이 저장한다, 다른 서비스는 거절 (#107)")
+        void nodePortAppMayClearDomain() {
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.of(testConfig));
+            var nodePort = new UpdateDeploymentConfigRequest(1, 1, Map.of(), List.of(), List.of(), 8080, "",
+                    null, null, null, KubernetesServiceType.NODE_PORT, 30081, null, null, null);
+
+            DeploymentConfigResponse response = repositoryService.updateDeploymentConfig(1L, nodePort, 1L);
+
+            assertThat(response.domainUrl()).isNull();
+            assertThat(testConfig.getDomainUrl()).isNull();
+
+            var clusterIp = new UpdateDeploymentConfigRequest(1, 1, Map.of(), List.of(), List.of(), 8080, " ",
+                    null, null, null, KubernetesServiceType.CLUSTER_IP, null, null, null, null);
+            assertThatThrownBy(() -> repositoryService.updateDeploymentConfig(1L, clusterIp, 1L))
+                    .isInstanceOf(InvalidRequestException.class)
+                    .hasMessageContaining("NODE_PORT");
+        }
+
+        @Test
         @DisplayName("실패: NODE_PORT 서비스는 nodePort가 필요하다")
         void failNodePortServiceWithoutNodePort() {
             var request = new UpdateDeploymentConfigRequest(

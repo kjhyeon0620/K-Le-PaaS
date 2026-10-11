@@ -308,3 +308,8 @@ If a repository create request includes `domain_url`, that custom value is used
 instead. `domain_url` must be unique across repositories. When a default or
 custom domain is already in use, K-Le-PaaS rejects the request instead of adding
 suffixes such as `-2` or `-3`; set a different custom `domain_url` explicitly.
+
+Apps exposed only through a NodePort (`service_type: NODE_PORT`) may clear the
+domain by updating the deployment config with `"domain_url": ""`. The domain is
+then stored as empty, no Ingress is created, and the next deployment deletes the
+app's previous Ingress. Other service types still require a domain (#107).

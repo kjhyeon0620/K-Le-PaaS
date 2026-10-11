@@ -572,6 +572,34 @@ class KubernetesManifestGeneratorTest {
                         && "1".equals(d.getMetadata().getAnnotations().get("klepaas.io/deployment-id"))));
     }
 
+    /** 도메인이 없는 NodePort 앱은 Ingress를 만들지 않고, 이전 배포가 만든 자기 Ingress를 지운다 (#107) */
+    @Test
+    void noDomainRemovesOwnExistingIngress() {
+        KubernetesClient client = mockScopedClient();
+        var policy = new RuntimeResourcePolicy();
+        policy.setRepositories(Map.of(7L, new RuntimeResourcePolicy.AllowedReferences()));
+        var repo = SourceRepository.builder().owner("owner").repoName("repo").build();
+        ReflectionTestUtils.setField(repo, "id", 7L);
+        var config = DeploymentConfig.builder().sourceRepository(repo).minReplicas(1).imagePullSecretEnabled(false)
+                .serviceType(klepaas.backend.deployment.entity.KubernetesServiceType.NODE_PORT).nodePort(30081).domainUrl(null).build();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get()).thenReturn(null);
+        Mockito.when(client.services().inNamespace("klepaas").withName("owner-repo").get()).thenReturn(null);
+        var ownIngress = new io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder().withNewMetadata()
+                .withName("owner-repo").withResourceVersion("5").addToLabels("klepaas.io/repository-id", "7").endMetadata().build();
+        Mockito.when(client.network().v1().ingresses().inNamespace("klepaas").withName("owner-repo").get()).thenReturn(ownIngress);
+        Mockito.when(client.apps().deployments().inNamespace("klepaas")
+                        .resource(new io.fabric8.kubernetes.api.model.apps.Deployment()).create())
+                .thenReturn(new DeploymentBuilder().withNewMetadata().withGeneration(1L).withUid("uid").endMetadata().build());
+        var subject = new KubernetesManifestGenerator(client, policy);
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+
+        subject.deploy("owner-repo", "image", config, 7L, 1L);
+
+        Mockito.verify(client.network().v1().ingresses().inNamespace("klepaas").withName("owner-repo")).delete();
+        Mockito.verify(client.network().v1().ingresses().inNamespace("klepaas"), Mockito.never())
+                .resource(Mockito.any(io.fabric8.kubernetes.api.model.networking.v1.Ingress.class));
+    }
+
     @Test
     void concurrentSameNameCreateConflictNeverAppliesOverOtherRepository() {
         KubernetesClient client = mockScopedClient();

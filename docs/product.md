@@ -79,7 +79,7 @@
 | 10-1 | #95 | 배포 요청 상세 화면과 요청별 설정·근거 기록 | 완료 (PR #96) | [0095](specs/0095-deployment-request-detail/spec.md) |
 | 11 | #57 | 재시작 후 미완료 배포·명령 상태 대조 | 완료 (1단계 PR #97, 2단계 PR #98) (L) | [0057](specs/0057-reconcile-interrupted-work/spec.md) |
 | 12 | #106 | 콘솔에서 새 앱 배포 설정 입력·검증 | 미착수 (M) | - |
-| 12-1 | #107 | NodePort 전용 앱의 domain_url 필수 제거 | 미착수 (S) | - |
+| 12-1 | #107 | NodePort 전용 앱의 domain_url 필수 제거 | 완료 (S), V10 | - |
 | 13 | #58 | 자연어 명령 해석 실제 모델 평가 기준선 | 미착수 | - |
 | 14 | #99 | 배포 실패 진단 평가 사례와 판정 기준 | 완료 (PR #114) (M) | [0099](specs/0099-diagnosis-eval-cases/spec.md) |
 | 15 | #100 | 배포 요청 상세의 근거 기반 읽기 전용 진단 | 완료 (PR #116) (L), 공급사 교체·비용 비교 포함 | [0100](specs/0100-evidence-based-diagnosis/spec.md) |
