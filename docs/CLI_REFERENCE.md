@@ -102,7 +102,10 @@ klepaas deployments wait 42 --timeout 600 --interval 5
 klepaas deployments export 42 --format yaml --output klepaas-export.yaml
 klepaas deployments recovery-plan 40
 klepaas deployments recover 40 --yes
+klepaas deployments diagnose 42
 ```
+
+`deployments diagnose <id>`는 실패하거나 판정 불가인 배포의 AI 진단(실험)을 요청한다. 범주/구체 원인 또는 판단 보류, 요약, 관측 사실, 가설, 확인할 것, 근거(입력 위치와 원문), 검증 메모를 출력하고 `--json`은 응답 그대로다. 요청마다 모델을 호출한다. 성공·진행 중 배포는 400으로 종료 코드 `1`이다 (#100).
 
 `deployments recovery-plan <target-id>`는 이전 성공 배포 `<target-id>`로 복구하는 계획(배포할 이미지, digest 고정 여부, 되돌릴 설정, env 차이, 실행 불가 이유)을 출력한다. `deployments recover <target-id>`는 계획을 출력한 뒤 확인을 받고(`--yes`면 생략) 그 계획 지문으로 실행한다. 실행할 수 없는 계획이거나 확인 후 계획이 바뀌었으면(409) 종료 코드 `1`이다. `--json`은 `recovery-plan`에서 계획을, `recover`에서 `{plan, deployment}`를 출력한다. 결과는 `deployments wait <새 배포 id>`로 확인한다 (#101).
 

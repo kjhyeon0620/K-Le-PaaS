@@ -91,6 +91,11 @@ export class ApiClient {
     return this.request(`/api/v1/deployments/${deploymentId}/logs?lines=${lines}`);
   }
 
+  // 근거 기반 읽기 전용 진단 (#100)
+  async diagnoseDeployment(deploymentId) {
+    return this.request(`/api/v1/deployments/${deploymentId}/diagnosis`, { method: "POST" });
+  }
+
   // 이전 성공 배포로 복구 (#101)
   async getRecoveryPlan(targetDeploymentId) {
     return this.request(`/api/v1/deployments/${targetDeploymentId}/recovery-plan`);

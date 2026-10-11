@@ -395,6 +395,33 @@ async function handleDeployments(args, globalOptions, client) {
       ]);
       return;
     }
+    case "diagnose": {
+      // 근거 기반 읽기 전용 진단 (#100). 요청마다 모델을 호출한다
+      const deploymentId = Number(args.shift());
+      assertNoUnknownOptions(args);
+      if (!Number.isFinite(deploymentId)) {
+        throw new CliError("진단할 deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      const result = await client.diagnoseDeployment(deploymentId);
+      if (globalOptions.json) {
+        printJson(result);
+        return;
+      }
+      printKeyValues([
+        ["Result", result.abstain ? "판단 보류" : `${result.category} / ${result.root_cause}`],
+        ["Model", `${result.model} (${result.prompt_version}, 실험)`],
+      ]);
+      if (result.summary) console.log(`\n${result.summary}`);
+      for (const [title, items] of [["관측 사실", result.observed_facts], ["가설", result.hypotheses], ["확인할 것", result.next_checks]]) {
+        if (items.length) console.log(`\n${title}:\n${items.map((item) => `  - ${item}`).join("\n")}`);
+      }
+      if (result.cited.length) {
+        console.log("\n근거:");
+        for (const c of result.cited) console.log(`  ${c.pointer}\n    ${c.excerpt}`);
+      }
+      if (result.warnings.length) console.log(`\n검증 메모:\n${result.warnings.map((w) => `  - ${w}`).join("\n")}`);
+      return;
+    }
     case "recovery-plan":
     case "recover": {
       // 이전 성공 배포의 이미지·env 외 설정으로 복구한다 (#101). 확인한 계획 지문으로만 실행한다
@@ -538,7 +565,7 @@ async function handleDeployments(args, globalOptions, client) {
     }
     default:
       throw new CliError(
-        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export`, `recovery-plan`, `recover` 중 하나여야 합니다.",
+        "`deployments` 하위 명령은 `list`, `get`, `logs`, `restart`, `scale`, `wait`, `export`, `diagnose`, `recovery-plan`, `recover` 중 하나여야 합니다.",
         EXIT_CODES.INPUT
       );
   }
@@ -939,6 +966,7 @@ Commands:
   deployments scale <deployment-id> --replicas <n>
   deployments wait <deployment-id> [--timeout <sec>] [--interval <sec>]
   deployments export <deployment-id> [--format json|yaml] [--output <file>]
+  deployments diagnose <deployment-id>
   deployments recovery-plan <target-deployment-id>
   deployments recover <target-deployment-id> [--yes]
 

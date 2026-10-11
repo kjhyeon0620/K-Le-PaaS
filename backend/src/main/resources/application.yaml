@@ -90,3 +90,10 @@ gemini:
     base-url: https://generativelanguage.googleapis.com
     key: ${GEMINI_API_KEY}
     model: ${GEMINI_MODEL:gemini-2.5-flash}
+
+# AI 진단 모델 (#100). provider: gemini · anthropic · openai. 키는 GEMINI_API_KEY · ANTHROPIC_API_KEY · OPENAI_API_KEY(선택한 공급사만).
+# 기본값은 #99 사례 비교 결과로 정했다 (스펙 0100). 자연어 명령은 gemini.api 설정을 그대로 쓴다
+diagnosis:
+  llm:
+    provider: ${DIAGNOSIS_LLM_PROVIDER:openai}
+    model: ${DIAGNOSIS_LLM_MODEL:gpt-6-luna}

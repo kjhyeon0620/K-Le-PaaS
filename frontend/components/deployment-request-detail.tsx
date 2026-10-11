@@ -9,6 +9,7 @@ import { AlertTriangle, ArrowLeft, ChevronRight, RefreshCw, Terminal } from "luc
 import {
   api,
   type DeploymentDetail,
+  type DeploymentDiagnosis,
   type DeploymentStatus,
   type DeploymentSummary,
   type TriggerSource,
@@ -159,6 +160,99 @@ export function DeploymentHistory({
   )
 }
 
+const CATEGORY_LABEL: Record<string, string> = {
+  IMAGE: "이미지",
+  ENV_CONFIG: "환경 변수·설정",
+  READINESS: "Readiness probe",
+  SCHEDULING: "스케줄링",
+}
+
+// AI 진단 (실험, #100). 누를 때만 호출하고 결과는 저장하지 않는다. 근거 원문은 서버가 입력에서 잘라 준 값이다
+function DiagnosisCard({ deploymentId }: { deploymentId: number }) {
+  const [result, setResult] = useState<DeploymentDiagnosis | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const run = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setResult(await api.diagnoseDeployment(deploymentId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const list = (title: string, items: string[]) => items.length > 0 && (
+    <div>
+      <p className="text-sm font-medium">{title}</p>
+      <ul className="list-disc pl-5 text-sm">{items.map((item) => <li key={item}>{item}</li>)}</ul>
+    </div>
+  )
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-base">AI 진단</CardTitle>
+          <Badge variant="outline">실험</Badge>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={run} disabled={loading}>
+            {loading ? "진단 중..." : result ? "다시 진단" : "AI 진단 실행"}
+          </Button>
+        </div>
+        <CardDescription>
+          배포 기록·Pod 로그·이벤트만 근거로 설명합니다. 인프라를 바꾸지 않으며, 결과는 가설이므로 근거를 함께 확인하세요.
+        </CardDescription>
+      </CardHeader>
+      {(result || error) && (
+        <CardContent className="space-y-3">
+          {error && <p className="text-sm text-destructive">진단하지 못했습니다: {error}</p>}
+          {result && (
+            <>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {result.abstain ? (
+                  <Badge variant="secondary">판단 보류</Badge>
+                ) : (
+                  <>
+                    <Badge>{CATEGORY_LABEL[result.category ?? ""] ?? result.category}</Badge>
+                    <span className="font-mono text-xs">{result.root_cause}</span>
+                  </>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground">{result.model} · {result.prompt_version}</span>
+              </div>
+              {result.summary && <p className="text-sm">{result.summary}</p>}
+              {list("관측 사실", result.observed_facts)}
+              {list("가설", result.hypotheses)}
+              {list("확인할 것", result.next_checks)}
+              {result.cited.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium">근거</p>
+                  <ul className="space-y-1">
+                    {result.cited.map((c) => (
+                      <li key={c.pointer} className="text-xs">
+                        <span className="font-mono text-muted-foreground">{c.pointer}</span>
+                        <p className="font-mono break-all">{c.excerpt}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.warnings.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  <p>검증 메모</p>
+                  <ul className="list-disc pl-5">{result.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 export function DeploymentRequestDetail({ deploymentId, onBack }: { deploymentId: number; onBack: () => void }) {
   const [detail, setDetail] = useState<DeploymentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -225,6 +319,8 @@ export function DeploymentRequestDetail({ deploymentId, onBack }: { deploymentId
               </AlertDescription>
             </Alert>
           )}
+
+          {(d.status === "FAILED" || d.status === "UNKNOWN") && <DiagnosisCard deploymentId={d.id} />}
 
           <Card>
             <CardHeader className="pb-3">

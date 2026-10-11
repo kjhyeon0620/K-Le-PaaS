@@ -100,10 +100,13 @@ GET  /api/v1/deployments/{id}/logs
 GET  /api/v1/deployments/{id}/detail
 POST /api/v1/deployments/{id}/scale
 POST /api/v1/deployments/{id}/restart
+POST /api/v1/deployments/{id}/diagnosis
 GET  /api/v1/repositories/{repositoryId}/recovery-candidates
 GET  /api/v1/deployments/{id}/recovery-plan
 POST /api/v1/deployments/{id}/recover
 ```
+
+근거 기반 진단(#100, 실험): FAILED·UNKNOWN 배포의 상세·로그 응답(비밀값 패턴 가림)을 진단 모델에 보내 `category`·`root_cause`·`abstain`·`observed_facts`·`hypotheses`·`next_checks`·`cited`(입력 JSON Pointer와 서버가 자른 원문)를 돌려줍니다. 라벨 목록 밖·없는 근거는 서버가 버리고 `warnings`에 남깁니다. 인프라를 바꾸지 않고 저장하지 않습니다. read-only 토큰부터 호출할 수 있습니다. 모델은 `DIAGNOSIS_LLM_PROVIDER`·`DIAGNOSIS_LLM_MODEL`(기본 openai / gpt-6-luna)로 바꿉니다.
 
 이전 성공 배포로 복구(#101): `recovery-plan`이 배포할 이미지(관측 digest가 있으면 digest 고정), 되돌릴 설정(env 제외), env 차이, 실행 가능 여부와 `plan_fingerprint`를 돌려주고, `recover`는 같은 지문일 때만 env 외 설정을 복원하고 대상 이미지로 새 배포를 만듭니다. 계획이 바뀌면 409 `DEPLOY_004`, 설정 기록 없음·KANIKO·env 차이로 실행할 수 없으면 409 `DEPLOY_005`입니다. 복구 배포의 `recovered_from_deployment_id`에 대상이 남습니다.
 

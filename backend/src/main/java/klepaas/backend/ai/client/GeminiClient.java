@@ -30,10 +30,15 @@ public class GeminiClient {
     }
 
     public GeminiResponse generate(GeminiRequest request) {
-        String uri = "/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+        return generate(model, request);
+    }
 
+    /** 모델을 지정해 호출한다 (#100 진단은 진단용 모델 설정을 쓴다) */
+    public GeminiResponse generate(String model, GeminiRequest request) {
+        // 키는 헤더로 보낸다. 새 형식 키는 ?key= 쿼리를 받지 않고(404), 헤더는 모든 키에서 공식 지원되며 URL·로그에 남지 않는다
         return geminiRestClient.post()
-                .uri(uri)
+                .uri("/v1beta/models/" + model + ":generateContent")
+                .header("x-goog-api-key", apiKey)
                 .body(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {

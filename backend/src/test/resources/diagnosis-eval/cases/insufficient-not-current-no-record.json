@@ -1,0 +1,56 @@
+{
+  "id": "insufficient-not-current-no-record",
+  "group": "INSUFFICIENT",
+  "provenance": "derived: composite-probe-and-resources-changed 캡처에서 Pod·이벤트·실패 사유의 Pod 설명(상세·로그 응답 모두)을 지우고 관측을 NOT_CURRENT, 실패 종류를 ROLLOUT_TIMEOUT으로 바꿈. 설정 기록은 없는 배포로 만듦(#95 이전 배포와 같음)",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 11,
+        "repository_id": 8,
+        "repository_name": "demo/search-cache",
+        "branch_name": "main",
+        "commit_hash": "e1f2a3b",
+        "image_uri": "redis:7-alpine",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1",
+        "started_at": "2026-10-11T05:28:58.085945Z",
+        "finished_at": "2026-10-11T05:30:29.281445Z",
+        "created_at": "2026-10-11T05:28:58.086153Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "ROLLOUT_TIMEOUT",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "demo"
+      },
+      "command": null,
+      "config": null,
+      "previous_success": null,
+      "comparison": "NOT_RECORDED",
+      "changes": [],
+      "explanation": null
+    },
+    "logs": {
+      "deployment_id": 11,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1",
+      "observation": "NOT_CURRENT",
+      "observation_message": "다른 배포 요청이 적용한 Deployment입니다",
+      "applied_deployment_id": 12,
+      "pods": [],
+      "events": []
+    }
+  },
+  "expected": {
+    "category": null,
+    "root_cause": null,
+    "evidence": [],
+    "abstain": true,
+    "forbidden": []
+  },
+  "notes": "다른 요청이 Deployment를 적용해 이 요청의 Pod를 관측할 수 없고 설정 기록도 없다. 타임아웃과 replica 수만으로 원인을 단정하면 안 된다."
+}

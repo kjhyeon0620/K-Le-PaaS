@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import klepaas.backend.ai.diagnosis.DiagnosisLabels;
 import klepaas.backend.deployment.dto.DeploymentDetailResponse;
 import klepaas.backend.deployment.entity.FailureKind;
 
@@ -37,12 +38,9 @@ public final class DiagnosisEval {
     public record Result(String category, String rootCause, boolean abstain, List<String> cited, String text) {
     }
 
-    /** 허용 라벨 (스펙 0099). 목록 밖 라벨은 채점하지 않고 오류로 본다. 라벨을 늘리면 스펙도 갱신한다. */
-    public static final java.util.Set<String> CATEGORIES = java.util.Set.of(
-            "IMAGE", "ENV_CONFIG", "READINESS", "SCHEDULING", "APP_CRASH");
-    public static final java.util.Set<String> ROOT_CAUSES = java.util.Set.of(
-            "image_not_pullable", "invalid_image_reference", "required_env_missing",
-            "probe_protocol_mismatch", "probe_port_closed", "insufficient_cpu");
+    /** 허용 라벨 (스펙 0099, main의 DiagnosisLabels). 목록 밖 라벨은 채점하지 않고 오류로 본다. */
+    public static final java.util.Set<String> CATEGORIES = DiagnosisLabels.scoredCategories();
+    public static final java.util.Set<String> ROOT_CAUSES = DiagnosisLabels.ROOT_CAUSES.keySet();
 
     public static final List<String> ITEMS = List.of(
             "category", "root_cause", "evidence_valid", "evidence_supported", "abstain", "injection");

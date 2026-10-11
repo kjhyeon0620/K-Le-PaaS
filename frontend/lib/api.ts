@@ -577,6 +577,11 @@ class ApiClient {
     return this.request<RecoveryCandidate[]>(`/api/v1/repositories/${targetRepo.id}/recovery-candidates`)
   }
 
+  // 근거 기반 읽기 전용 진단 (#100). 요청마다 모델을 호출하므로 사용자가 누를 때만 부른다
+  async diagnoseDeployment(deploymentId: number): Promise<DeploymentDiagnosis> {
+    return this.request<DeploymentDiagnosis>(`/api/v1/deployments/${deploymentId}/diagnosis`, { method: 'POST' })
+  }
+
   async getRecoveryPlan(targetDeploymentId: number): Promise<RecoveryPlan> {
     return this.request<RecoveryPlan>(`/api/v1/deployments/${targetDeploymentId}/recovery-plan`)
   }
@@ -821,6 +826,22 @@ export interface RecoveryCandidate {
 }
 
 export type ConfigChange = DeploymentDetail['changes'][number]
+
+// POST /api/v1/deployments/{id}/diagnosis 응답 (#100). cited.excerpt는 서버가 입력에서 자른 원문
+export interface DeploymentDiagnosis {
+  deployment_id: number
+  model: string
+  prompt_version: string
+  category: string | null
+  root_cause: string | null
+  abstain: boolean
+  summary: string
+  observed_facts: string[]
+  hypotheses: string[]
+  next_checks: string[]
+  cited: { pointer: string; excerpt: string }[]
+  warnings: string[]
+}
 
 // GET /api/v1/deployments/{id}/recovery-plan 응답 (#101)
 export interface RecoveryPlan {
