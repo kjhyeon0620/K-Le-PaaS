@@ -348,6 +348,42 @@ class KubernetesManifestGeneratorTest {
     }
 
     @Test
+    @DisplayName("rollout 대기 시간은 기본값 + startup 허용 시간, 상한까지 (#108)")
+    void rolloutTimeoutAddsStartupAllowanceUpToCap() {
+        var subject = new KubernetesManifestGenerator(mockScopedClient(), new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "rolloutTimeoutMs", 120_000L);
+        ReflectionTestUtils.setField(subject, "maxRolloutTimeoutMs", 900_000L);
+        java.util.function.Function<HealthProbe, DeploymentConfig> config = probe ->
+                DeploymentConfig.builder().minReplicas(1).maxReplicas(1).containerPort(8080).healthProbe(probe).build();
+
+        assertThat(subject.rolloutTimeoutMs(config.apply(null))).isEqualTo(120_000L);
+        assertThat(subject.rolloutTimeoutMs(config.apply(new HealthProbe("/health", null, 0, 5, 3, null)))).isEqualTo(120_000L);
+        // 30 + 10 × 30 = 330초 기동 허용
+        assertThat(subject.rolloutTimeoutMs(config.apply(new HealthProbe("/health", null, 30, 10, 3, 30)))).isEqualTo(450_000L);
+        // period가 없으면 Kubernetes 기본 10초
+        assertThat(subject.rolloutTimeoutMs(config.apply(new HealthProbe("/health", null, null, null, 3, 12)))).isEqualTo(240_000L);
+        assertThat(subject.rolloutTimeoutMs(config.apply(new HealthProbe("/health", null, 0, 10, 3, 1000)))).isEqualTo(900_000L);
+    }
+
+    @Test
+    @DisplayName("대기 단계는 넘겨받은 시간만큼 기다리고 사유에 그 초를 적는다 (#108)")
+    void waitForRolloutUsesGivenTimeout() {
+        KubernetesClient client = mockScopedClient();
+        Mockito.when(client.apps().deployments().inNamespace("klepaas").withName("owner-repo").get())
+                .thenReturn(rollout(3, 3, 1, 0, 1, condition("Progressing", "True", "ReplicaSetUpdated")));
+        var subject = new KubernetesManifestGenerator(client, new RuntimeResourcePolicy());
+        ReflectionTestUtils.setField(subject, "namespace", "klepaas");
+        ReflectionTestUtils.setField(subject, "rolloutTimeoutMs", 120_000L);
+        ReflectionTestUtils.setField(subject, "rolloutPollIntervalMs", 0L);
+
+        long started = System.currentTimeMillis();
+        RolloutResult result = subject.waitForRollout("owner-repo", 3, 1_000L);
+
+        assertThat(System.currentTimeMillis() - started).isLessThan(10_000L);
+        assertThat(result.reason()).startsWith("rollout 타임아웃(1초, generation=3)");
+    }
+
+    @Test
     @DisplayName("NODE_PORT 서비스 포트에는 configured nodePort를 포함한다")
     void buildServicePort_includesConfiguredNodePort_whenServiceTypeIsNodePort() {
         DeploymentConfig config = DeploymentConfig.builder()

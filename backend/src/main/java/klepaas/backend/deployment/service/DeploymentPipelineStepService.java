@@ -133,16 +133,19 @@ public class DeploymentPipelineStepService {
         var applied = k8sGenerator.deploy(appName, imageUri, config, repo.getId(), deploymentId);
         deployment.recordAppliedResource(applied.resourceUid(), applied.generation());
         deploymentRepository.save(deployment);
-        log.info("K8s manifests applied: deploymentId={}, app={}, generation={}", deploymentId, appName, applied.generation());
-        return new AppliedRollout(appName, applied.generation());
+        long timeoutMs = k8sGenerator.rolloutTimeoutMs(config);
+        log.info("K8s manifests applied: deploymentId={}, app={}, generation={}, rolloutTimeoutMs={}",
+                deploymentId, appName, applied.generation(), timeoutMs);
+        return new AppliedRollout(appName, applied.generation(), timeoutMs);
     }
 
     // 트랜잭션 밖에서 기다린다 (최대 rollout 타임아웃 동안 DB 연결을 잡지 않는다)
     public RolloutResult awaitK8sRollout(AppliedRollout applied) {
-        return k8sGenerator.waitForRollout(applied.appName(), applied.generation());
+        return k8sGenerator.waitForRollout(applied.appName(), applied.generation(), applied.timeoutMs());
     }
 
-    public record AppliedRollout(String appName, long generation) {
+    /** timeoutMs는 적용한 설정의 startup probe로 정한 대기 시간이다 (#108) */
+    public record AppliedRollout(String appName, long generation, long timeoutMs) {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

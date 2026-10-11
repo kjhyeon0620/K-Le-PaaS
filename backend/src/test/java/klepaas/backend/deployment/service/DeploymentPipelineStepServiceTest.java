@@ -103,10 +103,12 @@ class DeploymentPipelineStepServiceTest {
         verify(deploymentRepository).save(deployment);
         verifyNoInteractions(k8sGenerator);
 
+        given(k8sGenerator.rolloutTimeoutMs(config)).willReturn(180_000L);
         var applied = stepService.applyK8sManifests(1L, imageUri);
 
+        // 대기 시간은 적용한 설정의 startup probe로 정한다 (#108)
         assertThat(applied).isEqualTo(new DeploymentPipelineStepService.AppliedRollout(
-                "kjhyeon0620-smart-sousvide-iot-platform", 5L));
+                "kjhyeon0620-smart-sousvide-iot-platform", 5L, 180_000L));
         assertThat(deployment.getAppliedResourceUid()).isEqualTo("uid-applied");
         assertThat(deployment.getAppliedGeneration()).isEqualTo(5L);
         var order = org.mockito.Mockito.inOrder(k8sGenerator, deploymentRepository);

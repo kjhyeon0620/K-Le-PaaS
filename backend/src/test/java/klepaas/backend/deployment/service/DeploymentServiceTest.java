@@ -42,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -118,6 +119,29 @@ class DeploymentServiceTest {
             assertThatThrownBy(() -> deploymentService.createDeployment(request, null, null, WEB_ORIGIN))
                     .isInstanceOf(EntityNotFoundException.class);
             verifyNoInteractions(pipelineService, deploymentRepository, k8sGenerator);
+        }
+
+        @Test
+        @DisplayName("진행 중 판정 창은 빌드 타임아웃 + rollout 상한 + 10분 (#108)")
+        void inProgressWindowUsesRolloutCap() {
+            org.springframework.test.util.ReflectionTestUtils.setField(deploymentService, "buildTimeoutMs", 1_800_000L);
+            org.springframework.test.util.ReflectionTestUtils.setField(deploymentService, "maxRolloutTimeoutMs", 900_000L);
+            var request = new CreateDeploymentRequest(1L, "main", "abc1234");
+            given(resourceAccessService.requireRepository(1L, 1L)).willReturn(testRepo);
+            given(deploymentConfigRepository.findBySourceRepositoryId(1L)).willReturn(Optional.empty());
+            given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                deploymentService.createDeployment(request, 1L, null, WEB_ORIGIN);
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+
+            var cutoff = org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+            verify(deploymentRepository).findFirstBySourceRepositoryIdAndStatusInAndUpdatedAtAfterOrderByIdDesc(
+                    eq(1L), any(), cutoff.capture());
+            assertThat(java.time.Duration.between(cutoff.getValue(), java.time.LocalDateTime.now()).toMinutes()).isBetween(54L, 55L);
         }
 
         @Test
