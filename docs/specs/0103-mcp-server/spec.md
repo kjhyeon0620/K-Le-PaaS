@@ -48,7 +48,7 @@ branch: feat/#103-mcp-server
 
 ## 입출력·계약
 - 새 endpoint: `/api/v1/mcp` (MCP Streamable HTTP). REST 응답·에러 코드·마이그레이션·설정 키 변화 없음.
-- 문서: `docs/CLI_REFERENCE.md`의 AI agent 절차에 MCP 연결(Claude Code `claude mcp add --transport http ... --header "Authorization: Bearer ..."`, Codex 설정 예), `architecture.md`, `backend/README.md`.
+- 문서: 사용자용 `docs/MCP.md`(토큰, Claude Code·Codex·일반 클라이언트 연결, 연결 확인, 도구, 승인, 사용 예, 오류·문제 해결, 보안 메모), README 사용 인터페이스·문서 목록, `CLI_REFERENCE.md`(링크), `architecture.md`, `backend/README.md`.
 
 ## 결정 기록 (Decisions)
 - 2026-10-11 Q1 → 사용자 결정: 백엔드 원격 HTTP MCP. 로컬 stdio·별도 Node 서버를 제안했으나 원격으로 정했다.

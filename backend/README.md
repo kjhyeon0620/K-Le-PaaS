@@ -114,7 +114,7 @@ POST /api/v1/mcp   (MCP Streamable HTTP, #103)
 
 에이전트 복구 제안(#102): `recovery-proposal`(PROPOSE_ONLY 이상, 본문 `reason` 선택)은 그 배포로 복구하는 승인 대기 명령(ROLLBACK, 계획 지문 고정)만 만들고 실행하지 않습니다. 응답은 `nlp/command`와 같은 형식이며, 사람이 `nlp/confirm`(FULL)으로 승인해야 실행됩니다. 실행할 수 없는 계획이면 409 `DEPLOY_005`로 명령을 만들지 않습니다.
 
-MCP 서버(#103): `/api/v1/mcp`는 공식 MCP Java SDK의 세션 없는 Streamable HTTP endpoint입니다. CLI 토큰을 `Authorization: Bearer`로 받고(READ_ONLY·PROPOSE_ONLY·FULL), 조회·진단·복구 계획·복구 제안 도구 7개를 제공합니다. 도구는 위 REST와 같은 서비스를 호출하며 승인·실행 도구는 없습니다. 클라이언트 설정은 [CLI Reference](../docs/CLI_REFERENCE.md#ai-agent-사용-절차-102)에 있습니다.
+MCP 서버(#103): `/api/v1/mcp`는 공식 MCP Java SDK의 세션 없는 Streamable HTTP endpoint입니다. CLI 토큰을 `Authorization: Bearer`로 받고(READ_ONLY·PROPOSE_ONLY·FULL), 조회·진단·복구 계획·복구 제안 도구 7개를 제공합니다. 도구는 위 REST와 같은 서비스를 호출하며 승인·실행 도구는 없습니다. 클라이언트 설정과 도구는 [MCP 문서](../docs/MCP.md)에 있습니다.
 
 `POST /api/v1/deployments`는 같은 저장소에 진행 중인 배포가 있으면 409(`DEPLOY_003`)를 반환합니다. 진행 중 배포와 같은 요청(branch·commit·image_uri)을 다시 보내면 새로 만들지 않고 그 배포를 200으로 반환합니다.
 

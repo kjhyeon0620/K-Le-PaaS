@@ -108,33 +108,7 @@ klepaas deployments wait <새 배포 id>
 
 #### MCP로 연결 (#103)
 
-CLI 대신 MCP를 쓰면 에이전트가 도구 목록과 입력 스키마를 직접 본다. 서버는 백엔드의 `<API_BASE>/api/v1/mcp`(Streamable HTTP)이고, 위에서 받은 `propose-only` 토큰을 Bearer로 보낸다. 토큰은 설정 파일에 직접 쓰지 말고 환경변수로 넘긴다.
-
-```bash
-# Claude Code
-claude mcp add --transport http klepaas "<API_BASE>/api/v1/mcp" --header "Authorization: Bearer $KLEPAAS_TOKEN"
-```
-
-```toml
-# Codex (~/.codex/config.toml)
-[mcp_servers.klepaas]
-url = "<API_BASE>/api/v1/mcp"
-bearer_token_env_var = "KLEPAAS_TOKEN"
-```
-
-| 도구 | 입력 | 같은 CLI 명령 |
-|---|---|---|
-| `list_repositories` | 없음 | `repositories list` |
-| `list_deployments` | `repository_id`, `page`, `size`(≤100) | `deployments list` |
-| `get_deployment_detail` | `deployment_id` | `deployments get`(상세 응답) |
-| `get_deployment_logs` | `deployment_id`, `lines`(1~200) | `deployments logs` |
-| `diagnose_deployment` | `deployment_id`, `refresh` | `deployments diagnose` |
-| `get_recovery_plan` | `target_deployment_id` | `deployments recovery-plan` |
-| `propose_recovery` | `target_deployment_id`, `reason`(≤200자) | `deployments propose-recovery` |
-
-- 결과는 REST 응답의 `data`와 같은 JSON이다. 권한 밖·대상 없음·실행 불가는 도구 오류(`isError`)로 `{code, message}`를 돌려준다.
-- 승인·실행 도구는 없다. `propose_recovery` 결과의 `command_log_id`를 사람이 `klepaas confirm`으로 승인한다.
-- `read-only` 토큰도 연결할 수 있지만 `propose_recovery`는 `CLI_005`다. 배포 전용 토큰은 403이다.
+CLI 대신 MCP를 쓰면 에이전트가 도구 목록과 입력 스키마를 직접 본다. 같은 `propose-only` 토큰으로 `<API_BASE>/api/v1/mcp`에 연결한다. 클라이언트 설정, 도구, 오류는 [MCP 문서](MCP.md)에 있다.
 - 승인 전에 설정이 바뀌면 계획 지문이 달라져 승인이 409 `AI_006`로 거절된다. 에이전트가 계획을 다시 보고 다시 제안한다.
 
 ---
