@@ -18,7 +18,7 @@ K-Le-PaaS 백엔드는 자연어/CLI/Web 요청을 감사 가능하고 위험도
 - Fabric8 Kubernetes Client 기반 Deployment, Service, Ingress apply
 - Gemini 2.5 Flash 기반 자연어 intent parsing
 - LOW / MEDIUM / HIGH risk classification
-- MEDIUM / HIGH 명령 confirmation flow
+- MEDIUM / HIGH 명령 confirmation flow (배포 명령은 승인 당시 설정 지문으로 고정, #56)
 - command log와 command history 저장
 - spec 기반 cost plan, diff, explain, check
 - Slack Incoming Webhook 알림 MVP
@@ -119,6 +119,8 @@ GET  /api/v1/nlp/history
 ```
 
 LOW risk 명령은 즉시 실행됩니다. MEDIUM / HIGH risk 명령은 command log에 저장된 뒤 `/api/v1/nlp/confirm`으로 확인되어야 실행됩니다.
+
+배포·롤백 명령의 응답에는 `approval_target`(저장소, 브랜치/commit, 이미지, 레플리카, 포트, env 이름, 설정 지문 8자리)이 있습니다. 승인 대기 중 배포 설정이 바뀌면 confirm은 실행하지 않고 409 `AI_006`을 돌려주며, 승인 후 빌드 중에 바뀌면 apply 직전에 적용하지 않고 배포를 `FAILED`로 끝냅니다 (#56).
 
 ### 비용
 

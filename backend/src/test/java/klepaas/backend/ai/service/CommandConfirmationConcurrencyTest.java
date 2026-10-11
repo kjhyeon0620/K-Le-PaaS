@@ -43,13 +43,14 @@ class CommandConfirmationConcurrencyTest {
     @MockitoBean private GeminiClient geminiClient;
     @MockitoBean private IntentParser intentParser;
     @MockitoBean private ActionDispatcher dispatcher;
+    @MockitoBean private ApprovalTargetResolver approvalTargets;
 
     @Test
     void twoApprovalsClaimOnceAndCommitBeforeExternalWork() throws Exception {
         Long userId = users.save(User.builder().name("owner").email("owner@example.com").role(Role.USER).build()).getId();
         Long id = pending(userId);
         AtomicInteger dispatched = new AtomicInteger();
-        when(dispatcher.dispatch(any(), eq(userId), any())).thenAnswer(inv -> {
+        when(dispatcher.dispatch(any(), eq(userId), any(), any())).thenAnswer(inv -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             assertThat(jdbc.queryForObject("select status from command_log where id = ?", String.class, id))
                     .isEqualTo("EXECUTING");

@@ -53,6 +53,10 @@ public class CommandLog extends BaseTimeEntity {
 
     private String errorMessage;
 
+    // 승인 대상 배포 설정 지문 (#56). 승인 대상이 아니거나 확인하지 못한 명령은 null
+    @Column(length = 64)
+    private String approvedConfigFingerprint;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id")
     private ConversationSession session;
@@ -85,6 +89,10 @@ public class CommandLog extends BaseTimeEntity {
         this.isExecuted = false;
         this.errorMessage = errorMessage;
         this.status = CommandStatus.FAILED;
+    }
+
+    public void pinApprovedConfig(String fingerprint) {
+        this.approvedConfigFingerprint = fingerprint;
     }
 
     public void confirm(boolean confirmed) {

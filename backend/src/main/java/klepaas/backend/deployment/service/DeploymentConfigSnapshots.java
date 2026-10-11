@@ -12,6 +12,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,16 @@ public class DeploymentConfigSnapshots {
                 List.copyOf(config.getEnvFromConfigMaps()), List.copyOf(config.getEnvFromSecrets()),
                 config.isImagePullSecretEnabled(), config.getImagePullSecretName(),
                 config.getHealthProbe(), config.getResources());
+    }
+
+    /** 승인 고정용 설정 지문 (#56): 스냅샷 JSON의 SHA-256. env 값은 HMAC 지문으로만 반영된다. */
+    public String fingerprint(DeploymentConfig config) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(toJson(capture(config)).getBytes(StandardCharsets.UTF_8)));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public String toJson(DeploymentConfigSnapshot snapshot) {

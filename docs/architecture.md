@@ -57,11 +57,18 @@ POST /api/v1/nlp/command
        그 외(조회)                            → LOW
   → LOW: 즉시 실행 (소유권 범위 안의 조회)
   → MEDIUM/HIGH: CommandLog(PENDING) 저장 후 승인 대기
+       배포 intent(DEPLOY·ROLLBACK·ROLLBACK_EXECUTION)는 소유권 확인 후 대상 저장소 설정 지문을 함께 저장하고
+       응답 approval_target에 저장소·브랜치·commit·이미지·레플리카·포트·env 이름·지문 8자리를 보인다 (#56)
 POST /api/v1/nlp/confirm
   → 본인 명령이고, 생성 10분 이내이고, PENDING일 때만 EXECUTING으로 원자적 전이 (한 번만 소비)
   → 10분이 지났으면 EXPIRED
+  → 배포 intent: 현재 설정 지문이 저장한 지문과 다르거나 지문이 없으면 실행하지 않고 FAILED + 409 AI_006
   → 실행 결과로 SUCCEEDED / FAILED
+  → 승인한 배포는 요청 행에 지문을 남기고, apply 직전 적용할 설정 지문과 다르면 적용하지 않고 FAILED(APPLY_FAILED)
 ```
+
+- 설정 지문은 배포 설정 스냅샷(#95) JSON의 SHA-256이다. env 값은 HMAC 지문으로만 반영되며 응답·로그에 값이 나오지 않는다. 같은 값으로 되돌리면 지문도 같다.
+- 웹·CLI·CI에서 직접 요청한 배포는 승인 단계가 없어 apply 시점 설정을 쓴다.
 
 - 자연어를 셸 명령으로 실행하지 않는다. 모든 실행은 백엔드 서비스와 Fabric8 호출을 거친다 ([ADR-0002](adr/0002-intent-risk-confirmation.md)).
 - `PROPOSE_ONLY` 토큰은 `nlp/command`로 명령을 만들 수 있지만 `confirm`은 403이다.
@@ -194,7 +201,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 공통 | `COMMON_001` 404, `COMMON_002` 409, `COMMON_003` 400, `COMMON_004` 500 |
 | 저장소·배포 | `REPO_001/002`, `DEPLOY_001`~`DEPLOY_003` (`DEPLOY_003` 409: 같은 저장소 배포 진행 중) |
 | 인프라 | `INFRA_001`~`INFRA_006` (업로드, 빌드, 배포, NCP 실패) |
-| AI·명령 | `AI_001`~`AI_005` (`AI_005` 409: 명령을 승인할 수 없음) |
+| AI·명령 | `AI_001`~`AI_006` (`AI_005` 409: 명령을 승인할 수 없음, `AI_006` 409: 승인 후 배포 설정 변경·승인 대상 확인 불가) |
 | CLI | `CLI_001`~`CLI_006` (`CLI_005` 403: scope 밖 요청) |
 | GitHub | `GH_001`~`GH_003` |
 
@@ -250,7 +257,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 격차 | 영향 | 이슈 |
 |---|---|---|
 | rollout 타임아웃(`kubernetes.rollout.timeout-ms`, 120초)이 앱의 startup probe 허용 시간(`period_seconds × startup_failure_threshold`)과 무관한 고정값이다 | 기동이 120초보다 오래 걸리는 앱은 정상이어도 타임아웃 FAILED로 기록된다 | #108 |
-| 승인한 뒤 실행 시점에 설정을 다시 조회한다 | 승인 대기 중에 바뀐 설정으로 실행될 수 있다 | #56 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
 | 콘솔 Deployments 화면의 Rollback 버튼이 stub이다. `getRollbackList()`는 항상 빈 목록, `rollbackToCommit()`은 아무 동작 없이 `{}`를 반환한다 (Config·Scale·Restart·Logs는 실제 API) | 동작하지 않는 기능이 정상처럼 보인다. 롤백은 현재 자연어 명령(ROLLBACK)으로만 가능하다 | #101 |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |

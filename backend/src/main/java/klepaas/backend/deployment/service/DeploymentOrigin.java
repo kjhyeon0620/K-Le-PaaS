@@ -5,7 +5,12 @@ import klepaas.backend.auth.token.entity.CliTokenScope;
 import klepaas.backend.deployment.entity.TriggerSource;
 
 /** 배포 요청이 어떤 경로로, 누구에게서 왔는지 (#95). CI·webhook은 요청자가 없다. */
-public record DeploymentOrigin(TriggerSource source, Long requestedByUserId, Long commandLogId) {
+public record DeploymentOrigin(TriggerSource source, Long requestedByUserId, Long commandLogId,
+                               String approvedConfigFingerprint) {
+
+    public DeploymentOrigin(TriggerSource source, Long requestedByUserId, Long commandLogId) {
+        this(source, requestedByUserId, commandLogId, null);
+    }
 
     public static DeploymentOrigin of(CustomUserDetails principal) {
         if (principal.isGitHubActions()) {
@@ -23,6 +28,11 @@ public record DeploymentOrigin(TriggerSource source, Long requestedByUserId, Lon
     }
 
     public static DeploymentOrigin nlp(Long userId, Long commandLogId) {
-        return new DeploymentOrigin(TriggerSource.NLP, userId, commandLogId);
+        return nlp(userId, commandLogId, null);
+    }
+
+    /** approvedConfigFingerprint: 승인한 배포 설정 지문 (#56). apply 직전 비교한다 */
+    public static DeploymentOrigin nlp(Long userId, Long commandLogId, String approvedConfigFingerprint) {
+        return new DeploymentOrigin(TriggerSource.NLP, userId, commandLogId, approvedConfigFingerprint);
     }
 }

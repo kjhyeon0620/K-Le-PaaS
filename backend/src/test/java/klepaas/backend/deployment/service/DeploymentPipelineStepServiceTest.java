@@ -166,4 +166,33 @@ class DeploymentPipelineStepServiceTest {
         ReflectionTestUtils.setField(repository, "id", 10L);
         return repository;
     }
+
+    @Test
+    @DisplayName("승인한 설정 지문과 적용할 설정이 다르면 Kubernetes에 적용하지 않고, 같으면 적용한다 (#56)")
+    void applyRejectsConfigChangedAfterApproval() {
+        SourceRepository repository = repository();
+        Deployment deployment = Deployment.builder().sourceRepository(repository)
+                .branchName("main").commitHash("abcdef1").build();
+        deployment.pinApprovedConfig("fp-approved");
+        DeploymentConfig config = DeploymentConfig.builder().sourceRepository(repository)
+                .minReplicas(1).maxReplicas(1).envVars(Map.of()).containerPort(8080).domainUrl("iot.example.com").build();
+        given(deploymentRepository.findById(1L)).willReturn(Optional.of(deployment));
+        given(deploymentConfigRepository.findBySourceRepositoryId(10L)).willReturn(Optional.of(config));
+        given(configSnapshots.fingerprint(config)).willReturn("fp-changed");
+
+        assertThatThrownBy(() -> stepService.applyK8sManifests(1L, "img:v1"))
+                .isInstanceOfSatisfying(klepaas.backend.global.exception.BusinessException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(klepaas.backend.global.exception.ErrorCode.APPROVAL_TARGET_CHANGED);
+                    assertThat(e.getMessage()).contains("승인 후 배포 설정이 바뀌어 적용하지 않음");
+                });
+        verifyNoInteractions(k8sGenerator);
+        assertThat(deployment.getAppliedResourceUid()).isNull();
+
+        given(configSnapshots.fingerprint(config)).willReturn("fp-approved");
+        given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(k8sGenerator.deploy("kjhyeon0620-smart-sousvide-iot-platform", "img:v1", config, 10L, 1L))
+                .willReturn(new KubernetesManifestGenerator.AppliedDeployment("uid-applied", 2L));
+
+        assertThat(stepService.applyK8sManifests(1L, "img:v1").generation()).isEqualTo(2L);
+    }
 }

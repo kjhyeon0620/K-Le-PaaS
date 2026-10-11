@@ -47,12 +47,17 @@ public class ActionDispatcher {
 
     /** commandLogId: 이 실행을 승인한 명령 기록. 배포 요청에 연결된다 (#95) */
     public Object dispatch(ParsedIntent parsedIntent, Long userId, Long commandLogId) {
+        return dispatch(parsedIntent, userId, commandLogId, null);
+    }
+
+    /** approvedConfigFingerprint: 승인한 배포 설정 지문. 배포 요청에 저장해 apply 직전 비교한다 (#56) */
+    public Object dispatch(ParsedIntent parsedIntent, Long userId, Long commandLogId, String approvedConfigFingerprint) {
         Map<String, Object> args = parsedIntent.args();
         log.info("Action 실행: intent={}, args={}", parsedIntent.intent(), args);
 
         return switch (parsedIntent.intent()) {
             // ─ Platform deployment operations ─
-            case DEPLOY -> executeDeploy(args, userId, commandLogId);
+            case DEPLOY -> executeDeploy(args, userId, commandLogId, approvedConfigFingerprint);
             case SCALE -> executeScale(args, userId);
             case RESTART -> executeRestart(args, userId);
             case STATUS -> executeStatus(args, userId);
@@ -78,8 +83,8 @@ public class ActionDispatcher {
 
             // ─ Rollback operations ─
             case LIST_ROLLBACK -> executeListRollback(args, userId);
-            case ROLLBACK -> executeRollback(args, userId, commandLogId);
-            case ROLLBACK_EXECUTION -> executeRollbackConfirm(args, userId, commandLogId);
+            case ROLLBACK -> executeRollback(args, userId, commandLogId, approvedConfigFingerprint);
+            case ROLLBACK_EXECUTION -> executeRollback(args, userId, commandLogId, approvedConfigFingerprint);
 
             // ─ Overview, help, cost ─
             case OVERVIEW -> kubectlService.getOverview(userId);
@@ -93,14 +98,14 @@ public class ActionDispatcher {
 
     // ─── Platform deployment operations ──────────────────────────────────────
 
-    private Object executeDeploy(Map<String, Object> args, Long userId, Long commandLogId) {
+    private Object executeDeploy(Map<String, Object> args, Long userId, Long commandLogId, String approvedConfigFingerprint) {
         Long repositoryId = toLong(args.get("repository_id"));
         String branchName = (String) args.getOrDefault("branch_name", "main");
         String commitHash = (String) args.getOrDefault("commit_hash", "HEAD");
 
         var request = new CreateDeploymentRequest(repositoryId, branchName, commitHash);
         var response = deploymentService.createDeployment(request, userId, null,
-                DeploymentOrigin.nlp(userId, commandLogId)).deployment();
+                DeploymentOrigin.nlp(userId, commandLogId, approvedConfigFingerprint)).deployment();
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("app_name", "deployment-" + response.id());
@@ -346,7 +351,7 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
-    private Object executeRollback(Map<String, Object> args, Long userId, Long commandLogId) {
+    private Object executeRollback(Map<String, Object> args, Long userId, Long commandLogId, String approvedConfigFingerprint) {
         String owner = getString(args, "owner");
         String repo = getString(args, "repo");
         String commitHash = getString(args, "commit_hash");
@@ -365,7 +370,7 @@ public class ActionDispatcher {
 
         var request = new CreateDeploymentRequest(srcRepo.getId(), "main", commitHash);
         var response = deploymentService.createDeployment(request, userId, null,
-                DeploymentOrigin.nlp(userId, commandLogId)).deployment();
+                DeploymentOrigin.nlp(userId, commandLogId, approvedConfigFingerprint)).deployment();
 
         Map<String, Object> formatted = new LinkedHashMap<>();
         formatted.put("action_type", "rollback");
@@ -393,10 +398,6 @@ public class ActionDispatcher {
                 owner + "/" + repo + "을(를) " + formatted.get("target_commit") + " 커밋으로 롤백을 시작합니다.",
                 "롤백 시작",
                 formatted, metadata);
-    }
-
-    private Object executeRollbackConfirm(Map<String, Object> args, Long userId, Long commandLogId) {
-        return executeRollback(args, userId, commandLogId);
     }
 
     // ─── Help ─────────────────────────────────────────────────────────────────

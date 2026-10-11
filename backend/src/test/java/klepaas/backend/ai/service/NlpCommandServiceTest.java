@@ -6,6 +6,10 @@ import klepaas.backend.ai.dto.NlpCommandRequest;
 import klepaas.backend.ai.dto.NlpCommandResponse;
 import klepaas.backend.ai.dto.NlpConfirmRequest;
 import klepaas.backend.ai.dto.FormattedResponseDto;
+import klepaas.backend.ai.dto.ApprovalTarget;
+import klepaas.backend.deployment.entity.BuildStrategy;
+import klepaas.backend.global.exception.BusinessException;
+import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.repository.CommandLogRepository;
 import klepaas.backend.ai.repository.ConversationSessionRepository;
@@ -37,6 +41,7 @@ class NlpCommandServiceTest {
     @Mock private GeminiClient geminiClient;
     @Mock private IntentParser intentParser;
     @Mock private ActionDispatcher actionDispatcher;
+    @Mock private ApprovalTargetResolver approvalTargets;
     @Mock private CommandLogRepository commandLogRepository;
     @Mock private CommandConfirmationService confirmations;
     @Mock private ConversationSessionRepository sessionRepository;
@@ -50,7 +55,7 @@ class NlpCommandServiceTest {
     void setUp() {
         var systemPromptResource = new ByteArrayResource("테스트 시스템 프롬프트".getBytes());
         nlpCommandService = new NlpCommandService(
-                geminiClient, intentParser, actionDispatcher,
+                geminiClient, intentParser, actionDispatcher, approvalTargets,
                 commandLogRepository, confirmations, sessionRepository, userRepository,
                 systemPromptResource
         );
@@ -105,6 +110,30 @@ class NlpCommandServiceTest {
         assertThat(response.result()).isNull();
         assertThat(response.riskLevel()).isEqualTo(RiskLevel.HIGH);
         verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+        assertThat(response.approvalTarget()).isNull(); // 대상을 확인하지 못하면 지문 없이 저장
+    }
+
+    @Test
+    @DisplayName("승인이 필요한 배포 명령은 생성 시 설정 지문을 저장하고 승인 대상을 보여 준다")
+    void processHighRiskCommandPinsApprovalTarget() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.save(any())).willReturn(testSession);
+        given(geminiClient.generate(any())).willReturn(mockGeminiResponse("test"));
+        given(intentParser.parse("test")).willReturn(new klepaas.backend.ai.dto.ParsedIntent(Intent.DEPLOY,
+                java.util.Map.of("repository_id", 1), 0.95, "배포합니다"));
+        given(actionDispatcher.classifyRisk(Intent.DEPLOY)).willReturn(RiskLevel.HIGH);
+        given(approvalTargets.resolve(eq(Intent.DEPLOY), any(), eq(1L))).willReturn(Optional.of(resolved("fp-approved")));
+        var saved = new java.util.concurrent.atomic.AtomicReference<CommandLog>();
+        given(commandLogRepository.save(any())).willAnswer(inv -> {
+            saved.set(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+
+        NlpCommandResponse response = nlpCommandService.processCommand(1L, new NlpCommandRequest("배포해줘", null));
+
+        assertThat(saved.get().getApprovedConfigFingerprint()).isEqualTo("fp-approved");
+        assertThat(response.approvalTarget().envNames()).containsExactly("SAMPLE_GREETING");
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
     }
 
     @Test
@@ -120,15 +149,56 @@ class NlpCommandServiceTest {
                 .session(testSession)
                 .build();
 
+        commandLog.pinApprovedConfig("fp-approved");
         given(confirmations.claim(1L, 1L)).willReturn(commandLog);
-        given(actionDispatcher.dispatch(any(), eq(1L), any()))
+        given(approvalTargets.isPinned(Intent.DEPLOY)).willReturn(true);
+        given(approvalTargets.resolve(eq(Intent.DEPLOY), any(), eq(1L))).willReturn(Optional.of(resolved("fp-approved")));
+        given(actionDispatcher.dispatch(any(), eq(1L), any(), eq("fp-approved")))
                 .willReturn("배포가 시작되었습니다");
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L,
                 new NlpConfirmRequest(1L, true));
 
         assertThat(response.result()).isEqualTo("배포가 시작되었습니다");
-        verify(actionDispatcher).dispatch(any(), eq(1L), any());
+        assertThat(response.approvalTarget().configFingerprint()).isEqualTo("fp-appro");
+        verify(actionDispatcher).dispatch(any(), eq(1L), any(), eq("fp-approved"));
+    }
+
+    @Test
+    @DisplayName("승인 대기 중 설정이 바뀌었거나 승인 지문이 없으면 실행하지 않고 409")
+    void confirmRejectsChangedOrUnpinnedApprovalTarget() {
+        given(approvalTargets.isPinned(Intent.DEPLOY)).willReturn(true);
+        given(approvalTargets.resolve(eq(Intent.DEPLOY), any(), eq(1L))).willReturn(Optional.of(resolved("fp-changed")));
+        for (String pinned : new String[]{"fp-approved", null}) {
+            CommandLog commandLog = CommandLog.builder().user(testUser).rawCommand("배포해줘")
+                    .interpretedIntent(Intent.DEPLOY).intentArgs("{\"repository_id\":1}")
+                    .riskLevel(RiskLevel.HIGH).requiresConfirmation(true).session(testSession).build();
+            commandLog.pinApprovedConfig(pinned);
+            given(confirmations.claim(1L, 1L)).willReturn(commandLog);
+
+            assertThatThrownBy(() -> nlpCommandService.confirmCommand(1L, new NlpConfirmRequest(1L, true)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.APPROVAL_TARGET_CHANGED));
+        }
+        verify(confirmations, times(2)).fail(any(), eq(ErrorCode.APPROVAL_TARGET_CHANGED.getMessage()));
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any(), any());
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("승인 대상 저장소 설정을 확인하지 못하면 실행하지 않고 409")
+    void confirmRejectsUnresolvableApprovalTarget() {
+        CommandLog commandLog = CommandLog.builder().user(testUser).rawCommand("배포해줘")
+                .interpretedIntent(Intent.DEPLOY).intentArgs("{\"repository_id\":9}")
+                .riskLevel(RiskLevel.HIGH).requiresConfirmation(true).session(testSession).build();
+        commandLog.pinApprovedConfig("fp-approved");
+        given(confirmations.claim(1L, 1L)).willReturn(commandLog);
+        given(approvalTargets.isPinned(Intent.DEPLOY)).willReturn(true);
+        given(approvalTargets.resolve(eq(Intent.DEPLOY), any(), eq(1L))).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> nlpCommandService.confirmCommand(1L, new NlpConfirmRequest(1L, true)))
+                .isInstanceOf(BusinessException.class);
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any(), any());
     }
 
     @Test
@@ -174,7 +244,7 @@ class NlpCommandServiceTest {
                 .interpretedIntent(Intent.DEPLOY).intentArgs("{}")
                 .riskLevel(RiskLevel.HIGH).requiresConfirmation(true).build();
         given(confirmations.claim(1L, 1L)).willReturn(commandLog);
-        given(actionDispatcher.dispatch(any(), eq(1L), any())).willReturn(
+        given(actionDispatcher.dispatch(any(), eq(1L), any(), any())).willReturn(
                 FormattedResponseDto.of("error", "대상이 허용되지 않습니다", "오류", java.util.Map.of(), null));
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L, new NlpConfirmRequest(1L, true));
@@ -182,6 +252,12 @@ class NlpCommandServiceTest {
         assertThat(response.message()).isEqualTo("대상이 허용되지 않습니다");
         verify(confirmations).fail(any(), eq("대상이 허용되지 않습니다"));
         verify(confirmations, never()).succeed(any(), any());
+    }
+
+    private ApprovalTargetResolver.Resolved resolved(String fingerprint) {
+        return new ApprovalTargetResolver.Resolved(new ApprovalTarget(1L, "owner/app", "main", "HEAD",
+                BuildStrategy.GITHUB_ACTIONS_GHCR, "ghcr.io/owner/app:sha-{commitHash}", 1, 1, 8080,
+                List.of("SAMPLE_GREETING"), fingerprint.substring(0, 8)), fingerprint);
     }
 
     private GeminiResponse mockGeminiResponse(String text) {
