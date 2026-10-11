@@ -60,6 +60,12 @@ async function main() {
     case "repositories":
       await handleRepositories(rest, globalOptions, client);
       return;
+    case "knowledge":
+      await handleKnowledge(rest, globalOptions, client);
+      return;
+    case "incidents":
+      await handleIncidents(rest, globalOptions, client);
+      return;
     case "cost":
       await handleCost(rest, globalOptions, client);
       return;
@@ -334,6 +340,87 @@ async function handleHistory(args, globalOptions, client) {
   ]);
 }
 
+// 앱 운영 문서 (#104). 진단할 때 그 앱의 문서가 검색 근거로 쓰인다
+async function handleKnowledge(args, globalOptions, client) {
+  const subcommand = args.shift();
+  const repositoryId = Number(takeOption(args, "--repository-id"));
+  if (!Number.isFinite(repositoryId)) {
+    throw new CliError("`--repository-id`가 필요합니다.", EXIT_CODES.INPUT);
+  }
+  switch (subcommand) {
+    case "list": {
+      assertNoUnknownOptions(args);
+      const result = await client.getKnowledge(repositoryId);
+      if (globalOptions.json) {
+        printJson(result);
+        return;
+      }
+      console.log("문서:");
+      if (!result.documents.length) console.log("  없음");
+      for (const d of result.documents) console.log(`  ${d.slug}  ${d.title}  rev ${d.revision}, 조각 ${d.chunks}, ${formatKst(d.updated_at)}`);
+      console.log("확정 사건:");
+      if (!result.incidents.length) console.log("  없음");
+      for (const i of result.incidents) console.log(`  배포 #${i.deployment_id}  ${i.category} / ${i.root_cause}  ${i.resolution ?? ""}`);
+      return;
+    }
+    case "put": {
+      const slug = takeOption(args, "--slug");
+      const file = takeOption(args, "--file");
+      const title = takeOption(args, "--title");
+      assertNoUnknownOptions(args);
+      if (!slug || !file) {
+        throw new CliError("`knowledge put`에는 `--slug`와 `--file`이 필요합니다.", EXIT_CODES.INPUT);
+      }
+      const content = await fs.readFile(path.resolve(file), "utf8");
+      const heading = content.split("\n").find((line) => line.startsWith("# "));
+      const result = await client.putKnowledge(repositoryId, slug, title || heading?.slice(2).trim() || slug, content);
+      globalOptions.json ? printJson(result) : console.log(`저장했습니다: ${result.slug} rev ${result.revision}, 조각 ${result.chunks}`);
+      return;
+    }
+    case "rm": {
+      const slug = takeOption(args, "--slug");
+      assertNoUnknownOptions(args);
+      if (!slug) throw new CliError("`knowledge rm`에는 `--slug`가 필요합니다.", EXIT_CODES.INPUT);
+      await client.deleteKnowledge(repositoryId, slug);
+      if (!globalOptions.quiet) console.log(`삭제했습니다: ${slug}`);
+      return;
+    }
+    default:
+      throw new CliError("`knowledge` 하위 명령은 `list`, `put`, `rm` 중 하나여야 합니다.", EXIT_CODES.INPUT);
+  }
+}
+
+// 사람이 확정한 실패 원인 (#104). AI 진단을 그대로 넣지 않고 사람이 라벨로 확정한다
+async function handleIncidents(args, globalOptions, client) {
+  const subcommand = args.shift();
+  const deploymentId = Number(args.shift());
+  if (!Number.isFinite(deploymentId)) {
+    throw new CliError("deployment_id가 필요합니다.", EXIT_CODES.INPUT);
+  }
+  switch (subcommand) {
+    case "confirm": {
+      const category = takeOption(args, "--category");
+      const rootCause = takeOption(args, "--root-cause");
+      const resolution = takeOption(args, "--resolution");
+      assertNoUnknownOptions(args);
+      if (!category || !rootCause) {
+        throw new CliError("`incidents confirm`에는 `--category`와 `--root-cause`가 필요합니다.", EXIT_CODES.INPUT);
+      }
+      const result = await client.confirmIncident(deploymentId, category, rootCause, resolution);
+      globalOptions.json ? printJson(result) : console.log(`확정했습니다: 배포 #${result.deployment_id} ${result.category} / ${result.root_cause}`);
+      return;
+    }
+    case "rm": {
+      assertNoUnknownOptions(args);
+      await client.deleteIncident(deploymentId);
+      if (!globalOptions.quiet) console.log(`삭제했습니다: 배포 #${deploymentId} 사건`);
+      return;
+    }
+    default:
+      throw new CliError("`incidents` 하위 명령은 `confirm`, `rm` 중 하나여야 합니다.", EXIT_CODES.INPUT);
+  }
+}
+
 // 앱(저장소) 목록 (#102). 에이전트가 저장소 id를 얻는 출발점이다
 async function handleRepositories(args, globalOptions, client) {
   const subcommand = args.shift();
@@ -450,6 +537,12 @@ async function handleDeployments(args, globalOptions, client) {
       if (result.cited.length) {
         console.log("\n근거:");
         for (const c of result.cited) console.log(`  ${c.pointer}\n    ${c.excerpt}`);
+      }
+      if (result.knowledge?.length) {
+        console.log("\n지식 근거:");
+        for (const k of result.knowledge) {
+          console.log(`  [${k.source}] ${k.title} (${k.repository}, ${k.version ?? "-"}${k.updated_at ? `, ${formatKst(k.updated_at)}` : ""})\n    ${k.excerpt}`);
+        }
       }
       if (result.warnings.length) console.log(`\n검증 메모:\n${result.warnings.map((w) => `  - ${w}`).join("\n")}`);
       return;
@@ -1010,6 +1103,11 @@ Commands:
   history [--page <n>] [--size <n>]
 
   repositories list
+  knowledge list --repository-id <id>
+  knowledge put --repository-id <id> --slug <slug> --file <markdown> [--title <title>]
+  knowledge rm --repository-id <id> --slug <slug>
+  incidents confirm <deployment-id> --category <category> --root-cause <root_cause> [--resolution <text>]
+  incidents rm <deployment-id>
 
   deployments list --repository-id <id> [--page <n>] [--size <n>]
   deployments get <deployment-id>

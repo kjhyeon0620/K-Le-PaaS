@@ -23,15 +23,23 @@ import java.util.stream.Stream;
 public final class DiagnosisEval {
 
     public static final Path CASES = Path.of("src/test/resources/diagnosis-eval/cases");
+    /** 지식이 있어야 원인을 정할 수 있는 RAG 평가 사례 (#104, 스펙 0104) */
+    public static final Path RAG_CASES = Path.of("src/test/resources/diagnosis-eval/rag-cases");
     public static final ObjectMapper JSON = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    public record Case(String id, String group, String provenance, JsonNode input, Expected expected, String notes) {
+    /** knowledge는 RAG 사례의 지식 원천({id, source, title, text, version, updated_at}). 기본 사례는 null이다 */
+    public record Case(String id, String group, String provenance, JsonNode input, JsonNode knowledge, Expected expected, String notes) {
     }
 
     /** category·rootCause가 null이고 abstain이면 판단 보류가 정답이다. evidence는 input 기준 JSON Pointer. */
-    public record Expected(String category, String rootCause, List<String> evidence, boolean abstain, List<String> forbidden) {
+    /** knowledgeIds는 RAG 사례에서 근거가 돼야 하는 지식 id (#104). 없으면 비어 있다 */
+    public record Expected(String category, String rootCause, List<String> evidence, boolean abstain, List<String> forbidden,
+                           List<String> knowledgeIds) {
+        public List<String> knowledgeIds() {
+            return knowledgeIds == null ? List.of() : knowledgeIds;
+        }
     }
 
     /** 진단 결과. abstain은 구체 원인을 정하지 않고 보류했다는 뜻이다. cited는 input 기준 JSON Pointer. */
@@ -67,7 +75,11 @@ public final class DiagnosisEval {
     }
 
     public static List<Case> loadCases() throws IOException {
-        try (Stream<Path> files = Files.list(CASES)) {
+        return loadCases(CASES);
+    }
+
+    public static List<Case> loadCases(Path dir) throws IOException {
+        try (Stream<Path> files = Files.list(dir)) {
             return files.filter(p -> p.toString().endsWith(".json")).sorted()
                     .map(p -> {
                         try {

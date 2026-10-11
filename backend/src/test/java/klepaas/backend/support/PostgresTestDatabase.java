@@ -36,7 +36,9 @@ public class PostgresTestDatabase implements ApplicationContextInitializer<Confi
                 "spring.datasource.username", CONTAINER.getUsername(),
                 "spring.datasource.password", CONTAINER.getPassword(),
                 // @DataJpaTest가 내장 DB로 바꾸지 않게 한다
-                "spring.test.database.replace", "none")));
+                "spring.test.database.replace", "none",
+                // 캐시된 컨텍스트마다 연결 풀이 남는다. 컨테이너 하나의 연결 한도(100)를 넘지 않게 풀을 작게 둔다
+                "spring.datasource.hikari.maximum-pool-size", "4")));
     }
 
     /** 빈 데이터베이스를 새로 만들어 반환한다. */

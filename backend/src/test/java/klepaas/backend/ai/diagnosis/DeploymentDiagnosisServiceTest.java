@@ -31,10 +31,11 @@ class DeploymentDiagnosisServiceTest {
     private final DeploymentService deployments = mock(DeploymentService.class);
     private final LlmClient gemini = mock(LlmClient.class);
     private final DeploymentDiagnosisRepository repository = mock(DeploymentDiagnosisRepository.class);
+    private final klepaas.backend.ai.knowledge.KnowledgeService knowledge = mock(klepaas.backend.ai.knowledge.KnowledgeService.class);
     private final JsonMapper json =
             JsonMapper.builder().propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE).build();
     private final DeploymentDiagnosisService service =
-            new DeploymentDiagnosisService(details, deployments, gemini, json, repository);
+            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge);
 
     {
         when(gemini.model()).thenReturn("luna");
@@ -147,9 +148,56 @@ class DeploymentDiagnosisServiceTest {
         }
     }
 
+    @Test
+    void retrievedKnowledgeGoesIntoInputAndCitedKnowledgeIsSeparatedFromObservations() {
+        when(details.getDetail(7L, 1L)).thenReturn(detail(DeploymentStatus.FAILED));
+        when(deployments.getDeploymentLogs(7L, 40, 1L)).thenReturn(new DeploymentLogResponse(7L, DeploymentStatus.FAILED,
+                null, DeploymentLogResponse.Observation.AVAILABLE, null, 7L, List.of(), List.of()));
+        var doc = new klepaas.backend.ai.knowledge.KnowledgeDtos.KnowledgeItem("DOCUMENT", "doc:3", "운영 문서", "owner/app",
+                "rev 2", java.time.LocalDateTime.of(2026, 10, 1, 9, 0), "E_BOOT_17은 ADMIN_PASSWORD가 비었을 때 난다", 0.61);
+        var platform = new klepaas.backend.ai.knowledge.KnowledgeDtos.KnowledgeItem("PLATFORM", "platform:image-pull.md",
+                "이미지", "platform", "sha 1", null, "이미지 pull 실패", 0.31);
+        when(knowledge.search(eq(1L), eq("owner/app"), eq(7L), any())).thenReturn(List.of(doc, platform));
+        when(gemini.completeJson(any())).thenReturn(text("""
+                {"category":"ENV_CONFIG","root_cause":"required_env_missing","abstain":false,"summary":"요약",
+                 "observed_facts":[],"hypotheses":[],"next_checks":[],
+                 "cited":["/detail/deployment/fail_reason","/knowledge/0/text","/knowledge/0"]}"""));
+
+        var result = service.diagnose(7L, 1L, false);
+
+        var prompt = ArgumentCaptor.forClass(String.class);
+        verify(gemini).completeJson(prompt.capture());
+        assertThat(prompt.getValue()).contains("\"knowledge\":[").contains("E_BOOT_17").contains("지식 규칙");
+        assertThat(result.promptVersion()).isEqualTo(DiagnosisPrompt.RAG_VERSION);
+        assertThat(result.cited()).extracting(DiagnosisPrompt.Citation::pointer).containsExactly("/detail/deployment/fail_reason");
+        assertThat(result.knowledge()).singleElement().satisfies(k -> {
+            assertThat(k.ref()).isEqualTo("doc:3");
+            assertThat(k.version()).isEqualTo("rev 2");
+            assertThat(k.excerpt()).contains("E_BOOT_17");
+        });
+    }
+
+    @Test
+    void knowledgeSearchFailureFallsBackToPlainDiagnosisWithWarning() {
+        when(details.getDetail(7L, 1L)).thenReturn(detail(DeploymentStatus.FAILED));
+        when(deployments.getDeploymentLogs(7L, 40, 1L)).thenReturn(new DeploymentLogResponse(7L, DeploymentStatus.FAILED,
+                null, DeploymentLogResponse.Observation.AVAILABLE, null, 7L, List.of(), List.of()));
+        when(knowledge.search(any(), any(), any(), any())).thenThrow(new AiProcessingException(ErrorCode.AI_API_ERROR, "x"));
+        when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
+
+        var result = service.diagnose(7L, 1L, false);
+
+        var prompt = ArgumentCaptor.forClass(String.class);
+        verify(gemini).completeJson(prompt.capture());
+        assertThat(prompt.getValue()).doesNotContain("knowledge").doesNotContain("지식 규칙");
+        assertThat(result.promptVersion()).isEqualTo(DiagnosisPrompt.VERSION);
+        assertThat(result.warnings()).contains("지식 검색에 실패해 지식 없이 진단했습니다");
+        assertThat(result.knowledge()).isEmpty();
+    }
+
     private static DeploymentDiagnosisResponse stored(String category) {
         return new DeploymentDiagnosisResponse(7L, "luna-2026", DiagnosisPrompt.VERSION, category, "required_env_missing",
-                false, "요약", List.of(), List.of(), List.of(), List.of(), List.of(), false, null);
+                false, "요약", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), false, null);
     }
 
     @Test

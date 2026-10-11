@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
@@ -147,14 +147,33 @@ POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소�
   → 입력 = {"detail": 배포 상세 응답, "logs": 로그 응답(40줄)}  (API와 같은 JSON)
   → Pod·이벤트·설정 변경이 없고 실패 종류가 원인을 가리키지 않으면 모델 없이 판단 보류 (model=rule, no-evidence-v1)
   → 비밀값 패턴 가림 (JSON 구조·위치 유지)
+  → 지식 검색 (#104): 그 앱의 문서·확정 사건(진단 중인 배포 제외)과 플랫폼 runbook 조각만 읽어 질의 임베딩과 코사인 유사도 상위 4개(기준값 이상)를
+    입력의 knowledge로 더함. 없으면 입력·프롬프트가 지식 없는 경우와 같음(diagnosis-v1), 있으면 diagnosis-v2-rag. 검색 실패는 warning만 남김
   → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
   → 서버 검증: 라벨 목록(DiagnosisLabels) 밖이면 버림, 입력에 없는 근거 위치 버림, 근거 없는 단정은 판단 보류로, 근거 원문은 입력에서 잘라 넣음
+  → 인용 분리: /knowledge/i 인용은 knowledge(종류·출처·제목·앱·버전·시점·발췌)로, 관측 근거는 cited로
   → 결과와 토큰 사용량을 deployment_diagnoses에 이력으로 저장 (실패하면 저장하지 않음). 인프라 변경 없음
 ```
 
 - 공급사는 `diagnosis.llm.provider`·`model`로 고른다. 기본값은 #99 사례 비교로 정했다 (스펙 0100). 자연어 명령은 Gemini를 그대로 쓴다.
 - 요청 하나의 출력(생각 포함)은 `LlmClient.MAX_OUTPUT_TOKENS`(2,048)로 묶는다. 로그에 입력·캐시 입력·출력·추론 토큰을 나눠 남기고, 금액은 토큰과 가격표로 계산한다. 비용 절감 후보(추론 강도, 출력 간결화, 입력 정리)는 #99 품질 기준을 넘지 못해 운영에 적용하지 않았다 (스펙 0115).
 - 모델 응답을 읽을 수 없으면 500 `AI_002`, 호출 실패·키 없음은 500 `AI_001`. 추정 결과로 채우지 않는다.
+
+#### 운영문서·장애 이력 지식 (#104, `KnowledgeService`)
+
+```
+GET    /api/v1/repositories/{id}/knowledge          (READ_ONLY 이상) 문서·확정 사건 목록
+PUT    /api/v1/repositories/{id}/knowledge/{slug}   (FULL) {title, content} 앱 문서 생성·수정 (50,000자, 비밀값 패턴 가림)
+DELETE /api/v1/repositories/{id}/knowledge/{slug}   (FULL)
+PUT    /api/v1/deployments/{id}/incident            (FULL, FAILED·UNKNOWN) {category, root_cause, resolution} 사람이 원인 확정
+DELETE /api/v1/deployments/{id}/incident            (FULL)
+기동 시 classpath:knowledge/*.md 플랫폼 runbook 색인 (내용 해시가 바뀐 것만, 사라진 파일은 삭제)
+```
+
+- 저장(V9): `knowledge_documents`, `incidents`, `knowledge_chunks`. 조각은 제목 단위·800자로 나누고 `text-embedding-3-small` 벡터를 float32 bytea로 둔다. 검색은 앱에서 코사인 유사도를 계산한다(pgvector 없음, 앱당 조각 수천 개까지).
+- 갱신은 그 원천의 조각을 지우고 다시 만든다. 임베딩을 먼저 만들고 저장하므로 임베딩 실패(`AI_001`)면 아무것도 바뀌지 않는다.
+- 사건은 사람이 라벨(DiagnosisLabels)로 확정할 때만 만든다. AI 진단 결과는 자동으로 들어가지 않는다.
+- `OPENAI_API_KEY`가 없으면 색인·검색을 하지 않고 진단은 지식 없이 동작한다. 문서 변경 뒤의 저장 진단은 `refresh`로 다시 만든다.
 
 #### 재시작 대조 (#57, `InterruptedWorkReconciler`)
 
@@ -269,6 +288,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | 자연어 해석 모델 |
 | `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai). 선택한 공급사 키가 없으면 진단만 실패 |
 | `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115) |
+| `diagnosis.rag.embedding-model` / `top-k` / `min-similarity` | `text-embedding-3-small` / `4` / `0.45` | 지식 검색 임베딩 모델, 상위 개수, 유사도 기준 (스펙 0104) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
 | `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |
 | `github.actions.oidc.allowed-refs` | `${GITHUB_ACTIONS_OIDC_ALLOWED_REFS:refs/heads/main}` | OIDC 배포를 허용할 ref (쉼표 구분) |

@@ -841,6 +841,8 @@ export interface DeploymentDiagnosis {
   next_checks: string[]
   cited: { pointer: string; excerpt: string }[]
   warnings: string[]
+  // 모델이 인용한 검색 지식: 앱 문서·확정 사건·플랫폼 runbook (#104)
+  knowledge?: { source: string; ref: string; title: string; repository: string; version: string | null; updated_at: string | null; excerpt: string }[]
   reused: boolean
   diagnosed_at: string | null
 }

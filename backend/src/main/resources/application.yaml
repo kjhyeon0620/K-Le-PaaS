@@ -99,3 +99,9 @@ diagnosis:
     model: ${DIAGNOSIS_LLM_MODEL:gpt-6-luna}
     # OpenAI reasoning_effort (#115). 비우면 모델 기본값. none·low는 #99 품질 기준을 넘지 못해 기본값을 둔다 (스펙 0115)
     reasoning-effort: ${DIAGNOSIS_LLM_REASONING_EFFORT:}
+  # 운영문서·확정 사건 검색 (#104). 임베딩은 OPENAI_API_KEY를 쓰고, 키가 없으면 지식 없이 진단한다 (스펙 0104)
+  rag:
+    embedding-model: ${DIAGNOSIS_RAG_EMBEDDING_MODEL:text-embedding-3-small}
+    top-k: ${DIAGNOSIS_RAG_TOP_K:4}
+    # RAG 평가에서 관련 지식은 0.5 이상, 관계없는 문서는 0.39였다
+    min-similarity: ${DIAGNOSIS_RAG_MIN_SIMILARITY:0.45}

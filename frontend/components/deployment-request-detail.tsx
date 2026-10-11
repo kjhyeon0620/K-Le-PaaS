@@ -243,6 +243,21 @@ function DiagnosisCard({ deploymentId }: { deploymentId: number }) {
                   </ul>
                 </div>
               )}
+              {(result.knowledge?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-sm font-medium">지식 근거</p>
+                  <ul className="space-y-1">
+                    {result.knowledge!.map((k) => (
+                      <li key={k.ref} className="text-xs">
+                        <span className="text-muted-foreground">
+                          [{k.source}] {k.title} · {k.repository}{k.version ? ` · ${k.version}` : ""}{k.updated_at ? ` · ${formatKst(k.updated_at)}` : ""}
+                        </span>
+                        <p className="break-all">{k.excerpt}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {result.warnings.length > 0 && (
                 <div className="text-xs text-muted-foreground">
                   <p>검증 메모</p>

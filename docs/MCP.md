@@ -76,7 +76,7 @@ curl -s -X POST "<API_BASE>/api/v1/mcp" \
 | `list_deployments` | 저장소의 배포 요청 목록 (최신순) | `repository_id`, `page`(기본 0), `size`(기본 20, 최대 100) | 없음 |
 | `get_deployment_detail` | 배포 요청 상세: 실패 종류·사유, 적용 설정(env는 이름만), 직전 성공 배포 대비 변경 | `deployment_id` | 없음 |
 | `get_deployment_logs` | 그 배포가 적용한 Pod의 상태·최근 로그·Kubernetes 이벤트 | `deployment_id`, `lines`(기본 100, 1~200) | 없음 |
-| `diagnose_deployment` | 실패한 배포의 근거 기반 AI 진단 (실험). 저장된 결과가 있으면 그것을 돌려준다 | `deployment_id`, `refresh`(기본 false) | 없음 (`refresh`는 모델 호출 비용) |
+| `diagnose_deployment` | 실패한 배포의 근거 기반 AI 진단 (실험). 앱 운영 문서·확정 사건·플랫폼 runbook을 검색해 근거로 쓰고(`knowledge`), 저장된 결과가 있으면 그것을 돌려준다 | `deployment_id`, `refresh`(기본 false) | 없음 (`refresh`는 모델 호출 비용) |
 | `get_recovery_plan` | 이전 성공 배포로 되돌리는 계획: 이미지, 되돌릴 설정, env 차이, 실행 가능 여부 | `target_deployment_id` | 없음 |
 | `propose_recovery` | 이전 성공 배포로 복구하는 **승인 대기 명령**을 만든다 | `target_deployment_id`, `reason`(선택, 200자 이하) | 승인 대기 명령 1건 (실행 없음) |
 

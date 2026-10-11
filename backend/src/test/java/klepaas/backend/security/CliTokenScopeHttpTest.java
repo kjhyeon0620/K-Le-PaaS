@@ -119,6 +119,13 @@ class CliTokenScopeHttpTest {
         assertEquals(400, send("POST", deploymentUrl + "/diagnosis", readOnly, null).statusCode());
         // 복구 실행(#101)은 FULL만 허용된다
         assertEquals(403, send("POST", deploymentUrl + "/recover", readOnly, "{\"plan_fingerprint\":\"x\"}").statusCode());
+        // 지식(#104): 조회는 읽기 scope, 문서·사건 변경은 FULL만
+        assertEquals(200, send("GET", "/api/v1/repositories/" + repo.getId() + "/knowledge", readOnly, null).statusCode());
+        assertEquals(403, send("PUT", "/api/v1/repositories/" + repo.getId() + "/knowledge/runbook", readOnly,
+                "{\"title\":\"t\",\"content\":\"c\"}").statusCode());
+        assertEquals(403, send("DELETE", "/api/v1/repositories/" + repo.getId() + "/knowledge/runbook", readOnly, null).statusCode());
+        assertEquals(403, send("PUT", deploymentUrl + "/incident", readOnly,
+                "{\"category\":\"ENV_CONFIG\",\"root_cause\":\"required_env_missing\"}").statusCode());
         // 복구 제안(#102)은 PROPOSE_ONLY부터
         assertEquals(403, send("POST", deploymentUrl + "/recovery-proposal", readOnly, null).statusCode());
         verifyNoInteractions(pipeline, gemini);

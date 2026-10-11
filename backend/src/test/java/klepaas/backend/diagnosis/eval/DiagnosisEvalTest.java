@@ -45,6 +45,28 @@ class DiagnosisEvalTest {
         }
     }
 
+    /** RAG 평가 사례 (#104): 근거 위치는 입력에, 정답 지식 id는 사례 지식에 있다 */
+    @Test
+    void ragCasesAreWellFormed() throws Exception {
+        List<Case> cases = DiagnosisEval.loadCases(DiagnosisEval.RAG_CASES);
+
+        assertThat(cases).hasSize(6).allSatisfy(c -> {
+            assertThat(c.group()).isEqualTo("RAG");
+            assertThat(c.knowledge()).as(c.id()).isNotEmpty();
+            var ids = new java.util.ArrayList<String>();
+            c.knowledge().forEach(k -> {
+                assertThat(k.path("source").asText()).as(c.id()).isIn("DOCUMENT", "INCIDENT", "PLATFORM");
+                assertThat(k.path("title").asText()).as(c.id()).isNotBlank();
+                assertThat(k.path("text").asText()).as(c.id()).isNotBlank();
+                ids.add(k.path("id").asText());
+            });
+            assertThat(ids).as(c.id()).containsAll(c.expected().knowledgeIds());
+            c.expected().evidence().forEach(p -> assertThat(c.input().at(p).isMissingNode()).as(c.id() + " " + p).isFalse());
+            assertThat(c.input().toString()).as(c.id()).doesNotContain("local-demo-only");
+        });
+        assertThat(cases).filteredOn(c -> !c.expected().knowledgeIds().isEmpty()).hasSize(3);
+    }
+
     @Test
     void scorerChecksEachItem() throws Exception {
         Case env = byId("env-postgres-password-missing");

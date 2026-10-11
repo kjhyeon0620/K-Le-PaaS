@@ -163,6 +163,10 @@ class Stage2HttpAccessTest {
             hidden(identity + " create deployment", send("POST", "/api/v1/deployments", token,
                     "{\"repository_id\":" + repo.getId() + ",\"branch_name\":\"main\",\"commit_hash\":\"HEAD\"}"));
             hidden(identity + " delete repository", send("DELETE", repoUrl, token, null));
+            hidden(identity + " knowledge list", send("GET", repoUrl + "/knowledge", token, null));
+            hidden(identity + " knowledge put", send("PUT", repoUrl + "/knowledge/runbook", token, "{\"title\":\"t\",\"content\":\"c\"}"));
+            hidden(identity + " incident confirm", send("PUT", deploymentUrl + "/incident", token,
+                    "{\"category\":\"ENV_CONFIG\",\"root_cause\":\"required_env_missing\"}"));
         }
         // 같은 컨텍스트(DB)를 쓰는 다른 테스트(McpServerHttpTest)의 행이 있을 수 있어 A 저장소의 배포만 센다
         assertEquals(1, deployments.findAll().stream()

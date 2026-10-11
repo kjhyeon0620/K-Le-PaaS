@@ -3,6 +3,9 @@ import { execFile } from "node:child_process";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 for (const status of ["UNKNOWN", "FAILED", "CANCELED"]) {
   test(`${status}은 재조회 없이 exit 3과 판단 이유를 반환한다`, async (t) => {
@@ -200,4 +203,45 @@ test("diagnose는 저장된 결과를 표시하고 --refresh면 새로 진단을
   assert.equal(fresh.error, null, fresh.stderr);
   assert.doesNotMatch(fresh.stdout, /저장된 결과/);
   assert.deepEqual(urls, ["/api/v1/deployments/7/diagnosis", "/api/v1/deployments/7/diagnosis?refresh=true"]);
+});
+
+test("knowledge put·incidents confirm·diagnose 지식 근거 (#104)", async (t) => {
+  const requests = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      requests.push({ method: request.method, url: request.url, body: body ? JSON.parse(body) : null });
+      response.setHeader("Content-Type", "application/json");
+      let data = null;
+      if (request.url.includes("/knowledge/")) data = { slug: "runbook", title: "orders 운영", revision: 1, chunks: 2, updated_at: null };
+      if (request.url.endsWith("/incident")) data = { deployment_id: 7, category: "ENV_CONFIG", root_cause: "required_env_missing" };
+      if (request.url.endsWith("/diagnosis")) data = {
+        deployment_id: 9, model: "gpt-6-luna", prompt_version: "diagnosis-v2-rag", category: "ENV_CONFIG",
+        root_cause: "required_env_missing", abstain: false, summary: "요약", observed_facts: [], hypotheses: [], next_checks: [],
+        cited: [], warnings: [], reused: false, diagnosed_at: null,
+        knowledge: [{ source: "INCIDENT", ref: "incident:7", title: "사건: 배포 #7", repository: "owner/app",
+          version: "commit abc1234 · img", updated_at: null, excerpt: "확정 원인: ENV_CONFIG" }] };
+      response.end(JSON.stringify({ status: "success", data }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const dir = await mkdtemp(path.join(tmpdir(), "klepaas-knowledge-"));
+  const file = path.join(dir, "runbook.md");
+  await writeFile(file, "# orders 운영\n\nE_BOOT_17은 ADMIN_PASSWORD 누락\n");
+
+  const put = await runCli(server, ["knowledge", "put", "--repository-id", "3", "--slug", "runbook", "--file", file]);
+  assert.equal(put.error, null, put.stderr);
+  const confirm = await runCli(server, ["incidents", "confirm", "7", "--category", "ENV_CONFIG", "--root-cause", "required_env_missing",
+    "--resolution", "env 복구"]);
+  assert.equal(confirm.error, null, confirm.stderr);
+  const diagnose = await runCli(server, ["deployments", "diagnose", "9"]);
+  assert.equal(diagnose.error, null, diagnose.stderr);
+
+  assert.deepEqual(requests[0], { method: "PUT", url: "/api/v1/repositories/3/knowledge/runbook",
+    body: { title: "orders 운영", content: "# orders 운영\n\nE_BOOT_17은 ADMIN_PASSWORD 누락\n" } });
+  assert.deepEqual(requests[1], { method: "PUT", url: "/api/v1/deployments/7/incident",
+    body: { category: "ENV_CONFIG", root_cause: "required_env_missing", resolution: "env 복구" } });
+  assert.match(diagnose.stdout, /지식 근거:\n\s+\[INCIDENT\] 사건: 배포 #7 \(owner\/app, commit abc1234/);
 });
