@@ -90,6 +90,7 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
        요청의 image_uri 또는 image_uri_template으로 이미지 결정 (빌드 단계 없음)
   → DEPLOYING: 상태와 image_uri를 먼저 커밋 → Deployment/Service/Ingress 적용
        (기존 Deployment는 관측한 resourceVersion으로 전체 교체, Service·Ingress는 강제 server-side apply.
+        도메인이 없는 NODE_PORT 앱은 Ingress를 만들지 않고, 이전 배포의 자기 Ingress를 지운다 (#107).
         Deployment metadata에 annotation `klepaas.io/deployment-id`로 적용한 요청 ID를 남긴다)
   → 전체 apply 반환 후 응답의 Deployment UID·generation을 요청 행에 저장 (#57)
   → 트랜잭션 밖에서 적용한 generation의 rollout만 판정 (#53)
@@ -325,7 +326,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
 | 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |
-| NodePort만 쓰는 앱도 `domain_url`이 필수다 (비우면 400) | 쓰지 않는 기본 도메인 Ingress가 만들어진다 (#55 샘플 앱) | #107 |
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | #109 |
