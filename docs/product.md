@@ -87,7 +87,7 @@
 | 15-2 | #117 | AI 진단 결과 재사용과 근거 없는 입력의 모델 호출 생략 | 완료 (M) | [0117](specs/0117-diagnosis-result-reuse/spec.md) |
 | 16 | #56 | 승인한 배포 설정 버전 고정, 변경 시 재승인 | 완료 (PR #112) (L) | [0056](specs/0056-pin-approved-deployment-config/spec.md) |
 | 17 | #101 | 이전 배포 이미지·설정으로 복구 계획 생성·승인·실행 | 완료 (PR #113) (L) | [0101](specs/0101-recover-previous-deployment/spec.md) |
-| 18 | #105 | Node 앱 배포·실패·진단·승인·복구 대표 시나리오 실증 | 미착수 (M), 선행 #100·#101 | - |
+| 18 | #105 | Node 앱 배포·실패·진단·승인·복구 대표 시나리오 실증 | 완료 (M), 운영 실증 | [0105](specs/0105-end-to-end-demo/spec.md) |
 | 19 | #102 | CLI·API 기반 에이전트 상태 조회와 변경 제안 | 완료 (M) | [0102](specs/0102-agent-query-propose/spec.md) |
 | 20 | #103 | K-Le-PaaS MCP 서버와 에이전트 조회·제안 연결 | 완료 (L), 실제 클라이언트 확인은 사용자 | [0103](specs/0103-mcp-server/spec.md) |
 | 20-1 | #104 | 운영문서·장애 이력 RAG 기반 배포 진단 | 완료 (L) | [0104](specs/0104-rag-diagnosis/spec.md) |
