@@ -67,6 +67,27 @@ class DiagnosisEvalTest {
         assertThat(cases).filteredOn(c -> !c.expected().knowledgeIds().isEmpty()).hasSize(3);
     }
 
+    /** 독립 작성 평가 세트 (#123): 라벨은 목록 안, 정답 지식 id는 사례 지식에 있고, 평가용과 과거 사건이 겹치지 않는다 */
+    @Test
+    void blindCasesAreWellFormed() throws Exception {
+        List<Case> history = DiagnosisEval.loadCases(DiagnosisEval.BLIND_CASES.resolve("history"));
+        List<Case> evaluated = new java.util.ArrayList<>(DiagnosisEval.loadCases(DiagnosisEval.BLIND_CASES.resolve("tune")));
+        evaluated.addAll(DiagnosisEval.loadCases(DiagnosisEval.BLIND_CASES.resolve("test")));
+
+        assertThat(history.size() + evaluated.size()).isEqualTo(71);
+        var historyIds = history.stream().map(c -> "incident:" + c.id()).toList();
+        assertThat(evaluated).allSatisfy(c -> {
+            assertThat(c.provenance()).startsWith("independent: ");
+            assertThat(c.expected().category()).isIn(DiagnosisEval.CATEGORIES);
+            assertThat(c.expected().rootCause()).isIn(DiagnosisEval.ROOT_CAUSES);
+            var ids = new java.util.ArrayList<String>();
+            c.knowledge().forEach(k -> ids.add(k.path("id").asText()));
+            assertThat(ids).as(c.id()).containsAll(c.expected().knowledgeIds())
+                    .allMatch(id -> id.startsWith("runbook:") || historyIds.contains(id));
+            assertThat(c.input().at("/detail/deployment/status").asText()).as(c.id()).isIn("FAILED", "UNKNOWN");
+        });
+    }
+
     @Test
     void scorerChecksEachItem() throws Exception {
         Case env = byId("env-postgres-password-missing");
