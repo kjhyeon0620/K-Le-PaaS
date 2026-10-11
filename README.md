@@ -145,6 +145,16 @@ KLEPAAS_REFRESH_TOKEN
 
 자세한 명령은 [CLI_REFERENCE.md](docs/CLI_REFERENCE.md)를 참고하세요.
 
+### MCP (AI agent)
+
+Claude Code·Codex 같은 AI 에이전트는 MCP 서버 `<API_BASE>/api/v1/mcp`에 제안 전용 토큰으로 연결해 배포 조회, 실패 진단, 복구 계획 확인, 복구 제안을 할 수 있습니다. 승인·실행은 사람만 합니다.
+
+```bash
+claude mcp add --transport http klepaas "<API_BASE>/api/v1/mcp" --header "Authorization: Bearer $KLEPAAS_TOKEN"
+```
+
+연결 방법과 도구 목록은 [MCP.md](docs/MCP.md)를 참고하세요.
+
 ## Safety model
 
 K-Le-PaaS는 운영 명령을 실행하기 전에 위험도를 분류합니다.
@@ -268,6 +278,7 @@ kubectl rollout status deployment/<deployment-name> -n <namespace>
 - [앱 접근 권한과 허용 참조 설정](docs/STAGE2_RESOURCE_ACCESS.md)
 - [CLI 전략](docs/CLI_STRATEGY.md)
 - [CLI 레퍼런스](docs/CLI_REFERENCE.md)
+- [MCP 서버 연결과 도구](docs/MCP.md)
 - [CLI 비용 예시](docs/examples/cli-cost-spec.json)
 
 운영 검증 원자료, 개인 환경 메모, 공개하지 않는 설계 초안은 `.local/` 아래에서 관리하며 `.git/info/exclude`로 Git 추적에서 제외합니다.

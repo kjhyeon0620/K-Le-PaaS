@@ -39,6 +39,7 @@
 | `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
+| `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
 | `cost` | spec 기반 비용 plan/diff/explain/check (실제 billing 아님) |
 | `webhook` | GitHub push webhook 서명 검증, KANIKO 경로 자동 배포 |
 | `global` | `ErrorCode`/`GlobalExceptionHandler`, WebSocket 배포 이벤트, Slack 알림, system API |
@@ -134,6 +135,7 @@ POST /api/v1/deployments/{targetId}/recover          {plan_fingerprint}. 한 트
 
 - 계획 지문 = SHA-256(대상 ID | 배포할 이미지 | 현재 설정 지문). 계획은 저장하지 않는다.
 - 에이전트 제안 (#102): `POST /deployments/{targetId}/recovery-proposal`(PROPOSE_ONLY 이상)은 자연어 해석 없이 승인 대기 명령(ROLLBACK, 인자에 `target_deployment_id`, 계획 지문 고정)만 만든다. 승인은 `nlp/confirm`(FULL)이고, 지문 비교·10분 만료는 자연어 명령과 같다. ROLLBACK 인자에 `target_deployment_id`가 있으면 commit 대신 그 배포를 대상으로 쓴다.
+- MCP (#103): `/api/v1/mcp` 도구 `list_repositories`, `list_deployments`, `get_deployment_detail`, `get_deployment_logs`, `diagnose_deployment`, `get_recovery_plan`, `propose_recovery`는 대응 REST와 같은 서비스 메서드를 인증한 사용자로 호출한다(소유권 검사·검증·에러 코드 동일). 결과는 REST `data`와 같은 snake_case JSON 텍스트, 업무 오류는 `isError`와 `{code, message}`. 승인·실행 도구는 없다.
 - 차단: 설정 기록 없음(#95 이전), 대상 빌드 경로 KANIKO(이미지를 다시 빌드함), 현재 env 이름·값 지문이 대상과 다름(env 값은 기록하지 않아 되돌릴 수 없음). 사용자가 env를 맞추면 다시 계획할 수 있다.
 - 자연어 LIST_ROLLBACK·ROLLBACK·ROLLBACK_EXECUTION도 이 경로를 쓴다. ROLLBACK은 commit 접두가 맞는 최신 후보(없으면 직전 성공 배포)의 계획을 `approval_target`으로 보이고 계획 지문을 고정한다.
 
@@ -194,6 +196,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `FULL` | 전체 | 사람 (Web JWT는 항상 FULL) |
 
 - 규칙은 `SecurityConfig`에서 강제한다. 요청 본문의 저장소 일치 여부만 `DeploymentController`에서 확인한다.
+- MCP(`/api/v1/mcp`, #103)는 READ_ONLY·PROPOSE_ONLY·FULL만 통과하고(DEPLOY·CI 403), 도구별 scope는 `McpTools`가 REST와 같게 확인한다: 조회·진단 도구는 READ_ONLY 이상, `propose_recovery`는 PROPOSE_ONLY·FULL. 범위 밖이면 도구 오류 `CLI_005`.
 - 범위를 벗어나면 403 `CLI_005`
 
 ### 4.2 GitHub Actions OIDC ([ADR-0007](adr/0007-github-actions-oidc.md))

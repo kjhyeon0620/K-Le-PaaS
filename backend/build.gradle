@@ -56,6 +56,9 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
+	// MCP 서버 (#103): 공식 Java SDK, 서블릿 Streamable HTTP transport + Jackson 3
+	implementation 'io.modelcontextprotocol.sdk:mcp:2.0.1'
+
 	// K8s client (fabric8)
 	implementation 'io.fabric8:kubernetes-client:7.2.0'
 
