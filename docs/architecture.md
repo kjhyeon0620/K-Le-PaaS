@@ -262,6 +262,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 패키징 | `./gradlew bootJar` 후 JAR를 PostgreSQL(`compose.yaml`)로 기동, `ddl-auto=validate`, readiness `UP` |
 | 운영 DB 사본 | 스키마 변경 시 머지 전에 필수 |
 | 실제 클러스터 | k3s 임시 컨테이너 등 격리 환경. 운영 앱에 실패를 주입하지 않는다 |
+| 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99) |
 | 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit` |
 | 릴리스 스크립트 | `python3 -m unittest discover -s scripts/deploy -p 'test_*.py'`, `scripts/ci/test-package-release.sh` |
 

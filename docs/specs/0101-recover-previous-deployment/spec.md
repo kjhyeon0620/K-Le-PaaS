@@ -114,7 +114,7 @@ branch: feat/#101-recover-previous-deployment
 - 변경: `rollback-dialog.tsx`, `lib/api.ts`, CLI, architecture·CLI_REFERENCE·README·product·스펙.
 
 ## 운영 반영
-- 미착수.
+- 2026-10-11: PR #113 머지 `97985f5`, main 배포 run 38114463158 build·deploy success. receiver가 `validate` 기동·readiness·revision을 확인한 뒤 성공했으므로 V7이 운영 원본에 적용된 간접 증거다. 운영 샘플 앱으로 실제 복구(레지스트리 이미지 digest 고정 pull 포함)는 아직 하지 않았다(운영 배포 실행이라 별도 승인 필요).
 
 ## 회고
 - 어긋난 점: (1) 응답 DTO를 복구 대상 기록 전에 만들어 `recovered_from_deployment_id`가 빠졌다. 통합 테스트가 잡았고 기록 후 다시 만든다. (2) 실제 클러스터에서 digest 고정 배포가 ImagePullBackOff였다. 원인은 레지스트리 없는 import 환경이었고, 로컬 검증은 태그 경로로 하고 한계를 기록했다. (3) 두 테스트 메서드가 한 DB를 공유해 전체 행 수 비교가 깨졌다.
