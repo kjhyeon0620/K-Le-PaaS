@@ -164,7 +164,9 @@ class Stage2HttpAccessTest {
                     "{\"repository_id\":" + repo.getId() + ",\"branch_name\":\"main\",\"commit_hash\":\"HEAD\"}"));
             hidden(identity + " delete repository", send("DELETE", repoUrl, token, null));
         }
-        assertEquals(1, deployments.count(), "B cannot create deployments");
+        // 같은 컨텍스트(DB)를 쓰는 다른 테스트(McpServerHttpTest)의 행이 있을 수 있어 A 저장소의 배포만 센다
+        assertEquals(1, deployments.findAll().stream()
+                .filter(d -> d.getSourceRepository().getId().equals(repo.getId())).count(), "B cannot create deployments");
         assertTrue(repositories.existsById(repo.getId()), "B cannot delete A's repository");
         assertEquals(List.of("runtime"), configs.findBySourceRepositoryId(repo.getId()).orElseThrow().getEnvFromConfigMaps());
         verifyNoInteractions(generator, pipeline);
