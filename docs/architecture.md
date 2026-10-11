@@ -151,7 +151,8 @@ POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소�
     입력의 knowledge로 더함. 없으면 입력·프롬프트가 지식 없는 경우와 같음(diagnosis-v1), 있으면 diagnosis-v2-rag. 검색 실패는 warning만 남김
   → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
   → 서버 검증: 라벨 목록(DiagnosisLabels) 밖이면 버림, 입력에 없는 근거 위치 버림, 근거 없는 단정은 판단 보류로, 근거 원문은 입력에서 잘라 넣음
-  → 인용 분리: /knowledge/i 인용은 knowledge(종류·출처·제목·앱·버전·시점·발췌)로, 관측 근거는 cited로
+  → 인용 분리: /knowledge/i 인용은 knowledge(종류·출처·제목·앱·버전·시점·발췌)로, 관측 근거는 cited로.
+    검색된 지식 전체는 retrieved_knowledge(유사도·인용 여부)로 응답과 이력에 남김 (#125)
   → 결과와 토큰 사용량을 deployment_diagnoses에 이력으로 저장 (실패하면 저장하지 않음). 인프라 변경 없음
 ```
 
@@ -326,7 +327,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | #109 |
-| 진단 응답·이력에 검색된 지식 목록이 남지 않고 모델이 인용한 지식만 보인다 | 지식이 검색에서 빠졌는지 모델이 고르지 않았는지 운영에서 구분할 수 없다 (#105 S4) | #125 |
 | 승인 대기 명령의 10분 만료가 승인 시도 때만 판정된다 | 만료된 제안이 이력에 `PENDING`으로 남는다 (#105) | #126 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |

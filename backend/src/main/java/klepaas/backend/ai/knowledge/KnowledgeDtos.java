@@ -31,6 +31,11 @@ public final class KnowledgeDtos {
                                 LocalDateTime updatedAt, String text, double similarity) {
     }
 
+    /** 진단할 때 검색돼 입력에 들어간 지식과 모델 인용 여부 (#125). 본문은 넣지 않는다 */
+    public record RetrievedKnowledge(String source, String ref, String title, String repository, String version,
+                                     double similarity, boolean cited) {
+    }
+
     /** 진단 응답에서 모델이 인용한 지식 */
     public record KnowledgeCitation(String source, String ref, String title, String repository, String version,
                                     LocalDateTime updatedAt, String excerpt) {
