@@ -114,3 +114,24 @@ test("recover는 계획을 보여 주고 확인한 계획 지문으로만 실행
   assert.match(blocked.stderr, /현재 env가 대상 배포와 다릅니다/);
   assert.equal(posted.length, 1);
 });
+
+test("diagnose는 진단 결과와 서버가 자른 근거를 보여 준다 (#100)", async (t) => {
+  const server = createServer((request, response) => {
+    response.setHeader("Content-Type", "application/json");
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/api/v1/deployments/7/diagnosis");
+    response.end(JSON.stringify({ status: "success", data: {
+      deployment_id: 7, model: "gemini-2.5-flash", prompt_version: "diagnosis-v1", category: "ENV_CONFIG",
+      root_cause: "required_env_missing", abstain: false, summary: "POSTGRES_PASSWORD가 없어 종료를 반복합니다",
+      observed_facts: ["직전 컨테이너가 exit 1로 종료"], hypotheses: [], next_checks: ["배포 설정의 env 확인"],
+      cited: [{ pointer: "/logs/pods/0/previous_logs/1", excerpt: "You must specify POSTGRES_PASSWORD" }], warnings: [] } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const result = await runCli(server, ["deployments", "diagnose", "7"]);
+  assert.equal(result.error, null, result.stderr);
+  assert.match(result.stdout, /ENV_CONFIG \/ required_env_missing/);
+  assert.match(result.stdout, /\/logs\/pods\/0\/previous_logs\/1\n\s+You must specify POSTGRES_PASSWORD/);
+  assert.match(result.stdout, /실험/);
+});

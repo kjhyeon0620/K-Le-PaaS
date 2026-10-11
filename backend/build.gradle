@@ -59,6 +59,10 @@ dependencies {
 	// K8s client (fabric8)
 	implementation 'io.fabric8:kubernetes-client:7.2.0'
 
+	// AI 진단 공급사 (#100). Gemini는 RestClient로 직접 호출한다
+	implementation 'com.anthropic:anthropic-java:2.34.0'
+	implementation 'com.openai:openai-java:4.80.0'
+
 	// Swagger UI (Springdoc OpenAPI)
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1'
 

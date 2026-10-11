@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/deployments").hasAnyAuthority(FULL, DEPLOY, GITHUB_ACTIONS) // 저장소는 컨트롤러에서 확인
                         .requestMatchers(HttpMethod.GET, "/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.POST, "/api/v1/cost/**").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
+                        // 읽기 전용 진단 (#100): 상태를 바꾸지 않으므로 읽기 scope부터 허용한다
+                        .requestMatchers(HttpMethod.POST, "/api/v1/deployments/*/diagnosis").hasAnyAuthority(READ_ONLY, PROPOSE_ONLY, FULL)
                         .requestMatchers(HttpMethod.POST, "/api/v1/nlp/command").hasAnyAuthority(PROPOSE_ONLY, FULL)
                         .anyRequest().hasAuthority(FULL)
                 )

@@ -32,6 +32,7 @@ public class DeploymentController {
     private final DeploymentDetailService deploymentDetailService;
     private final ResourceAccessService resourceAccessService;
     private final RecoveryService recoveryService;
+    private final klepaas.backend.ai.diagnosis.DeploymentDiagnosisService deploymentDiagnosisService;
 
     @PostMapping("/deployments")
     public ResponseEntity<ApiResponse<DeploymentResponse>> createDeployment(
@@ -48,6 +49,13 @@ public class DeploymentController {
         // 진행 중 배포와 같은 요청(재시도)이면 새로 만들지 않고 그 배포를 200으로 돌려준다
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(ApiResponse.success(result.deployment()));
+    }
+
+    // 근거 기반 읽기 전용 진단 (#100). 요청마다 모델을 호출한다. 읽기 scope부터 허용(SecurityConfig)
+    @PostMapping("/deployments/{id}/diagnosis")
+    public ApiResponse<klepaas.backend.ai.diagnosis.DeploymentDiagnosisResponse> diagnoseDeployment(@PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(deploymentDiagnosisService.diagnose(id, userDetails.getUserId()));
     }
 
     // ─── 이전 배포로 복구 (#101) ───────────────────────────────────────────

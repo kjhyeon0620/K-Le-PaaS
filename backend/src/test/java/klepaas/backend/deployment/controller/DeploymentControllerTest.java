@@ -65,6 +65,9 @@ class DeploymentControllerTest {
     private klepaas.backend.deployment.service.RecoveryService recoveryService;
 
     @MockitoBean
+    private klepaas.backend.ai.diagnosis.DeploymentDiagnosisService deploymentDiagnosisService;
+
+    @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean

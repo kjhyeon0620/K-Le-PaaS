@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `cost` | spec 기반 비용 plan/diff/explain/check (실제 billing 아님) |
@@ -135,6 +135,20 @@ POST /api/v1/deployments/{targetId}/recover          {plan_fingerprint}. 한 트
 - 계획 지문 = SHA-256(대상 ID | 배포할 이미지 | 현재 설정 지문). 계획은 저장하지 않는다.
 - 차단: 설정 기록 없음(#95 이전), 대상 빌드 경로 KANIKO(이미지를 다시 빌드함), 현재 env 이름·값 지문이 대상과 다름(env 값은 기록하지 않아 되돌릴 수 없음). 사용자가 env를 맞추면 다시 계획할 수 있다.
 - 자연어 LIST_ROLLBACK·ROLLBACK·ROLLBACK_EXECUTION도 이 경로를 쓴다. ROLLBACK은 commit 접두가 맞는 최신 후보(없으면 직전 성공 배포)의 계획을 `approval_target`으로 보이고 계획 지문을 고정한다.
+
+#### 근거 기반 읽기 전용 진단 (#100, `DeploymentDiagnosisService`)
+
+```
+POST /api/v1/deployments/{id}/diagnosis   (READ_ONLY 이상, 소유권 확인, FAILED·UNKNOWN만)
+  → 입력 = {"detail": 배포 상세 응답, "logs": 로그 응답(40줄)}  (API와 같은 JSON)
+  → 비밀값 패턴 가림 (JSON 구조·위치 유지)
+  → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
+  → 서버 검증: 라벨 목록(DiagnosisLabels) 밖이면 버림, 입력에 없는 근거 위치 버림, 근거 없는 단정은 판단 보류로, 근거 원문은 입력에서 잘라 넣음
+  → 저장하지 않음. 인프라 변경 없음
+```
+
+- 공급사는 `diagnosis.llm.provider`·`model`로 고른다. 기본값은 #99 사례 비교로 정했다 (스펙 0100). 자연어 명령은 Gemini를 그대로 쓴다.
+- 모델 응답을 읽을 수 없으면 500 `AI_002`, 호출 실패·키 없음은 500 `AI_001`. 추정 결과로 채우지 않는다.
 
 #### 재시작 대조 (#57, `InterruptedWorkReconciler`)
 
@@ -246,13 +260,14 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `deployment.domain.suffix` | `${DEPLOYMENT_DOMAIN_SUFFIX:klepaas.io}` | 기본 배포 도메인 |
 | `deployment.pipeline.poll-initial-interval` / `poll-max-interval` / `build-timeout` | 10s / 60s / 30m | 빌드 상태 polling |
 | `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | 자연어 해석 모델 |
+| `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai). 선택한 공급사 키가 없으면 진단만 실패 |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
 | `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |
 | `github.actions.oidc.allowed-refs` | `${GITHUB_ACTIONS_OIDC_ALLOWED_REFS:refs/heads/main}` | OIDC 배포를 허용할 ref (쉼표 구분) |
 | `app.base-url`, `cors.allowed-origins` | localhost | Web console 주소 |
 | `spring.datasource.url` / `username` / `password` | `${DB_URL:jdbc:postgresql://localhost:5432/klepaas}` / `${DB_USERNAME:klepaas}` / `${DB_PASSWORD}` | DB 접속. 비밀번호는 기본값 없음 |
 
-비밀값(`DB_PASSWORD`, `JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`, `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
+비밀값(`DB_PASSWORD`, `JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`, `OPENAI_API_KEY`·`ANTHROPIC_API_KEY`(진단 공급사에 따라), `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
 
 ## 8. 테스트와 검증 층위
 
@@ -262,7 +277,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 패키징 | `./gradlew bootJar` 후 JAR를 PostgreSQL(`compose.yaml`)로 기동, `ddl-auto=validate`, readiness `UP` |
 | 운영 DB 사본 | 스키마 변경 시 머지 전에 필수 |
 | 실제 클러스터 | k3s 임시 컨테이너 등 격리 환경. 운영 앱에 실패를 주입하지 않는다 |
-| 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99) |
+| 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99). 공급사·모델 비교는 `DiagnosisModelComparisonTest`(`DIAGNOSIS_EVAL_MODELS`와 키가 있을 때만, 실제 API 호출·비용 발생)로 품질·토큰·비용·지연을 남긴다 (#100) |
 | 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit` |
 | 릴리스 스크립트 | `python3 -m unittest discover -s scripts/deploy -p 'test_*.py'`, `scripts/ci/test-package-release.sh` |
 

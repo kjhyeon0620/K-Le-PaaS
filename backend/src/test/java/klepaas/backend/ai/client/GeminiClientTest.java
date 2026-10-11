@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +50,7 @@ class GeminiClientTest {
 
         given(restClient.post()).willReturn(requestBodyUriSpec);
         given(requestBodyUriSpec.uri(anyString())).willReturn(requestBodySpec);
+        given(requestBodySpec.header(eq("x-goog-api-key"), any())).willReturn(requestBodySpec);
         given(requestBodySpec.body(any(GeminiRequest.class))).willReturn(requestBodySpec);
         given(requestBodySpec.retrieve()).willReturn(responseSpec);
         given(responseSpec.onStatus(any(), any())).willReturn(responseSpec);

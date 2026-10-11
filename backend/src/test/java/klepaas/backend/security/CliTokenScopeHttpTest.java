@@ -115,6 +115,10 @@ class CliTokenScopeHttpTest {
                 "{\"name\":\"escalate\",\"expires_in_days\":1,\"scope\":\"FULL\"}").statusCode());
         assertEquals(403, send("DELETE", "/api/v1/cli-tokens/" + readOnlyId, readOnly, null).statusCode());
 
+        // 읽기 전용 진단(#100)은 scope 검사를 통과한다. 실패 배포가 아니면 모델을 부르기 전에 400이다
+        assertEquals(400, send("POST", deploymentUrl + "/diagnosis", readOnly, null).statusCode());
+        // 복구 실행(#101)은 FULL만 허용된다
+        assertEquals(403, send("POST", deploymentUrl + "/recover", readOnly, "{\"plan_fingerprint\":\"x\"}").statusCode());
         verifyNoInteractions(pipeline, gemini);
         verify(generator, never()).scale(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(), anyLong());
         verify(generator, never()).restart(org.mockito.ArgumentMatchers.anyString(), anyLong());

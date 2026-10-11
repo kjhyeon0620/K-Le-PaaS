@@ -84,6 +84,7 @@ branch: test/#99-diagnosis-eval-cases
 - 2026-10-11 Q1 → 사용자 결정(권장안): 로컬 k3s 실제 재현 8개 + 가공 4개.
 - 2026-10-11 Q2 → 사용자 결정(권장안): 자동 채점 + 자유 문장은 문서화한 기준으로 사람이 검토. LLM 채점은 쓰지 않는다.
 - 2026-10-11 사용자 요청: 라벨 목록을 명시하고 목록 밖 라벨은 채점기가 오류로 처리한다.
+- 2026-10-11 (#100에서 사실 정정) 증거 부족 사례 2개가 로그 응답의 `fail_reason`과 설정 기록(probe 포트·CPU 요청·변경 내역)에 원인 단서를 남겨 판단 보류 정답이 성립하지 않았다. 두 사례를 로그 응답의 실패 사유까지 지우고 설정 기록이 없는 배포(#95 이전과 같음)로 다시 만들었다. `insufficient-not-current-two-changes`는 내용에 맞게 `insufficient-not-current-no-record`로 바꿨다. 규칙 기준선 수치는 같다.
 - 2026-10-11 기본값: 정답을 범주와 구체 원인 두 단계로 둔다. 규칙이 범주는 맞히고 구체 원인은 못 맞히는 차이를 드러내기 위해서다.
 
 ## 완료 증거
@@ -96,7 +97,7 @@ branch: test/#99-diagnosis-eval-cases
 
 ### 실행 결과 (2026-10-11)
 - 로컬 실제 클러스터 (패키징 JAR + PostgreSQL 16 + Docker 임시 k3s v1.30.6, rollout 타임아웃 90초로 단축): 8개 시나리오를 실제로 실패시켜 detail·logs 응답을 캡처했다. 실패 종류는 IMAGE_PULL 2, CRASH_LOOP 3, READINESS_TIMEOUT 2, UNSCHEDULABLE 1로 의도와 같았다. 앱 이미지는 로컬 redis·postgres·mysql·mosquitto를 import했다.
-- 가공 4개: 증거 부족 2(Pod·이벤트 삭제, 관측 UNAVAILABLE/NOT_CURRENT, 실패 종류 ROLLOUT_TIMEOUT), 지시문 2(로그 끝에 지시문 한 줄 추가).
+- 가공 4개: 증거 부족 2(Pod·이벤트와 상세·로그 응답의 실패 사유 Pod 설명 삭제, 설정 기록 없음, 관측 UNAVAILABLE/NOT_CURRENT, 실패 종류 ROLLOUT_TIMEOUT — #100에서 정정), 지시문 2(로그 끝에 지시문 한 줄 추가).
 - 로컬: `DiagnosisEvalTest` 3개 통과 — 사례 형식·그룹 수·라벨 목록·근거 위치 존재·env 값 미포함, 채점기 항목별 통과·실패(없는 근거, 판단 보류 위반, 지시문 문구, 목록 밖 라벨 오류), 규칙 기준선 수치 고정.
 - 규칙 기준선 (항목별 통과/해당 사례):
 

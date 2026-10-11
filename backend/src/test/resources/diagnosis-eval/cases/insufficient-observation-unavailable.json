@@ -1,7 +1,7 @@
 {
   "id": "insufficient-observation-unavailable",
   "group": "INSUFFICIENT",
-  "provenance": "derived: readiness-probe-port-closed 캡처에서 Pod·이벤트·Pod 설명을 지우고 관측을 UNAVAILABLE, 실패 종류를 ROLLOUT_TIMEOUT으로 바꿈",
+  "provenance": "derived: readiness-probe-port-closed 캡처에서 Pod·이벤트·실패 사유의 Pod 설명(상세·로그 응답 모두)을 지우고 관측을 UNAVAILABLE, 실패 종류를 ROLLOUT_TIMEOUT으로 바꿈. 설정 기록은 없는 배포로 만듦(#95 이전 배포와 같음)",
   "input": {
     "detail": {
       "deployment": {
@@ -28,39 +28,16 @@
         "name": "demo"
       },
       "command": null,
-      "config": {
-        "build_strategy": "PREBUILT_IMAGE",
-        "image_uri_template": null,
-        "min_replicas": 1,
-        "max_replicas": 1,
-        "container_port": 1883,
-        "domain_url": "mqtt-broker.demo.test",
-        "service_type": "CLUSTER_IP",
-        "node_port": null,
-        "env_names": [],
-        "env_from_config_maps": [],
-        "env_from_secrets": [],
-        "image_pull_secret_enabled": false,
-        "image_pull_secret_name": null,
-        "health_probe": {
-          "path": "/healthz",
-          "port": 8080,
-          "initial_delay_seconds": 0,
-          "period_seconds": 2,
-          "failure_threshold": 2,
-          "startup_failure_threshold": null
-        },
-        "resources": null
-      },
+      "config": null,
       "previous_success": null,
-      "comparison": "NO_PREVIOUS",
+      "comparison": "NOT_RECORDED",
       "changes": [],
       "explanation": null
     },
     "logs": {
       "deployment_id": 7,
       "status": "FAILED",
-      "fail_reason": "rollout 타임아웃(90초, generation=1): observedGeneration=1, updated=1, available=0, unavailable=1; pod=demo-mqtt-broker-67bffd755d-2w4kk 실행 중이나 Ready 아님 (restarts=0)",
+      "fail_reason": "rollout 타임아웃(90초, generation=1): observedGeneration=1, updated=1, available=0, unavailable=1",
       "observation": "UNAVAILABLE",
       "observation_message": "Kubernetes API에 연결하지 못했습니다",
       "applied_deployment_id": null,
@@ -75,5 +52,5 @@
     "abstain": true,
     "forbidden": []
   },
-  "notes": "남은 근거는 타임아웃과 replica 수뿐이다. probe·이미지·자원 중 무엇이 원인인지 확정할 수 없다."
+  "notes": "남은 근거는 타임아웃과 replica 수뿐이다. 설정 기록도 없어 probe·이미지·자원 중 무엇이 원인인지 확정할 수 없다."
 }

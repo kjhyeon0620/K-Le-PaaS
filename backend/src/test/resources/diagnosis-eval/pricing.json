@@ -1,0 +1,14 @@
+{
+  "unit": "USD per 1M tokens, standard tier",
+  "note": "입력은 캐시 입력을 뺀 나머지에 input, 캐시 입력에 cached_input, 출력(생각 토큰 포함)에 output을 곱한다. 가격이 바뀌면 이 파일만 고친다.",
+  "models": {
+    "gemini-2.5-flash":      {"input": 0.30, "cached_input": 0.03,  "output": 2.50, "as_of": "2026-10-09", "source": "ai.google.dev/gemini-api/docs/pricing"},
+    "gemini-2.5-flash-lite": {"input": 0.10, "cached_input": 0.01,  "output": 0.40, "as_of": "2026-10-09", "source": "ai.google.dev/gemini-api/docs/pricing"},
+    "gemini-3.8-flash":      {"input": 0.75, "cached_input": 0.075, "output": 3.75, "as_of": "2026-10-09", "source": "ai.google.dev/gemini-api/docs/pricing (2026-12-31까지 가격, 2027-01-01 인상 예정)"},
+    "claude-haiku-5-5":      {"input": 0.10, "cached_input": 0.01,  "output": 0.50, "as_of": "2026-10-06", "source": "Anthropic 가격표 (100K 토큰 이하 프롬프트). cached_input은 입력의 0.1배로 가정"},
+    "claude-sonnet-5-5":     {"input": 2.00, "cached_input": 0.20,  "output": 10.00, "as_of": "2026-10-06", "source": "Anthropic 가격표"},
+    "gpt-5-mini":            {"input": 0.25, "cached_input": 0.025, "output": 2.00, "as_of": "2026-10-11", "source": "developers.openai.com/api/docs/pricing"},
+    "gpt-5-nano":            {"input": 0.05, "cached_input": 0.005, "output": 0.40, "as_of": "2026-10-11", "source": "developers.openai.com/api/docs/pricing"},
+    "gpt-6-luna":            {"input": 0.10, "cached_input": 0.01,  "output": 0.50, "as_of": "2026-10-11", "source": "developers.openai.com/api/docs/pricing"}
+  }
+}
