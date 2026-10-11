@@ -62,7 +62,7 @@ POST /api/v1/nlp/command
        응답 approval_target에 저장소·브랜치·commit·이미지·레플리카·포트·env 이름·지문 8자리를 보인다 (#56)
 POST /api/v1/nlp/confirm
   → 본인 명령이고, 생성 10분 이내이고, PENDING일 때만 EXECUTING으로 원자적 전이 (한 번만 소비)
-  → 10분이 지났으면 EXPIRED
+  → 10분이 지났으면 EXPIRED (이력 조회 `GET /nlp/history` 직전에도 그 사용자의 만료된 PENDING을 EXPIRED로 바꾼다, #126)
   → 배포 intent: 현재 설정 지문이 저장한 지문과 다르거나 지문이 없으면 실행하지 않고 FAILED + 409 AI_006
   → 실행 결과로 SUCCEEDED / FAILED
   → 승인한 배포는 요청 행에 지문을 남기고, apply 직전 적용할 설정 지문과 다르면 적용하지 않고 FAILED(APPLY_FAILED)
@@ -329,7 +329,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | #109 |
-| 승인 대기 명령의 10분 만료가 승인 시도 때만 판정된다 | 만료된 제안이 이력에 `PENDING`으로 남는다 (#105) | #126 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |

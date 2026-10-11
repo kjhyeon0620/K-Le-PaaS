@@ -11,11 +11,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class CommandConfirmationService {
+    /** 승인 대기 명령의 유효 시간 */
+    static final Duration TTL = Duration.ofMinutes(10);
+
     private final CommandLogRepository logs;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -37,13 +41,19 @@ public class CommandConfirmationService {
         if (log.getUser() == null || !userId.equals(log.getUser().getId())) {
             throw new EntityNotFoundException(ErrorCode.COMMAND_LOG_NOT_FOUND);
         }
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(10);
+        LocalDateTime cutoff = LocalDateTime.now().minus(TTL);
         if (logs.consume(id, userId, CommandStatus.PENDING, next, confirmed, cutoff) != 1) {
             logs.expire(id, userId, CommandStatus.PENDING, CommandStatus.EXPIRED, cutoff);
             return null;
         }
         if (log.getSession() != null) log.getSession().getSessionToken();
         return log;
+    }
+
+    /** 이력을 보여 주기 전에 만료된 승인 대기 명령을 EXPIRED로 바꾼다 (#126). 만료는 원래 승인 시도 때만 판정됐다 */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int expireStale(Long userId) {
+        return logs.expireStale(userId, CommandStatus.PENDING, CommandStatus.EXPIRED, LocalDateTime.now().minus(TTL));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
