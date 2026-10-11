@@ -1,96 +1,117 @@
 # K-Le-PaaS
 
-K-Le-PaaS는 자연어와 CLI 명령을 감사 가능하고 위험도 분류된 Kubernetes 운영 작업으로 변환하는 Agent-safe PaaS control plane입니다.
+K-Le-PaaS는 사람과 AI 에이전트가 함께 쓰는 **agent-safe Kubernetes 배포 제어면**입니다. 배포 요청마다 무엇이 적용됐고 왜 실패했는지 근거를 남기고, 실패를 근거 기반으로 진단하며, 에이전트는 복구를 **제안만** 하고 실행은 사람이 승인합니다.
 
-> K-Le-PaaS is an agent-safe Kubernetes control plane that converts natural language and CLI commands into auditable, risk-classified infrastructure operations.
+> K-Le-PaaS is an agent-safe Kubernetes control plane: every deployment request is recorded and judged on its own rollout, failures are diagnosed from cited evidence, and agents can only propose recoveries that people approve.
 
-## 개요
+## 한눈에 보기
 
-K-Le-PaaS는 Web, CLI, API, 자연어 명령을 하나의 Spring Boot 백엔드 제어면으로 연결해 Kubernetes 애플리케이션 배포와 운영을 수행하는 플랫폼입니다. 자연어를 곧바로 셸 명령으로 실행하지 않고, 먼저 구조화된 intent로 해석한 뒤 위험도를 분류하고, 필요한 경우 사용자 확인을 받은 다음 백엔드 서비스가 통제된 방식으로 실행합니다.
+| 문제 | K-Le-PaaS의 방식 |
+|---|---|
+| 배포가 "성공했다"는 판정이 실제로 그 요청이 적용한 버전인지 알 수 없다 | 요청이 적용한 Deployment generation만 판정하고, 대체·재시작·조회 불가는 `CANCELED`/`UNKNOWN`으로 드러낸다 (#53, #57) |
+| 실패 원인을 찾으려면 kubectl로 Pod·이벤트·로그를 뒤져야 한다 | 요청별 적용 설정·직전 성공 대비 변경·Pod 로그·이벤트를 한 화면·API로 보여 주고, AI가 그 입력 안의 근거 위치(JSON Pointer)를 인용해 진단한다 (#95, #100) |
+| AI 에이전트에게 운영 권한을 주기 무섭다 | 에이전트 토큰은 조회·진단·제안만 가능하다. 복구 제안은 계획 지문이 고정된 승인 대기 명령이 되고, 사람이 승인해야 실행된다 (#102, #103) |
+| 승인한 뒤 설정이 바뀌면 다른 내용이 배포된다 | 승인 시점 설정 지문을 고정하고 apply 직전까지 비교해 다르면 실행하지 않는다 (#56) |
+| 롤백이 이미지만 되돌려 설정 문제는 그대로다 | 이전 성공 배포의 이미지(digest 고정)와 env 외 설정을 함께 되돌리고, 값이 기록되지 않는 env 차이는 차단한다 (#101) |
 
-주요 기능은 다음과 같습니다.
+## 핵심 기능
 
-- GitHub OAuth 로그인과 GitHub App 기반 저장소 접근
-- 저장소 등록과 배포 설정 관리
-- GitHub ZIP 소스 다운로드와 재패키징
-- NCP Object Storage 업로드
-- Kaniko Kubernetes Job 기반 이미지 빌드
-- GitHub Actions/GHCR 또는 prebuilt 이미지 기반 외부 빌드 배포
-- commit SHA 기반 이미지 태그와 NCR push
-- Fabric8 Kubernetes Client 기반 Deployment, Service, Ingress apply
-- Gemini 2.5 Flash 기반 자연어 명령 해석
-- LOW / MEDIUM / HIGH 위험도 분류
-- 위험 명령에 대한 사용자 확인 flow
-- Web console과 Node 기반 CLI 제어면
-- CLI 비용 plan, diff, explain, check
-- Slack / WebSocket 배포 알림 MVP
-- GitHub push webhook 기반 자동 배포 MVP
+**배포 제어면**
+- 두 빌드 경로: GitHub Actions/GHCR·사전 빌드 이미지(외부 이미지, 운영 사용 중)와 NCP Kaniko Job(소스 빌드). [ADR-0001](docs/adr/0001-external-image-build.md)
+- 같은 앱 배포 직렬화·중복 접수 방지(#52), 요청이 적용한 generation 기준 rollout 판정(#53), 앱별 startup probe 허용 시간만큼 대기(#108)
+- 요청별 기록: 요청 경로(웹·CLI·CI·webhook·자연어), 적용 설정 스냅샷(env는 이름과 HMAC 지문만), 관측 이미지 digest, 실패 종류(#95)
+- 백엔드 재시작 후 미완료 배포·명령을 한 번 대조해 확정하거나 `UNKNOWN`으로 남김(자동 재실행 없음, #57)
+- 앱별 readiness/startup probe, requests/limits, NodePort 전용 앱(#51, #107)
 
-## 현재 상태
+**안전 장치**
+- 자연어 명령을 intent로 해석 → 위험도(LOW/MEDIUM/HIGH) 분류 → MEDIUM 이상은 확인 후 실행. 셸 명령은 실행하지 않는다 ([ADR-0002](docs/adr/0002-intent-risk-confirmation.md))
+- CLI 토큰 권한 범위(`read-only`, `propose-only`, 저장소별 배포 전용, `full`)를 서버가 강제(#49, #50), CI는 GitHub Actions OIDC로 저장 토큰 없이 배포(#65)
+- 승인 설정 지문 고정(#56), 승인 10분 만료·동시 중복 차단, 저장소 소유권·namespace·라벨·허용 참조 검사 ([ADR-0006](docs/adr/0006-resource-access-scope.md))
 
-백엔드가 재시작되면 끝나지 않은 배포·명령을 한 번 대조해 결과를 확정하거나 `UNKNOWN`(판정 불가)으로 남깁니다. 자동으로 다시 실행하지 않습니다 (#57).
+**복구**
+- 이전 성공 배포 후보·복구 계획(배포할 이미지, 되돌릴 설정, env 차이, 실행 가능 여부, 계획 지문) → 같은 지문일 때만 실행(#101)
 
-| 영역 | 상태 | 설명 |
-|---|---|---|
-| Web console | 구현 MVP | Next.js 기반 대시보드, 배포, GitHub, 명령, 모니터링, 설정 UI |
-| Backend API | 구현 MVP | 인증, 배포, NLP, 비용, webhook, CLI 인증 API |
-| GitHub OAuth | 구현 | OAuth code exchange와 JWT 발급 구현 |
-| GitHub App source access | 구현 MVP | Installation token과 source ZIP 다운로드 경로 구현 |
-| NCP Object Storage upload | 구현 MVP | AWS SDK v2 S3 호환 업로드 경로 구현 |
-| Kaniko image build | 구현 MVP | Kubernetes Job 기반 빌드 경로 구현 |
-| Kubernetes deploy | 구현 MVP | Fabric8로 Deployment(관측한 버전으로 전체 교체), Service·Ingress(server-side apply) 반영, 앱별 readiness/startup probe·requests/limits 설정, 요청이 적용한 generation 기준 rollout 판정, 적용 UID·generation 저장과 재시작 대조 (#57) |
-| External image deploy | 구현 MVP | GHCR/prebuilt 이미지 배포, envFrom·pull secret·Service 설정 지원 |
-| KLEPAAS CI/CD | 구현 | main 빌드 성공 후 Oracle ARM64 systemd 자동 배포, 버전·readiness 확인 및 실패 시 앱 버전 복구 |
-| Commit SHA image tags | 구현 | 짧은 commit SHA를 이미지 태그로 사용 |
-| Natural language operations | 구현 MVP | Gemini client, intent parser, dispatcher, command log, confirmation flow 구현 |
-| AI deployment diagnosis | 실험 | 실패 배포의 상세·로그를 근거로 원인 범주·구체 원인·근거 위치를 설명(인프라 변경 없음). 공급사 교체 가능(Gemini·Claude·OpenAI), #99 사례로 품질·비용 비교 후 기본 모델 선택 (#100) |
-| Deployment recovery | 구현 MVP | 이전 성공 배포의 이미지(digest 고정)와 env 외 설정으로 복구 계획을 만들고 계획 지문으로 실행. env가 다르면 차단 (#101) |
-| Risk confirmation | 구현 MVP | MEDIUM / HIGH 명령은 확인 후 실행. 승인한 배포는 승인 당시 설정 지문으로 고정해 설정이 바뀌면 실행·적용하지 않음 (#56) |
-| Resource access | 구현 | 저장소 소유권·namespace·라벨·허용 참조 검사, 명령 승인 만료·동시 중복 차단 |
-| CLI | 구현 MVP | `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`, `doctor` 제공, 토큰 권한 범위(`read-only`/`propose-only`/배포 전용/`full`) 서버 강제 |
-| Cost guardrails | 구현 MVP | spec 기반 비용 추정, diff, explain, budget check 제공 |
-| Slack notification | 구현 MVP | Incoming Webhook 기반 알림 구현, 운영 환경 설정 필요 |
-| WebSocket deployment events | 구현 MVP | 인증된 WebSocket endpoint와 배포 update publisher 구현 |
-| GitHub webhook | 구현 MVP | push webhook 서명 검증과 배포 trigger 구현 |
-| Scaling history | 구현 MVP | scale 작업 이력 저장 및 조회 API 구현 |
-| Deployment logs | 구현 MVP | 배포 요청이 적용한 Pod의 상태·최근 로그·이벤트와 실패 원인 (API, CLI `deployments logs`, 콘솔 Logs). 저장·스트리밍 없음 |
-| Monitoring metrics | 일부 구현 | UI는 있으나 backend metrics API는 미구현 |
-| MCP connector | 예정 | frontend stub / 설계 방향만 존재 |
-| IaC / Terraform | 예정 | 현재 Terraform/OpenTofu 구현 없음, 향후 방향 |
+**근거 기반 AI 진단 (실험)**
+- 배포 상세·로그를 비밀값을 가린 채 모델에 보내고, 라벨 목록 안의 범주·구체 원인과 입력 안의 근거 위치를 받는다. 목록 밖 라벨·없는 근거는 서버가 버린다. 원인을 확정할 수 없으면 판단 보류(#100)
+- 공급사 교체 구조(OpenAI·Claude·Gemini, 공식 SDK). 사례 12개로 품질·비용·지연을 비교해 기본 모델 선택(#100)
+- 결과 이력 저장·재사용, 관측 근거가 없으면 모델 호출 생략(#117)
+- 운영문서·확정 장애 이력 RAG(#104). 독립 평가에서 개선이 없어 기본으로 끔(#123, #129)
 
-KLEPAAS 자체 CI/CD와 사용자 앱 배포는 별도입니다. 이 저장소의 `main` 머지는 플랫폼 backend/frontend를 갱신하며, 사용자 앱에는 별도의 이미지 빌드와 배포 callback 연결이 필요합니다. 여러 앱의 공통 workflow·도메인 연결, 배포 설정 snapshot을 이용한 복구는 아직 완성되지 않았습니다.
+**에이전트 연결**
+- 구조화된 복구 제안 API·CLI(#102), 원격 MCP 서버 `/api/v1/mcp`(공식 MCP Java SDK, 도구 7개, #103). [MCP 문서](docs/MCP.md)
 
 ## 구조
 
 ```mermaid
 flowchart LR
-    User["사용자 / 운영자 / Agent"] --> Web["Next.js Web Console"]
-    User --> CLI["Node CLI"]
-    User --> NLP["자연어 명령"]
-    Web --> API["Spring Boot API"]
-    CLI --> API
-    NLP --> API
-    API --> Parser["Gemini + IntentParser"]
-    Parser --> Risk["Risk Classification"]
-    Risk --> Confirm["Confirmation Flow"]
-    Confirm --> Deploy["Deployment Pipeline"]
-    Deploy --> Source["GitHub ZIP Download"]
-    Deploy --> ObjectStorage["NCP Object Storage"]
-    Deploy --> Kaniko["Kaniko K8s Job"]
-    Kaniko --> NCR["NCR Image"]
-    Deploy --> K8s["Fabric8 Kubernetes Apply"]
-    API --> Cost["Cost Guardrails"]
-    API --> Audit["Command Logs"]
-    API --> Notify["Slack / WebSocket MVP"]
+    Human["사람 (Web·CLI)"] --> API["Spring Boot API<br/>scope·소유권 검사"]
+    Agent["AI 에이전트<br/>propose-only 토큰"] -->|CLI / MCP| API
+    CI["GitHub Actions<br/>OIDC"] --> API
+    API --> NLP["자연어 → intent<br/>위험도·승인"]
+    API --> Pipeline["배포 파이프라인<br/>직렬화·요청 기록"]
+    Pipeline --> Ext["외부 이미지<br/>GHCR·prebuilt"]
+    Pipeline --> Kaniko["Kaniko Job → NCR<br/>(NCP 경로)"]
+    Ext --> K8s["Fabric8 apply<br/>generation 판정"]
+    Kaniko --> K8s
+    API --> Diag["근거 기반 진단<br/>LlmClient (OpenAI·Claude·Gemini)"]
+    API --> Recovery["복구 계획·승인 실행"]
+    API --> DB[("PostgreSQL<br/>요청·명령·진단 이력")]
 ```
 
-위 그림의 소스 다운로드·Kaniko 경로는 NCP 빌드 흐름입니다. 외부 이미지 경로는 프로젝트 CI에서 빌드·push한 이미지를 받아 Kubernetes 배포부터 수행합니다. [Oracle k3s + GHCR 안내](docs/ORACLE_K3S_GHCR_DEPLOYMENT.md)를 참고하세요.
+플랫폼 자체는 `main` 머지 시 GitHub Actions가 ARM64 릴리스를 만들어 Oracle 서버(systemd)에 배포하고, readiness·revision 확인에 실패하면 이전 릴리스로 되돌립니다([CICD.md](docs/CICD.md)). 사용자 앱은 같은 서버의 k3s에 배포합니다([Oracle k3s + GHCR 안내](docs/ORACLE_K3S_GHCR_DEPLOYMENT.md)).
+
+## 검증 결과
+
+**운영 전 과정 실증** (#105, 운영, 샘플 Node 앱) — 코드 수정·서버 수동 패치 0회
+
+| 단계 | 실패 | 진단 | 복구 |
+|---|---|---|---|
+| probe 포트 변경 | READINESS_TIMEOUT | probe_port_closed (앱 문서 인용) | 사람이 원인 확정 → 에이전트 제안 → 사람 승인 → 성공 |
+| 없는 이미지 태그 | IMAGE_PULL | image_not_pullable | 제안 → 승인 → 성공 |
+| 필수 env 삭제 | CRASH_LOOP | required_env_missing | 복구 계획이 실행 불가로 차단(env 값 미저장) → 운영자가 env 복원 |
+| 같은 실패 반복 | READINESS_TIMEOUT | probe_port_closed | 제안 → 승인 → 성공 |
+| 기록 없는 과거 실패 | - | 모델 호출 없이 판단 보류 | - |
+
+복구 3건은 digest 고정 이미지로 성공했고, 실패 동안 기존 Pod가 계속 응답했습니다. ([스펙 0105](docs/specs/0105-end-to-end-demo/spec.md))
+
+**진단 평가** (#99 실패 사례 12개, 로컬 k3s에서 실제 캡처 8 + 가공 4)
+
+| 방식 | 범주 | 구체 원인 | 근거 일치 | 판단 보류 | 12건 비용 |
+|---|---|---|---|---|---|
+| 규칙 기준선(실패 종류 고정 설명) | 6/10 | 0/10 | 2/10 | 2/12 | 0 |
+| AI 진단 (OpenAI gpt-6-luna, 기본) | 10/10 | 10/10 | 10/10 | 12/12 | $0.0029 |
+
+같은 사례로 Claude Haiku·Gemini Flash·gpt-5-mini도 비교했고, 품질이 같은 모델 중 비용·지연이 가장 낮은 모델을 기본으로 골랐습니다. ([스펙 0099](docs/specs/0099-diagnosis-eval-cases/spec.md), [0100](docs/specs/0100-evidence-based-diagnosis/spec.md))
+
+**측정으로 내린 결정**
+- 비용 절감(#115): 추론 강도·출력 간결화·입력 정리를 사례 12개 × 10회로 측정했으나 품질 기준을 넘지 못해 출력 상한과 토큰 로그만 적용했습니다. 계산 금액과 선불 잔액 차감액이 4% 안에서 맞았습니다. ([스펙 0115](docs/specs/0115-diagnosis-cost-reduction/spec.md))
+- RAG(#104 → #123 → #129): 가공 사례에서는 구체 원인 15/25 → 25/25였지만, 다른 회사 모델(Gemini)이 독립 작성한 시나리오 71개를 k3s에서 재현한 평가용 39개 × 3회에서는 지식 없음 116/117, 있음 114/117로 개선이 없고 비용만 늘어 기본으로 껐습니다. ([스펙 0123](docs/specs/0123-blind-rag-eval/spec.md))
+- MCP(#103): 실서버에서 Codex로 도구 7개 조회·진단·계획·제안, 입력 검증 오류, 권한 경계(배포 전용 토큰 403, 인증 없음 401)를 확인했습니다. ([스펙 0103](docs/specs/0103-mcp-server/spec.md))
+
+## 현재 상태
+
+| 영역 | 상태 | 설명 |
+|---|---|---|
+| 배포 (외부 이미지) | 운영 사용 | GHCR/prebuilt 이미지, OIDC CI 배포, 요청별 기록·판정·재시작 대조 |
+| 배포 (Kaniko) | 구현, 운영 미사용 | NCP Object Storage + Kaniko Job + NCR 경로. 다른 provider(AWS·온프레미스 Kaniko)는 없음 |
+| 배포 요청 상세·로그 | 구현 | API, CLI, 콘솔. 로그는 저장·스트리밍하지 않음 |
+| 승인 복구 | 구현, 운영 실증 | #101, #105 |
+| 자연어 명령 | 구현 | Gemini 해석, 위험도·승인, 명령 이력 |
+| AI 진단 | 실험, 운영 사용 | 근거 기반, 결과 재사용. RAG는 기본 꺼짐 |
+| 에이전트·MCP | 구현, 실서버 확인 | 제안 전용 토큰, 복구 제안, `/api/v1/mcp` |
+| CLI | 구현 | `auth`, `ask`, `confirm`, `history`, `repositories`, `deployments`, `knowledge`, `incidents`, `cost`, `doctor` |
+| 비용 추정 | 구현 | spec 기반 plan·diff·explain·check (실제 청구 아님) |
+| Slack·WebSocket 알림, GitHub webhook | 구현 MVP | Slack은 서버 환경 변수로 설정 |
+| 콘솔 미리보기 화면 | 준비 중 | 모니터링, 알림, PR 목록, 대시보드 통계 일부, 설정의 조직·환경·Slack·에이전트 탭. 화면에 "준비 중"으로 표시하며 서버 동작에 영향 없음 |
+| IaC / Terraform | 예정 | 구현 없음 |
+
+알려진 격차는 [architecture §9](docs/architecture.md#9-알려진-격차)에 있습니다.
 
 ## 사용 인터페이스
 
 ### Web console
 
-프론트엔드는 인증, 저장소 등록, 자연어 명령, 배포 상태, 설정, 모니터링 UI를 제공하는 브라우저 콘솔입니다.
+프론트엔드는 인증, 저장소 등록·배포 설정, 자연어 명령, 배포 상태·요청 상세·로그, AI 진단, 복구, CLI 토큰을 제공하는 브라우저 콘솔입니다. 모니터링 등 백엔드 API가 없는 화면은 "준비 중"으로 표시합니다.
 
 ```bash
 cd frontend
@@ -173,7 +194,7 @@ K-Le-PaaS는 운영 명령을 실행하기 전에 위험도를 분류합니다.
 - 자동화에서는 `--json` 출력과 exit code를 사용합니다.
 - command log를 감사 가능한 실행 기록으로 취급합니다.
 - 배포 추적을 위해 `latest`보다 commit SHA 같은 immutable image tag를 사용합니다.
-- MCP와 IaC/Terraform은 실제 구현이 추가되기 전까지 예정 기능으로 취급합니다.
+- 에이전트에는 `propose-only` 토큰만 주고, MCP 도구로는 승인·실행을 할 수 없습니다. IaC/Terraform은 예정 기능입니다.
 
 ## 비용 인지
 
@@ -221,6 +242,8 @@ DIAGNOSIS_LLM_PROVIDER=openai
 DIAGNOSIS_LLM_MODEL=gpt-6-luna
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+# 진단에 운영문서·확정 사건을 넣을지 (#129, 기본 false)
+DIAGNOSIS_RAG_ENABLED=false
 
 JWT_SECRET=
 SLACK_WEBHOOK_URL=
@@ -264,7 +287,7 @@ kubectl rollout status deployment/<deployment-name> -n <namespace>
 ## 문서
 
 개발 방식과 설계:
-- [개발 절차 (Spec-Driven Development)](docs/specs/README.md)
+- [개발 절차 (Spec-Driven Development)](docs/specs/README.md), 이슈별 스펙·결과·회고는 [docs/specs/](docs/specs/)
 - [제품 목표와 실행 순서](docs/product.md)
 - [구조·권한·상태 모델·알려진 격차](docs/architecture.md)
 - [결정 기록 (ADR)](docs/adr/README.md)

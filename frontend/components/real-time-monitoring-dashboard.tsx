@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { PreviewNotice } from "@/components/preview-notice"
 import {
   Tooltip,
   ResponsiveContainer,
@@ -412,6 +413,7 @@ export function RealTimeMonitoringDashboard({ initialTab = 'nodes' as 'nodes' | 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Real-time Monitoring</h2>
+          <div className="mt-2"><PreviewNotice>클러스터 지표·알림 API가 없어 값이 비어 있습니다. 배포별 Pod 상태·로그·이벤트는 배포 요청 상세에서 확인하세요.</PreviewNotice></div>
           <p className="text-muted-foreground">Last updated: {formatKst(currentTime, true)}</p>
         </div>
         <div className="flex items-center space-x-2">

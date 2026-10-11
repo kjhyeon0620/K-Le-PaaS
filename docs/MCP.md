@@ -50,6 +50,8 @@ url = "<API_BASE>/api/v1/mcp"
 bearer_token_env_var = "KLEPAAS_TOKEN"
 ```
 
+데스크톱 앱(Codex 앱 등)은 로그인 셸의 환경 변수를 받지 못할 수 있다. 도구가 401이면 `KLEPAAS_TOKEN`을 export한 셸에서 앱 실행 파일을 직접 시작한다. macOS의 `open --env`로는 전달되지 않은 사례가 있었다.
+
 ### 그 밖의 클라이언트
 
 Streamable HTTP MCP를 지원하고 요청 헤더를 지정할 수 있는 클라이언트면 된다. 주소와 `Authorization: Bearer` 헤더만 설정한다. 서버는 세션을 쓰지 않는다.
@@ -100,6 +102,11 @@ curl -s -X POST "<API_BASE>/api/v1/mcp" \
 }
 ```
 
+도구별 참고:
+- `get_deployment_logs`: 그 배포가 지금 클러스터에 적용된 요청일 때만 Pod·로그·이벤트가 나온다. 이후 다른 배포가 적용됐으면 `observation: NOT_CURRENT`와 빈 목록이다. 과거 실패의 로그는 남지 않는다.
+- `diagnose_deployment`: `refresh`를 생략해도 저장된 진단이 없으면 새로 진단한다(모델 호출). 저장된 결과가 있으면 그대로 돌려주고 `reused: true`다. 관측 근거가 없으면 모델 없이 판단 보류(`model: rule`)다.
+- `diagnose_deployment`의 지식 근거(`knowledge`, `retrieved_knowledge`)는 서버에서 RAG를 켰을 때만 채워진다(기본 꺼짐).
+
 ## 4. 제안 승인 (사람)
 
 에이전트가 만든 제안은 사람이 전체 권한으로 승인해야 실행된다.
@@ -126,7 +133,13 @@ klepaas deployments wait <새 배포 id>
 
 ## 6. 오류와 문제 해결
 
-업무 오류는 도구 결과의 `isError: true`와 `{"code", "message"}`로 온다.
+업무 오류는 도구 결과의 `isError: true`와 `{"code", "message"}` JSON 텍스트로 온다.
+
+```json
+{"code": "DEPLOY_001", "message": "배포를 찾을 수 없습니다"}
+```
+
+입력 스키마 위반(필수 값 누락, `lines` 1~200 범위 밖, `reason` 200자 초과 등)도 `isError: true`지만, 본문은 `{code, message}`가 아니라 SDK가 만든 검증 오류 문자열이다.
 
 | 증상 | 원인 | 조치 |
 |---|---|---|

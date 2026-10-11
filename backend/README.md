@@ -200,8 +200,11 @@ Deployment 생성
 | GitHub webhook | 구현 MVP | global secret 기반 push auto deploy, `X-GitHub-Delivery` 중복 제거, 진행 중 배포와 충돌 시 409 |
 | Scaling history | 구현 MVP | scale 이력 저장/조회 존재 |
 | Deployment logs | 구현 MVP | 배포 요청이 적용한 Pod의 상태·최근 로그·이벤트 조회, 실패 원인 근거 (저장·스트리밍 없음) |
-| Monitoring metrics | 예정 | backend metrics API 없음 |
-| MCP / IaC | 예정 | backend 구현 없음 |
+| 배포 요청 상세·승인 고정·복구 | 구현 | 요청별 기록(#95), 승인 설정 지문 고정(#56), 이전 성공 배포 복구(#101, 운영 실증 #105) |
+| AI 진단 | 실험, 운영 사용 | 근거 기반 진단(#100), 결과 재사용·근거 없을 때 호출 생략(#117), 검색된 지식 기록(#125). RAG는 기본 꺼짐(#129) |
+| 에이전트 제안 / MCP | 구현 | 복구 제안 API(#102), `/api/v1/mcp`(#103, 실서버 확인) |
+| Monitoring metrics | 예정 | backend metrics API 없음 (콘솔은 "준비 중" 표시) |
+| IaC | 예정 | backend 구현 없음 |
 
 ## 환경변수
 
