@@ -1,0 +1,200 @@
+{
+  "id": "g2-nsa-env-mis",
+  "group": "BLIND-INTERNAL",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-nsa-env-mis (nexus-stock-aligner, 흔함 상), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 68,
+        "repository_id": 34,
+        "repository_name": "blind/b34-nexusstockalig",
+        "branch_name": "main",
+        "commit_hash": "b000034",
+        "image_uri": "corp.local/nexus-stock-aligner:1.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: CrashLoopBackOff (pod=blind-b34-nexusstockalig-6688887c48-cqgzj, generation=2, 마지막 종료=Error, exit=11): back-off 10s restarting failed container=blind-b34-nexusstockalig pod=blind-b34-nexusstockalig-6688887c48-cqgzj_default(919805fb-60f9-4cf6-931f-29ead0c2ff8e)",
+        "started_at": "2026-10-11T09:47:06.120537Z",
+        "finished_at": "2026-10-11T09:47:10.229412Z",
+        "created_at": "2026-10-11T09:47:06.120668Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "CRASH_LOOP",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 9044,
+        "domain_url": "b34-nexusstockalig.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "NSA_CENTER_CODE",
+          "NSA_OPERATION_MODE"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/alive/pulse",
+          "port": 9044,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "100m",
+          "cpu_limit": null,
+          "memory_request": "128Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 67,
+        "commit_hash": "a000034",
+        "image_uri": "corp.local/nexus-stock-aligner:1.0",
+        "image_digest": "sha256:d4073aedc3460ae210f3a066d253c7e736ea953747d56b622ff3f56c8ac16077",
+        "finished_at": "2026-10-11T09:47:05.985453Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "env:NSA_AUTH_KEY",
+          "before": null,
+          "after": null,
+          "kind": "REMOVED"
+        }
+      ],
+      "explanation": {
+        "kind": "CRASH_LOOP",
+        "title": "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary": "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks": [
+          "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다",
+          "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)",
+          "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 68,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: CrashLoopBackOff (pod=blind-b34-nexusstockalig-6688887c48-cqgzj, generation=2, 마지막 종료=Error, exit=11): back-off 10s restarting failed container=blind-b34-nexusstockalig pod=blind-b34-nexusstockalig-6688887c48-cqgzj_default(919805fb-60f9-4cf6-931f-29ead0c2ff8e)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 68,
+      "pods": [
+        {
+          "name": "blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 1,
+          "state": "waiting",
+          "state_reason": "CrashLoopBackOff",
+          "state_message": "back-off 10s restarting failed container=blind-b34-nexusstockalig pod=blind-b34-nexusstockalig-6688887c48-cqgzj_default(919805fb-60f9-4cf6-931f-29ead0c2ff8e)",
+          "last_termination_reason": "Error",
+          "last_exit_code": 11,
+          "logs": [
+            "[FATAL] [ERR-NSA-001] Missing required environment variable: NSA_AUTH_KEY. Boot sequence aborted.",
+            "[INFO] [SYS-001] Initializing nexus-stock-aligner daemon..."
+          ],
+          "previous_logs": [
+            "[FATAL] [ERR-NSA-001] Missing required environment variable: NSA_AUTH_KEY. Boot sequence aborted.",
+            "[INFO] [SYS-001] Initializing nexus-stock-aligner daemon..."
+          ],
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container blind-b34-nexusstockalig in pod blind-b34-nexusstockalig-6688887c48-cqgzj_default(919805fb-60f9-4cf6-931f-29ead0c2ff8e)",
+          "object": "Pod/blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "count": 2,
+          "last_seen": "2026-10-11T09:47:08Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b34-nexusstockalig-6688887c48-cqgzj to c6cc2114a105",
+          "object": "Pod/blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "count": null,
+          "last_seen": "2026-10-11T09:47:06.164306Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"corp.local/nexus-stock-aligner:1.0\" already present on machine",
+          "object": "Pod/blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "count": 2,
+          "last_seen": "2026-10-11T09:47:06Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container blind-b34-nexusstockalig",
+          "object": "Pod/blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "count": 2,
+          "last_seen": "2026-10-11T09:47:06Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container blind-b34-nexusstockalig",
+          "object": "Pod/blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "count": 2,
+          "last_seen": "2026-10-11T09:47:06Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b34-nexusstockalig-6688887c48-cqgzj",
+          "object": "ReplicaSet/blind-b34-nexusstockalig-6688887c48",
+          "count": 1,
+          "last_seen": "2026-10-11T09:47:06Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:nexus-stock-aligner",
+      "source": "DOCUMENT",
+      "title": "📘 Runbook: nexus-stock-aligner",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 📘 Runbook: nexus-stock-aligner\n\n## 1. 개요\n`nexus-stock-aligner`는 개별 창고의 로컬 재고 변동 내역을 수신하여 중앙 재고 원장 시스템 규격에 맞게 페이로드를 매핑하는 경량 인하우스 HTTP 브릿지 서비스입니다.\n* **특징**: DB나 MQ 연결 없이 인메모리 페이로드 검증 및 HTTP 단순 포워딩만 수행합니다.\n* **클러스터**: 단일 노드 k3s\n\n## 2. 기본 정보\n* **컨테이너 이미지**: `corp.local/nexus-stock-aligner:1.0`\n* **포트 및 프로토콜**: `9044 / TCP (HTTP)`\n* **헬스 체크 (Liveness/Readiness)**: `GET /alive/pulse`\n* **권장 자원 (Resource)**: 경량 인메모리(2048 ops 버퍼) 작업이므로 최소 할당\n  * Requests: CPU `100m`, Memory `128Mi`\n  * Limits: CPU `500m`, Memory `256Mi`\n\n## 3. 환경 변수 (Environment Variables)\n필수 환경 변수 누락 및 오타는 Pod 기동 실패(`CrashLoopBackOff`)의 가장 흔한 원인입니다.\n\n| 변수명 | 필수 | 형식 / 기본값 | 설명 |\n|---|---|---|---|\n| `NSA_AUTH_KEY` | **Y** | `^[a-zA-Z0-9]{20}$` | 내부망 재고 변동 API 접근 인가를 위한 대칭키 |\n| `NSA_CENTER_CODE` | **Y** | `^CEN-[A-Z]{3}-[0-9]{2}$` | 재고 동기화 대상 물류센터 식별 코드 (예: CEN-ICN-01) |\n| `NSA_OPERATION_MODE`| **Y** | `SYNC`, `ASYNC`, `DRYRUN` | 재고 동기화 처리 방식 |\n| `NSA_MAX_RETRY` | N | `0`~`5` (기본: `3`) | 동기화 페이로드 전송 실패 시 최대 재시도 횟수 |\n| `NSA_METRIC_ENABLED`| N | `true`, `false` (기본: `false`) | 내부 처리 지연시간 메트릭 로깅 활성화 여부 |\n\n## 4. 기동/배포 실패 증상 및 로그\n환경 변수가 누락되거나 규격에 맞지 않으면 서비스는 즉시 FATAL 로그를 남기고 종료됩니다. Kubernetes 이벤트에는 `Back-off restarting failed container` 메시지가 기록됩니다.\n\n### ❌ 자주 발생하는 실패 로그 및 원인\n`kubectl logs <pod-name>` 확인 시 아래 로그가 나타나면 환경 변수를 수정해야 합니다.\n\n* **[Exit Code 11]** `NSA_AUTH_KEY` 누락\n  `[FATAL] [ERR-NSA-001] Missing required environment variable: NSA_AUTH_KEY. Boot sequence aborted.`\n* **[Exit Code 12]** `NSA_AUTH_KEY` 형식 오류 (영문/숫자 20자 아님)\n  `[FATAL] [ERR-NSA-002] NSA_AUTH_KEY format mismatch. Expected exactly 20 alphanumeric characters.`\n* **[Exit Code 13]** `NSA_CENTER_CODE` 빈 값\n  `[FATAL] [ERR-NSA-003] NSA_CENTER_CODE cannot be empty. Target fulfillment center must be identified.`\n* **[Exit Code 14]** `NSA_CENTER_CODE` 형식 오류\n  `[FATAL] [ERR-NSA-004] NSA_CENTER_CODE does not match the required standard pattern (e.g., CEN-ICN-01).`\n* **[Exit Code 15]** `NSA_OPERATION_MODE` 값 오류\n  `[FATAL] [ERR-NSA-005] Invalid NSA_OPERATION_MODE. Allowed values are SYNC, ASYNC, or DRYRUN.`\n\n### 🟢 정상 기동 로그\n정상적으로 배포되었을 때의 마지막 로그 라인은 다음과 같아야 합니다.\n```text\n[INFO] [SYS-001] Initializing nexus-stock-aligner daemon...\n[INFO] [SYS-002] Validating environment configurations...\n[INFO] [SYS-003] Environment variables verified successfully. Operation mode configured.\n[INFO] [SYS-004] Allocating in-memory payload buffer for inventory mutations (Capacity: 2048 ops).\n[INFO] [SYS-005] Setting up HTTP request router and strict payload interceptors...\n[INFO] [SYS-READY] nexus-stock-aligner is now listening on port 9044. Health probe active at /alive/pulse.\n```\n\n## 5. 장애 확인 순서 (Troubleshooting)\n\n1. **Pod 상태 확인**\n   ```bash\n   kubectl get pods -l app=nexus-stock-aligner\n   ```\n   * 상태가 `CrashLoopBackOff` 또는 `Error`인지 확인합니다.\n\n2. **컨테이너 로그 확인 (종료된 Pod 포함)**\n   ```bash\n   kubectl logs -l app=nexus-stock-aligner --previous\n   ```\n   * 위 4번 항목의 `[FATAL] [ERR-NSA-00X]` 에러 코드를 확인하여 원인이 된 환경 변수를 특정합니다.\n\n3. **Kubernetes 이벤트 확인**\n   ```bash\n   kubectl describe pod -l app=nexus-stock-aligner\n   ```\n   * `Events:` 섹션에서 `Readiness probe failed: HTTP probe failed with statuscode: 503` 등이 발생한다면, 애플리케이션은 떴으나 헬스 체크 경로(`/alive/pulse`) 응답이 지연되는 것이므로 포트(`9044`) 매핑을 재확인합니다.\n\n4. **환경 변수 수정 및 재배포**\n   * Deployment의 `env` 또는 연결된 ConfigMap/Secret의 값을 정규식(형식)에 맞게 수정한 후 Pod를 재시작합니다.\n   ```bash\n   kubectl rollout restart deployment/nexus-stock-aligner\n   ```\n\n5. **최종 헬스 체크 확인**\n   * 포트포워딩 또는 내부망 테스트를 통해 서비스가 정상 응답하는지 검증합니다.\n   ```bash\n   curl -I http://<pod-ip>:9044/alive/pulse\n   # HTTP/1.1 200 OK 응답 확인\n   ```"
+    },
+    {
+      "id": "incident:g1-nsa-prb-port",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #42",
+      "version": "commit b000021 · corp.local/nexus-stock-aligner:1.0",
+      "updated_at": "2026-10-11T09:45:29.717489Z",
+      "text": "확정된 과거 사건: 배포 #42 (commit b000021, 이미지 corp.local/nexus-stock-aligner:1.0, 배포 시각 2026-10-11T09:43:58.672621Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b21-nexusstockalig-f78d669bf-9g7mz 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_port_closed\n해결: probe가 앱의 실제 HTTP 포트(9044)가 아닌 기본 포트(80)로 가고 있습니다. 포트를 9044로 지정하세요."
+    }
+  ],
+  "expected": {
+    "category": "ENV_CONFIG",
+    "root_cause": "required_env_missing",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:nexus-stock-aligner"
+    ]
+  },
+  "notes": "변경: {\"env_remove\": [\"NSA_AUTH_KEY\"]} / 고치는 방법: 서비스 인가에 필요한 필수 환경 변수 NSA_AUTH_KEY가 없습니다. 매니페스트에 추가하세요."
+}

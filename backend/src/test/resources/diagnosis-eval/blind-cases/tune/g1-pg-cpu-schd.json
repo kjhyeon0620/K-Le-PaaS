@@ -1,0 +1,482 @@
+{
+  "id": "g1-pg-cpu-schd",
+  "group": "BLIND-PUBLIC",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g1-pg-cpu-schd (postgres, 흔함 하), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 14,
+        "repository_id": 7,
+        "repository_name": "blind/b07-postgres",
+        "branch_name": "main",
+        "commit_hash": "b000007",
+        "image_uri": "postgres:16-alpine",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=4, available=3, unavailable=1; pod=blind-b07-postgres-59b7bfb479-mvwkn 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+        "started_at": "2026-10-11T09:40:56.301348Z",
+        "finished_at": "2026-10-11T09:42:27.406575Z",
+        "created_at": "2026-10-11T09:40:56.301497Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "UNSCHEDULABLE",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 4,
+        "max_replicas": 4,
+        "container_port": 5432,
+        "domain_url": "b07-postgres.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "POSTGRES_PASSWORD"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": null,
+        "resources": {
+          "cpu_request": "3",
+          "cpu_limit": null,
+          "memory_request": "256Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 13,
+        "commit_hash": "a000007",
+        "image_uri": "postgres:16-alpine",
+        "image_digest": "sha256:ef738a34a8651d11b2bace81c55c7e2187f786b484add6c83070884340074368",
+        "finished_at": "2026-10-11T09:40:56.192130Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "min_replicas",
+          "before": "1",
+          "after": "4",
+          "kind": "CHANGED"
+        },
+        {
+          "field": "max_replicas",
+          "before": "1",
+          "after": "4",
+          "kind": "CHANGED"
+        },
+        {
+          "field": "resources",
+          "before": "ContainerResources[cpuRequest=200m, cpuLimit=null, memoryRequest=256Mi, memoryLimit=null]",
+          "after": "ContainerResources[cpuRequest=3, cpuLimit=null, memoryRequest=256Mi, memoryLimit=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "UNSCHEDULABLE",
+        "title": "Pod를 배치할 노드가 없습니다",
+        "summary": "스케줄러가 새 Pod를 둘 노드를 찾지 못했습니다.",
+        "checks": [
+          "이벤트의 FailedScheduling 메시지를 확인합니다",
+          "CPU·메모리 requests가 노드 여유보다 큰지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 14,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=4, available=3, unavailable=1; pod=blind-b07-postgres-59b7bfb479-mvwkn 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 14,
+      "pods": [
+        {
+          "name": "blind-b07-postgres-59b7bfb479-g9zbk",
+          "phase": "Running",
+          "ready": true,
+          "restart_count": 0,
+          "state": "running",
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [
+            "running bootstrap script ... ok",
+            "sh: locale: not found",
+            "2026-10-11 09:40:56.896 UTC [35] WARNING:  no usable system locales were found",
+            "performing post-bootstrap initialization ... ok",
+            "initdb: warning: enabling \"trust\" authentication for local connections",
+            "initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.",
+            "syncing data to disk ... ok",
+            "",
+            "",
+            "Success. You can now start the database server using:",
+            "",
+            "    pg_ctl -D /var/lib/postgresql/data -l logfile start",
+            "",
+            "waiting for server to start....2026-10-11 09:40:57.135 UTC [41] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+            "2026-10-11 09:40:57.136 UTC [41] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"",
+            "2026-10-11 09:40:57.138 UTC [44] LOG:  database system was shut down at 2026-10-11 09:40:57 UTC",
+            "2026-10-11 09:40:57.140 UTC [41] LOG:  database system is ready to accept connections",
+            " done",
+            "server started",
+            "",
+            "/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*",
+            "",
+            "waiting for server to shut down....2026-10-11 09:40:57.233 UTC [41] LOG:  received fast shutdown request",
+            "2026-10-11 09:40:57.234 UTC [41] LOG:  aborting any active transactions",
+            "2026-10-11 09:40:57.235 UTC [41] LOG:  background worker \"logical replication launcher\" (PID 47) exited with exit code 1",
+            "2026-10-11 09:40:57.236 UTC [42] LOG:  shutting down",
+            "2026-10-11 09:40:57.236 UTC [42] LOG:  checkpoint starting: shutdown immediate",
+            "2026-10-11 09:40:57.242 UTC [42] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.007 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/14F7160, redo lsn=0/14F7160",
+            "2026-10-11 09:40:57.244 UTC [41] LOG:  database system is shut down",
+            " done",
+            "server stopped",
+            "",
+            "PostgreSQL init process complete; ready for start up.",
+            "",
+            "2026-10-11 09:40:57.345 UTC [1] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+            "2026-10-11 09:40:57.345 UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432",
+            "2026-10-11 09:40:57.345 UTC [1] LOG:  listening on IPv6 address \"::\", port 5432",
+            "2026-10-11 09:40:57.346 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"",
+            "2026-10-11 09:40:57.348 UTC [55] LOG:  database system was shut down at 2026-10-11 09:40:57 UTC",
+            "2026-10-11 09:40:57.350 UTC [1] LOG:  database system is ready to accept connections"
+          ],
+          "previous_logs": null,
+          "logs_error": null
+        },
+        {
+          "name": "blind-b07-postgres-59b7bfb479-mvwkn",
+          "phase": "Pending",
+          "ready": false,
+          "restart_count": 0,
+          "state": null,
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [],
+          "previous_logs": null,
+          "logs_error": "컨테이너 상태가 아직 없습니다"
+        },
+        {
+          "name": "blind-b07-postgres-59b7bfb479-szf6x",
+          "phase": "Running",
+          "ready": true,
+          "restart_count": 0,
+          "state": "running",
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [
+            "running bootstrap script ... ok",
+            "sh: locale: not found",
+            "2026-10-11 09:40:59.800 UTC [35] WARNING:  no usable system locales were found",
+            "performing post-bootstrap initialization ... ok",
+            "syncing data to disk ... ok",
+            "",
+            "",
+            "Success. You can now start the database server using:",
+            "",
+            "    pg_ctl -D /var/lib/postgresql/data -l logfile start",
+            "",
+            "initdb: warning: enabling \"trust\" authentication for local connections",
+            "initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.",
+            "waiting for server to start....2026-10-11 09:40:59.991 UTC [41] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+            "2026-10-11 09:40:59.991 UTC [41] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"",
+            "2026-10-11 09:40:59.993 UTC [44] LOG:  database system was shut down at 2026-10-11 09:40:59 UTC",
+            "2026-10-11 09:40:59.994 UTC [41] LOG:  database system is ready to accept connections",
+            " done",
+            "server started",
+            "",
+            "/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*",
+            "",
+            "waiting for server to shut down....2026-10-11 09:41:00.091 UTC [41] LOG:  received fast shutdown request",
+            "2026-10-11 09:41:00.093 UTC [41] LOG:  aborting any active transactions",
+            "2026-10-11 09:41:00.094 UTC [41] LOG:  background worker \"logical replication launcher\" (PID 47) exited with exit code 1",
+            "2026-10-11 09:41:00.095 UTC [42] LOG:  shutting down",
+            "2026-10-11 09:41:00.095 UTC [42] LOG:  checkpoint starting: shutdown immediate",
+            "2026-10-11 09:41:00.098 UTC [42] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/14F7160, redo lsn=0/14F7160",
+            "2026-10-11 09:41:00.100 UTC [41] LOG:  database system is shut down",
+            " done",
+            "server stopped",
+            "",
+            "PostgreSQL init process complete; ready for start up.",
+            "",
+            "2026-10-11 09:41:00.207 UTC [1] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+            "2026-10-11 09:41:00.207 UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432",
+            "2026-10-11 09:41:00.207 UTC [1] LOG:  listening on IPv6 address \"::\", port 5432",
+            "2026-10-11 09:41:00.209 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"",
+            "2026-10-11 09:41:00.212 UTC [55] LOG:  database system was shut down at 2026-10-11 09:41:00 UTC",
+            "2026-10-11 09:41:00.215 UTC [1] LOG:  database system is ready to accept connections"
+          ],
+          "previous_logs": null,
+          "logs_error": null
+        },
+        {
+          "name": "blind-b07-postgres-59b7bfb479-tzfvn",
+          "phase": "Running",
+          "ready": true,
+          "restart_count": 0,
+          "state": "running",
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [
+            "running bootstrap script ... ok",
+            "sh: locale: not found",
+            "2026-10-11 09:40:56.927 UTC [35] WARNING:  no usable system locales were found",
+            "performing post-bootstrap initialization ... ok",
+            "syncing data to disk ... ok",
+            "",
+            "",
+            "Success. You can now start the database server using:",
+            "",
+            "    pg_ctl -D /var/lib/postgresql/data -l logfile start",
+            "",
+            "initdb: warning: enabling \"trust\" authentication for local connections",
+            "initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.",
+            "waiting for server to start....2026-10-11 09:40:57.179 UTC [41] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+            "2026-10-11 09:40:57.180 UTC [41] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"",
+            "2026-10-11 09:40:57.182 UTC [44] LOG:  database system was shut down at 2026-10-11 09:40:57 UTC",
+            "2026-10-11 09:40:57.183 UTC [41] LOG:  database system is ready to accept connections",
+            " done",
+            "server started",
+            "",
+            "/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*",
+            "",
+            "waiting for server to shut down....2026-10-11 09:40:57.277 UTC [41] LOG:  received fast shutdown request",
+            "2026-10-11 09:40:57.278 UTC [41] LOG:  aborting any active transactions",
+            "2026-10-11 09:40:57.279 UTC [41] LOG:  background worker \"logical replication launcher\" (PID 47) exited with exit code 1",
+            "2026-10-11 09:40:57.279 UTC [42] LOG:  shutting down",
+            "2026-10-11 09:40:57.280 UTC [42] LOG:  checkpoint starting: shutdown immediate",
+            "2026-10-11 09:40:57.283 UTC [42] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/14F7160, redo lsn=0/14F7160",
+            "2026-10-11 09:40:57.285 UTC [41] LOG:  database system is shut down",
+            " done",
+            "server stopped",
+            "",
+            "PostgreSQL init process complete; ready for start up.",
+            "",
+            "2026-10-11 09:40:57.396 UTC [1] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+            "2026-10-11 09:40:57.396 UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432",
+            "2026-10-11 09:40:57.396 UTC [1] LOG:  listening on IPv6 address \"::\", port 5432",
+            "2026-10-11 09:40:57.397 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"",
+            "2026-10-11 09:40:57.399 UTC [55] LOG:  database system was shut down at 2026-10-11 09:40:57 UTC",
+            "2026-10-11 09:40:57.401 UTC [1] LOG:  database system is ready to accept connections"
+          ],
+          "previous_logs": null,
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b07-postgres-59b7bfb479-szf6x to c6cc2114a105",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-szf6x",
+          "count": null,
+          "last_seen": "2026-10-11T09:40:59.249007Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"postgres:16-alpine\" already present on machine",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-szf6x",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:59Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container blind-b07-postgres",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-szf6x",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:59Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container blind-b07-postgres",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-szf6x",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:59Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-mvwkn",
+          "count": 2,
+          "last_seen": "2026-10-11T09:40:58.750450Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-szf6x",
+          "count": null,
+          "last_seen": "2026-10-11T09:40:57.838267Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-mvwkn",
+          "count": null,
+          "last_seen": "2026-10-11T09:40:57.685244Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b07-postgres-59b7bfb479-mvwkn",
+          "object": "ReplicaSet/blind-b07-postgres-59b7bfb479",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:57Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b07-postgres-59b7bfb479-szf6x",
+          "object": "ReplicaSet/blind-b07-postgres-59b7bfb479",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:57Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b07-postgres-59b7bfb479-tzfvn to c6cc2114a105",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-tzfvn",
+          "count": null,
+          "last_seen": "2026-10-11T09:40:56.386179Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b07-postgres-59b7bfb479-g9zbk to c6cc2114a105",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-g9zbk",
+          "count": null,
+          "last_seen": "2026-10-11T09:40:56.362773Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"postgres:16-alpine\" already present on machine",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-g9zbk",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container blind-b07-postgres",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-g9zbk",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container blind-b07-postgres",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-g9zbk",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"postgres:16-alpine\" already present on machine",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-tzfvn",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container blind-b07-postgres",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-tzfvn",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container blind-b07-postgres",
+          "object": "Pod/blind-b07-postgres-59b7bfb479-tzfvn",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b07-postgres-59b7bfb479-g9zbk",
+          "object": "ReplicaSet/blind-b07-postgres-59b7bfb479",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b07-postgres-59b7bfb479-tzfvn",
+          "object": "ReplicaSet/blind-b07-postgres-59b7bfb479",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:56Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b07-postgres-59b7bfb479-2h7w7",
+          "object": "ReplicaSet/blind-b07-postgres-59b7bfb479",
+          "count": 1,
+          "last_seen": "2026-10-11T09:38:58Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:postgres",
+      "source": "DOCUMENT",
+      "title": "📘 [Runbook] PostgreSQL 16 (Alpine) 운영 가이드",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 📘 [Runbook] PostgreSQL 16 (Alpine) 운영 가이드\n\n## 1. 개요\n이 문서는 팀 내 단일 노드 k3s 환경에 컨테이너 이미지(`postgres:16-alpine`)를 그대로 배포하여 운영 중인 PostgreSQL 데이터베이스의 운영 및 장애 대응 런북입니다.\n\n## 2. 자원 요구 사항 (Resource Requirements)\n단일 노드 환경이므로 과도한 리소스 점유를 막기 위해 Limits 설정이 필수적입니다.\n*   **CPU:** Requests `250m` / Limits `1000m`\n*   **Memory:** Requests `512Mi` / Limits `1Gi` (OOM 발생 시 Limits 상향 조정 필요)\n*   **Storage:** `PersistentVolumeClaim(PVC)` 필수. (호스트 경로 백업 또는 Local Path Provisioner 사용)\n\n## 3. 포트, 프로토콜 및 헬스 체크\n*   **포트 및 프로토콜:** `5432 / TCP`\n*   **Liveness / Readiness Probe:** HTTP 대신 `exec` 기반의 `pg_isready` 유틸리티를 사용합니다.\n    ```yaml\n    livenessProbe:\n      exec:\n        command: [\"pg_isready\", \"-U\", \"postgres\"] # POSTGRES_USER 값과 동일하게 설정\n      initialDelaySeconds: 15\n      periodSeconds: 10\n    ```\n\n## 4. 필수 환경 변수 및 설정 오류 증상\n\n| 환경 변수 | 역할 | 누락 / 오설정 시 증상 |\n| :--- | :--- | :--- |\n| `POSTGRES_PASSWORD` | 슈퍼유저 비밀번호 | **[누락 시]** 컨테이너 기동 즉시 실패 (CrashLoopBackOff). |\n| `POSTGRES_USER` | 슈퍼유저 이름 (기본값: postgres) | **[오류 시]** 애플리케이션 파드에서 `FATAL: password authentication failed for user` 에러 발생. |\n| `POSTGRES_DB` | 기본 생성 DB명 | **[오류 시]** 애플리케이션 연결 시 `FATAL: database \"xxx\" does not exist` 에러 발생. |\n| `PGDATA` | 실제 DB 데이터 저장 경로 | **[누락/오류 시]** k3s 볼륨 마운트 시 권한 충돌이나 `lost+found` 디렉토리 문제로 기동 실패. (권장값: `/var/lib/postgresql/data/pgdata`) |\n\n## 5. 자주 발생하는 기동/배포 실패 케이스\n\n### Case A: 비밀번호 환경 변수 누락\n*   **현상:** Pod가 `CrashLoopBackOff` 상태로 무한 재시작.\n*   **Kubernetes Event:** `Back-off restarting failed container`\n*   **컨테이너 Log:** \n    ```text\n    Error: Database is uninitialized and superuser password is not specified.\n    You must specify POSTGRES_PASSWORD to a non-empty value...\n    ```\n*   **조치:** Deployment의 env에 `POSTGRES_PASSWORD` (Secret 참조 권장) 추가.\n\n### Case B: 볼륨(PVC) 권한 문제\n*   **현상:** Pod가 `Error` 또는 `CrashLoopBackOff` 상태.\n*   **Kubernetes Event:** 특별한 이벤트 없이 컨테이너 종료됨.\n*   **컨테이너 Log:**\n    ```text\n    FATAL: data directory \"/var/lib/postgresql/data/pgdata\" has wrong ownership\n    HINT: The server must be started by the user that owns the data directory.\n    ```\n*   **조치:** 볼륨 마운트 경로와 `PGDATA` 설정 확인. 초기 기동 시 `initContainers`를 사용하여 볼륨의 소유권을 `chown -R 70:70` (postgres UID/GID)으로 변경.\n\n### Case C: 메모리 부족 (OOM)\n*   **현상:** 트래픽 피크 시 DB가 갑자기 재시작됨.\n*   **Kubernetes Event:** `Reason: OOMKilled`\n*   **조치:** Deployment의 Memory Limits를 증설하고, `postgresql.conf`의 `shared_buffers` 값이 컨테이너 메모리 제한의 25% 수준인지 확인.\n\n## 6. 장애 확인 순서 (Troubleshooting Steps)\n\n문제가 발생하면 다음 순서로 원인을 좁혀 나갑니다.\n\n1.  **Pod 상태 확인**\n    ```bash\n    kubectl get pods -l app=postgres\n    ```\n    *상태가 `Pending`이면 노드 리소스 부족 또는 PVC 바인딩 실패, `CrashLoopBackOff`면 앱/권한 문제입니다.*\n2.  **Kubernetes 이벤트 분석 (Pending / OOM 파악)**\n    ```bash\n    kubectl describe pod -l app=postgres\n    ```\n    *하단의 `Events:` 섹션에서 스케줄링 실패나 볼륨 마운트 실패 메시지를 확인합니다.*\n3.  **컨테이너 로그 확인 (기동 에러 파악)**\n    ```bash\n    kubectl logs -l app=postgres --previous  # 직전 죽은 컨테이너 로그\n    kubectl logs -l app=postgres -f          # 현재 기동 중인 로그\n    ```\n4.  **스토리지(PVC) 상태 확인**\n    ```bash\n    kubectl get pvc\n    ```\n    *상태가 `Bound`가 아니면 k3s의 provisioner 로그나 디스크 용량을 확인해야 합니다.*\n5.  **내부 네트워크 및 인증 테스트**\n    *   Pod가 정상(Running)이지만 앱에서 연결하지 못할 경우, 클러스터 내부에서 직접 찔러봅니다.\n    ```bash\n    # k3s 노드에서 임시 파드를 띄워 네트워크/인증 테스트\n    kubectl run pg-client --rm -it --image=postgres:16-alpine --restart=Never -- psql -h <postgres-service-name> -U postgres -d <db-name>\n    ```"
+    },
+    {
+      "id": "incident:g1-pg-prb-proto",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #12",
+      "version": "commit b000006 · postgres:16-alpine",
+      "updated_at": "2026-10-11T09:41:58.005952Z",
+      "text": "확정된 과거 사건: 배포 #12 (commit b000006, 이미지 postgres:16-alpine, 배포 시각 2026-10-11T09:40:26.818747Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b06-postgres-576b9df667-t9kx9 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_protocol_mismatch\n해결: PostgreSQL 포트에 HTTP 요청을 보내어 실패했습니다. exec를 사용하여 pg_isready 명령을 실행하도록 변경하세요."
+    },
+    {
+      "id": "incident:g2-pg-prb-proto",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #88",
+      "version": "commit b000044 · postgres:16-alpine",
+      "updated_at": "2026-10-11T09:50:40.394004Z",
+      "text": "확정된 과거 사건: 배포 #88 (commit b000044, 이미지 postgres:16-alpine, 배포 시각 2026-10-11T09:49:09.514918Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b44-postgres-689d86688f-7s4mf 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_protocol_mismatch\n해결: PostgreSQL 프로토콜 포트인 5432에 HTTP GET 요청을 보내 프로브가 실패하고 있습니다. pg_isready를 사용하는 exec 방식 등으로 교체하세요."
+    }
+  ],
+  "expected": {
+    "category": "SCHEDULING",
+    "root_cause": "insufficient_cpu",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:postgres"
+    ]
+  },
+  "notes": "변경: {\"replicas\": 4, \"cpu_request\": \"3\"} / 고치는 방법: 총 요청 CPU(4 레플리카 * 3 = 12)가 노드 용량을 넘습니다. 레플리카 수 또는 파드당 CPU 요청을 줄이세요."
+}

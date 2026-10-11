@@ -1,0 +1,235 @@
+{
+  "id": "g2-pg-prb-proto",
+  "group": "BLIND-PUBLIC",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-pg-prb-proto (postgres, 흔함 상), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 88,
+        "repository_id": 44,
+        "repository_name": "blind/b44-postgres",
+        "branch_name": "main",
+        "commit_hash": "b000044",
+        "image_uri": "postgres:16-alpine",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b44-postgres-689d86688f-7s4mf 실행 중이나 Ready 아님 (restarts=0)",
+        "started_at": "2026-10-11T09:49:09.514818Z",
+        "finished_at": "2026-10-11T09:50:40.394004Z",
+        "created_at": "2026-10-11T09:49:09.514918Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "READINESS_TIMEOUT",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 5432,
+        "domain_url": "b44-postgres.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "POSTGRES_PASSWORD"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/healthz",
+          "port": 5432,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "200m",
+          "cpu_limit": null,
+          "memory_request": "256Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 87,
+        "commit_hash": "a000044",
+        "image_uri": "postgres:16-alpine",
+        "image_digest": "sha256:ef738a34a8651d11b2bace81c55c7e2187f786b484add6c83070884340074368",
+        "finished_at": "2026-10-11T09:49:09.421204Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "health_probe",
+          "before": null,
+          "after": "HealthProbe[path=/healthz, port=5432, initialDelaySeconds=0, periodSeconds=2, failureThreshold=2, startupFailureThreshold=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "READINESS_TIMEOUT",
+        "title": "readiness probe를 통과하지 못했습니다",
+        "summary": "컨테이너는 실행 중이지만 제한 시간 안에 Ready가 되지 않았습니다. 기존 Pod는 계속 응답합니다.",
+        "checks": [
+          "이벤트의 Readiness probe failed 메시지(상태 코드)를 확인합니다",
+          "health probe 경로·포트가 앱과 맞는지 확인합니다",
+          "앱 기동이 rollout 제한 시간보다 오래 걸리는지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 88,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b44-postgres-689d86688f-7s4mf 실행 중이나 Ready 아님 (restarts=0)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 88,
+      "pods": [
+        {
+          "name": "blind-b44-postgres-689d86688f-7s4mf",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 0,
+          "state": "running",
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [
+            "2026-10-11 09:49:23.851 UTC [67] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:25.850 UTC [68] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:27.851 UTC [69] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:29.851 UTC [70] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:31.850 UTC [71] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:33.850 UTC [72] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:35.852 UTC [73] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:37.849 UTC [74] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:39.851 UTC [75] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:41.851 UTC [77] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:43.850 UTC [78] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:45.850 UTC [79] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:47.850 UTC [80] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:49.849 UTC [81] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:51.850 UTC [82] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:53.850 UTC [83] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:55.850 UTC [84] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:57.851 UTC [85] LOG:  invalid length of startup packet",
+            "2026-10-11 09:49:59.850 UTC [86] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:01.852 UTC [87] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:03.851 UTC [88] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:05.851 UTC [89] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:07.851 UTC [90] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:09.852 UTC [91] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:11.851 UTC [93] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:13.850 UTC [94] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:15.850 UTC [95] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:17.852 UTC [96] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:19.851 UTC [97] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:20.190 UTC [98] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:21.854 UTC [99] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:23.852 UTC [100] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:25.851 UTC [101] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:27.853 UTC [102] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:29.851 UTC [103] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:31.850 UTC [104] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:33.850 UTC [105] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:35.851 UTC [106] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:37.852 UTC [107] LOG:  invalid length of startup packet",
+            "2026-10-11 09:50:39.853 UTC [108] LOG:  invalid length of startup packet"
+          ],
+          "previous_logs": null,
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: Get \"http://10.42.0.112:5432/healthz\": EOF",
+          "object": "Pod/blind-b44-postgres-689d86688f-7s4mf",
+          "count": 22,
+          "last_seen": "2026-10-11T09:49:49Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b44-postgres-689d86688f-7s4mf to c6cc2114a105",
+          "object": "Pod/blind-b44-postgres-689d86688f-7s4mf",
+          "count": null,
+          "last_seen": "2026-10-11T09:49:09.546754Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"postgres:16-alpine\" already present on machine",
+          "object": "Pod/blind-b44-postgres-689d86688f-7s4mf",
+          "count": 1,
+          "last_seen": "2026-10-11T09:49:09Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container blind-b44-postgres",
+          "object": "Pod/blind-b44-postgres-689d86688f-7s4mf",
+          "count": 1,
+          "last_seen": "2026-10-11T09:49:09Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container blind-b44-postgres",
+          "object": "Pod/blind-b44-postgres-689d86688f-7s4mf",
+          "count": 1,
+          "last_seen": "2026-10-11T09:49:09Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b44-postgres-689d86688f-7s4mf",
+          "object": "ReplicaSet/blind-b44-postgres-689d86688f",
+          "count": 1,
+          "last_seen": "2026-10-11T09:49:09Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:postgres",
+      "source": "DOCUMENT",
+      "title": "📘 [Runbook] PostgreSQL 16 (Alpine) 운영 가이드",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 📘 [Runbook] PostgreSQL 16 (Alpine) 운영 가이드\n\n## 1. 개요\n이 문서는 팀 내 단일 노드 k3s 환경에 컨테이너 이미지(`postgres:16-alpine`)를 그대로 배포하여 운영 중인 PostgreSQL 데이터베이스의 운영 및 장애 대응 런북입니다.\n\n## 2. 자원 요구 사항 (Resource Requirements)\n단일 노드 환경이므로 과도한 리소스 점유를 막기 위해 Limits 설정이 필수적입니다.\n*   **CPU:** Requests `250m` / Limits `1000m`\n*   **Memory:** Requests `512Mi` / Limits `1Gi` (OOM 발생 시 Limits 상향 조정 필요)\n*   **Storage:** `PersistentVolumeClaim(PVC)` 필수. (호스트 경로 백업 또는 Local Path Provisioner 사용)\n\n## 3. 포트, 프로토콜 및 헬스 체크\n*   **포트 및 프로토콜:** `5432 / TCP`\n*   **Liveness / Readiness Probe:** HTTP 대신 `exec` 기반의 `pg_isready` 유틸리티를 사용합니다.\n    ```yaml\n    livenessProbe:\n      exec:\n        command: [\"pg_isready\", \"-U\", \"postgres\"] # POSTGRES_USER 값과 동일하게 설정\n      initialDelaySeconds: 15\n      periodSeconds: 10\n    ```\n\n## 4. 필수 환경 변수 및 설정 오류 증상\n\n| 환경 변수 | 역할 | 누락 / 오설정 시 증상 |\n| :--- | :--- | :--- |\n| `POSTGRES_PASSWORD` | 슈퍼유저 비밀번호 | **[누락 시]** 컨테이너 기동 즉시 실패 (CrashLoopBackOff). |\n| `POSTGRES_USER` | 슈퍼유저 이름 (기본값: postgres) | **[오류 시]** 애플리케이션 파드에서 `FATAL: password authentication failed for user` 에러 발생. |\n| `POSTGRES_DB` | 기본 생성 DB명 | **[오류 시]** 애플리케이션 연결 시 `FATAL: database \"xxx\" does not exist` 에러 발생. |\n| `PGDATA` | 실제 DB 데이터 저장 경로 | **[누락/오류 시]** k3s 볼륨 마운트 시 권한 충돌이나 `lost+found` 디렉토리 문제로 기동 실패. (권장값: `/var/lib/postgresql/data/pgdata`) |\n\n## 5. 자주 발생하는 기동/배포 실패 케이스\n\n### Case A: 비밀번호 환경 변수 누락\n*   **현상:** Pod가 `CrashLoopBackOff` 상태로 무한 재시작.\n*   **Kubernetes Event:** `Back-off restarting failed container`\n*   **컨테이너 Log:** \n    ```text\n    Error: Database is uninitialized and superuser password is not specified.\n    You must specify POSTGRES_PASSWORD to a non-empty value...\n    ```\n*   **조치:** Deployment의 env에 `POSTGRES_PASSWORD` (Secret 참조 권장) 추가.\n\n### Case B: 볼륨(PVC) 권한 문제\n*   **현상:** Pod가 `Error` 또는 `CrashLoopBackOff` 상태.\n*   **Kubernetes Event:** 특별한 이벤트 없이 컨테이너 종료됨.\n*   **컨테이너 Log:**\n    ```text\n    FATAL: data directory \"/var/lib/postgresql/data/pgdata\" has wrong ownership\n    HINT: The server must be started by the user that owns the data directory.\n    ```\n*   **조치:** 볼륨 마운트 경로와 `PGDATA` 설정 확인. 초기 기동 시 `initContainers`를 사용하여 볼륨의 소유권을 `chown -R 70:70` (postgres UID/GID)으로 변경.\n\n### Case C: 메모리 부족 (OOM)\n*   **현상:** 트래픽 피크 시 DB가 갑자기 재시작됨.\n*   **Kubernetes Event:** `Reason: OOMKilled`\n*   **조치:** Deployment의 Memory Limits를 증설하고, `postgresql.conf`의 `shared_buffers` 값이 컨테이너 메모리 제한의 25% 수준인지 확인.\n\n## 6. 장애 확인 순서 (Troubleshooting Steps)\n\n문제가 발생하면 다음 순서로 원인을 좁혀 나갑니다.\n\n1.  **Pod 상태 확인**\n    ```bash\n    kubectl get pods -l app=postgres\n    ```\n    *상태가 `Pending`이면 노드 리소스 부족 또는 PVC 바인딩 실패, `CrashLoopBackOff`면 앱/권한 문제입니다.*\n2.  **Kubernetes 이벤트 분석 (Pending / OOM 파악)**\n    ```bash\n    kubectl describe pod -l app=postgres\n    ```\n    *하단의 `Events:` 섹션에서 스케줄링 실패나 볼륨 마운트 실패 메시지를 확인합니다.*\n3.  **컨테이너 로그 확인 (기동 에러 파악)**\n    ```bash\n    kubectl logs -l app=postgres --previous  # 직전 죽은 컨테이너 로그\n    kubectl logs -l app=postgres -f          # 현재 기동 중인 로그\n    ```\n4.  **스토리지(PVC) 상태 확인**\n    ```bash\n    kubectl get pvc\n    ```\n    *상태가 `Bound`가 아니면 k3s의 provisioner 로그나 디스크 용량을 확인해야 합니다.*\n5.  **내부 네트워크 및 인증 테스트**\n    *   Pod가 정상(Running)이지만 앱에서 연결하지 못할 경우, 클러스터 내부에서 직접 찔러봅니다.\n    ```bash\n    # k3s 노드에서 임시 파드를 띄워 네트워크/인증 테스트\n    kubectl run pg-client --rm -it --image=postgres:16-alpine --restart=Never -- psql -h <postgres-service-name> -U postgres -d <db-name>\n    ```"
+    },
+    {
+      "id": "incident:g1-pg-prb-proto",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #12",
+      "version": "commit b000006 · postgres:16-alpine",
+      "updated_at": "2026-10-11T09:41:58.005952Z",
+      "text": "확정된 과거 사건: 배포 #12 (commit b000006, 이미지 postgres:16-alpine, 배포 시각 2026-10-11T09:40:26.818747Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b06-postgres-576b9df667-t9kx9 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_protocol_mismatch\n해결: PostgreSQL 포트에 HTTP 요청을 보내어 실패했습니다. exec를 사용하여 pg_isready 명령을 실행하도록 변경하세요."
+    }
+  ],
+  "expected": {
+    "category": "READINESS",
+    "root_cause": "probe_protocol_mismatch",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:postgres",
+      "incident:g1-pg-prb-proto"
+    ]
+  },
+  "notes": "변경: {\"readiness_probe\": {\"path\": \"/healthz\", \"port\": 5432}} / 고치는 방법: PostgreSQL 프로토콜 포트인 5432에 HTTP GET 요청을 보내 프로브가 실패하고 있습니다. pg_isready를 사용하는 exec 방식 등으로 교체하세요."
+}

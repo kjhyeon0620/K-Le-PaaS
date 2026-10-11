@@ -1,0 +1,174 @@
+{
+  "id": "g1-inf-cpu-schd",
+  "group": "BLIND-PUBLIC",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g1-inf-cpu-schd (influxdb, 흔함 하), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 30,
+        "repository_id": 15,
+        "repository_name": "blind/b15-influxdb",
+        "branch_name": "main",
+        "commit_hash": "b000015",
+        "image_uri": "influxdb:2.7-alpine",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b15-influxdb-6797fcb965-ds5qn 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+        "started_at": "2026-10-11T09:43:03.593550Z",
+        "finished_at": "2026-10-11T09:44:34.566837Z",
+        "created_at": "2026-10-11T09:43:03.593685Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "UNSCHEDULABLE",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 8086,
+        "domain_url": "b15-influxdb.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/ping",
+          "port": 8086,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "11000m",
+          "cpu_limit": null,
+          "memory_request": "512Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 29,
+        "commit_hash": "a000015",
+        "image_uri": "influxdb:2.7-alpine",
+        "image_digest": "sha256:81a53e86cb3506f8bb853a46b6655c04d7f48747acf176743b9b5092cd1755f5",
+        "finished_at": "2026-10-11T09:43:03.529838Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "resources",
+          "before": "ContainerResources[cpuRequest=200m, cpuLimit=null, memoryRequest=512Mi, memoryLimit=null]",
+          "after": "ContainerResources[cpuRequest=11000m, cpuLimit=null, memoryRequest=512Mi, memoryLimit=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "UNSCHEDULABLE",
+        "title": "Pod를 배치할 노드가 없습니다",
+        "summary": "스케줄러가 새 Pod를 둘 노드를 찾지 못했습니다.",
+        "checks": [
+          "이벤트의 FailedScheduling 메시지를 확인합니다",
+          "CPU·메모리 requests가 노드 여유보다 큰지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 30,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b15-influxdb-6797fcb965-ds5qn 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 30,
+      "pods": [
+        {
+          "name": "blind-b15-influxdb-6797fcb965-ds5qn",
+          "phase": "Pending",
+          "ready": false,
+          "restart_count": 0,
+          "state": null,
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [],
+          "previous_logs": null,
+          "logs_error": "컨테이너 상태가 아직 없습니다"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b15-influxdb-6797fcb965-ds5qn",
+          "count": 2,
+          "last_seen": "2026-10-11T09:43:32.713258Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b15-influxdb-6797fcb965-ds5qn",
+          "count": null,
+          "last_seen": "2026-10-11T09:43:03.638301Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b15-influxdb-6797fcb965-ds5qn",
+          "object": "ReplicaSet/blind-b15-influxdb-6797fcb965",
+          "count": 1,
+          "last_seen": "2026-10-11T09:43:03Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:influxdb",
+      "source": "DOCUMENT",
+      "title": "📘 [Runbook] InfluxDB 2.7 운영 가이드",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 📘 [Runbook] InfluxDB 2.7 운영 가이드\n\n## 1. 개요\n* **서비스명**: InfluxDB (시계열 데이터베이스)\n* **이미지**: `influxdb:2.7-alpine` (공식 이미지)\n* **운영 환경**: 단일 노드 k3s\n* **데이터 영속성**: `/var/lib/influxdb2` 경로에 PVC 마운트 필수\n\n---\n\n## 2. 자원 요구사항 (Resource Requirements)\n* **Requests**: CPU `500m`, Memory `1Gi`\n* **Limits**: CPU `2000m`, Memory `4Gi` (데이터 쿼리/수집량에 따라 메모리 사용량이 급증할 수 있음)\n* **Storage**: 최소 10Gi 이상의 SSD 기반 PVC 권장\n\n---\n\n## 3. 환경 변수 및 설정 오류 증상\n초기 기동 시 자동 설정을 위해 아래 변수들을 `ConfigMap` 및 `Secret`으로 주입합니다. (이미 PVC에 데이터가 초기화된 이후에는 무시됩니다.)\n\n| 환경 변수 | 역할 |\n|---|---|\n| `DOCKER_INFLUXDB_INIT_MODE` | `setup`으로 지정해야 자동 초기화 동작 |\n| `DOCKER_INFLUXDB_INIT_USERNAME` | 초기 관리자 계정명 |\n| `DOCKER_INFLUXDB_INIT_PASSWORD` | 초기 관리자 비밀번호 (최소 8자리) |\n| `DOCKER_INFLUXDB_INIT_ORG` | 기본 조직(Organization) 이름 |\n| `DOCKER_INFLUXDB_INIT_BUCKET` | 기본 버킷(Bucket) 이름 |\n| `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN`| 관리자 API 토큰 |\n\n**🚨 환경 변수 누락/오류 시 증상**\n* **MODE 누락**: 컨테이너는 정상 기동되나 초기화되지 않은 상태로 뜹니다. API 호출 시 `401 Unauthorized` 에러가 발생하며, UI 접속 시 초기 설정 화면이 뜹니다.\n* **PASSWORD 8자리 미만**: 컨테이너가 즉시 종료되며 로그에 `Error: password must be at least 8 characters` 출력.\n* **필수 변수(ORG, BUCKET 등) 누락**: `setup` 모드 실패로 컨테이너 기동 실패(`CrashLoopBackOff`).\n\n---\n\n## 4. 포트, 프로토콜 및 헬스 체크\n* **포트/프로토콜**: `8086 / TCP` (HTTP API 및 Web UI 공통)\n* **Liveness / Readiness Probe 설정**:\n  ```yaml\n  livenessProbe:\n    httpGet:\n      path: /ping\n      port: 8086\n    initialDelaySeconds: 30\n    periodSeconds: 10\n  ```\n  *(참고: `/ping` 엔드포인트는 정상 시 `204 No Content` HTTP 상태 코드를 반환하여 k8s 헬스 체크에 적합합니다.)*\n\n---\n\n## 5. 자주 발생하는 기동/배포 실패 및 에러 메시지\n\n### A. 볼륨(PVC) 권한 문제\n* **증상**: Pod가 `CrashLoopBackOff` 상태로 무한 재시작.\n* **k8s Event**: 특별한 에러 없이 Pod가 종료됨.\n* **Log 메시지**:\n  `run: create server: mkdir /var/lib/influxdb2/engine: permission denied`\n* **조치**: 호스트 경로 마운트 시 UID/GID(기본 `1000:1000`) 권한 확인 또는 `securityContext.fsGroup: 1000` 설정.\n\n### B. 메모리 부족 (OOM)\n* **증상**: 무거운 쿼리 실행 시 DB가 갑자기 재시작 됨.\n* **k8s Event**: `Reason: OOMKilled`\n* **Log 메시지**: 정상 종료 로그 없이 컨테이너가 멈춤.\n* **조치**: k8s Limits Memory 증설 또는 쿼리 최적화(시간 범위 축소).\n\n### C. Lock 파일 잔존\n* **증상**: 비정상 종료 후 재기동 실패.\n* **Log 메시지**:\n  `bolt: unable to open database: timeout` 또는 `resource temporarily unavailable`\n* **조치**: PVC 내 `/var/lib/influxdb2/influxd.bolt` 등 Lock 상태 확인.\n\n---\n\n## 6. 트러블슈팅 확인 순서\n\n장애 발생 시 아래 순서대로 확인합니다.\n\n1. **Pod 상태 확인**: `kubectl get pods -n <namespace>`\n   * `Running`이 아니면 2번으로, `Running`인데 접속이 안 되면 4번으로 이동.\n2. **K8s 이벤트 확인**: `kubectl describe pod <influxdb-pod-name>`\n   * `OOMKilled` (메모리 부족), `FailedMount` (볼륨 마운트 실패) 확인.\n3. **애플리케이션 로그 확인**: `kubectl logs <influxdb-pod-name> --previous` (재시작된 경우 이전 로그 확인)\n   * `permission denied`, `password must be at least 8 characters` 등의 에러 찾기.\n4. **PVC 용량 확인**: 호스트(k3s 노드)에서 `df -h` 또는 `kubectl  get pvc` 상태 확인. 디스크가 100% 찼을 경우 DB가 읽기 전용 상태로 빠지거나 기동 실패.\n5. **자원 사용량 확인**: `kubectl top pod`를 통해 메모리 누수나 CPU 스파이크 여부 점검."
+    },
+    {
+      "id": "incident:g1-inf-img-ref",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #26",
+      "version": "commit b000013 · influxdb@2.7-alpine",
+      "updated_at": "2026-10-11T09:42:32.014758Z",
+      "text": "확정된 과거 사건: 배포 #26 (commit b000013, 이미지 influxdb@2.7-alpine, 배포 시각 2026-10-11T09:42:29.921694Z)\n실패 종류: IMAGE_PULL\n실패 사유: rollout 실패: InvalidImageName (pod=blind-b13-influxdb-54cd66c58-cg7fl, generation=2): Failed to apply default image tag \"influxdb@2.7-alpine\": couldn't parse image name \"influxdb@2.7-alpine\": invalid reference format\n확정 원인: IMAGE / invalid_image_reference\n해결: 이미지 태그 지정자에 오류가 있습니다. '@' 대신 ':' 기호를 사용하세요."
+    },
+    {
+      "id": "incident:g3-img-b4",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #112",
+      "version": "commit b000056 · influxdb!!2.7",
+      "updated_at": "2026-10-11T09:50:59.168412Z",
+      "text": "확정된 과거 사건: 배포 #112 (commit b000056, 이미지 influxdb!!2.7, 배포 시각 2026-10-11T09:50:57.079020Z)\n실패 종류: IMAGE_PULL\n실패 사유: rollout 실패: InvalidImageName (pod=blind-b56-influxdb-7c65d958c7-x5ssd, generation=2): Failed to apply default image tag \"influxdb!!2.7\": couldn't parse image name \"influxdb!!2.7\": invalid reference format\n확정 원인: IMAGE / invalid_image_reference\n해결: 이미지 이름에 포함된 느낌표(!!)를 제거하여 형식을 맞추세요."
+    }
+  ],
+  "expected": {
+    "category": "SCHEDULING",
+    "root_cause": "insufficient_cpu",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:influxdb"
+    ]
+  },
+  "notes": "변경: {\"cpu_request\": \"11000m\"} / 고치는 방법: 노드 CPU 용량인 10000m을 넘는 값을 요청했습니다. cpu_request를 10000m 이하로 조정하세요."
+}

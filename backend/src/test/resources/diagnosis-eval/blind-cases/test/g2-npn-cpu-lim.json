@@ -1,0 +1,179 @@
+{
+  "id": "g2-npn-cpu-lim",
+  "group": "BLIND-INTERNAL",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-npn-cpu-lim (nuri-push-node, 흔함 하), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 78,
+        "repository_id": 39,
+        "repository_name": "blind/b39-nuripushnode",
+        "branch_name": "main",
+        "commit_hash": "b000039",
+        "image_uri": "corp.local/nuri-push-node:1.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b39-nuripushnode-74c9d46b4b-86nhj 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+        "started_at": "2026-10-11T09:47:35.769436Z",
+        "finished_at": "2026-10-11T09:49:06.766211Z",
+        "created_at": "2026-10-11T09:47:35.769549Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "UNSCHEDULABLE",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 10080,
+        "domain_url": "b39-nuripushnode.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "NURI_CORP_API_KEY",
+          "NURI_DEFAULT_SENDER",
+          "NURI_PUSH_MODE",
+          "NURI_WORKER_COUNT"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/system/ping",
+          "port": 10080,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "20000m",
+          "cpu_limit": null,
+          "memory_request": "128Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 76,
+        "commit_hash": "a000039",
+        "image_uri": "corp.local/nuri-push-node:1.0",
+        "image_digest": "sha256:438c0d88fac009a880dfd66b41b6077d9ec368692f68fea9a0b4538781e5ed08",
+        "finished_at": "2026-10-11T09:47:35.695894Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "resources",
+          "before": "ContainerResources[cpuRequest=100m, cpuLimit=null, memoryRequest=128Mi, memoryLimit=null]",
+          "after": "ContainerResources[cpuRequest=20000m, cpuLimit=null, memoryRequest=128Mi, memoryLimit=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "UNSCHEDULABLE",
+        "title": "Pod를 배치할 노드가 없습니다",
+        "summary": "스케줄러가 새 Pod를 둘 노드를 찾지 못했습니다.",
+        "checks": [
+          "이벤트의 FailedScheduling 메시지를 확인합니다",
+          "CPU·메모리 requests가 노드 여유보다 큰지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 78,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b39-nuripushnode-74c9d46b4b-86nhj 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 78,
+      "pods": [
+        {
+          "name": "blind-b39-nuripushnode-74c9d46b4b-86nhj",
+          "phase": "Pending",
+          "ready": false,
+          "restart_count": 0,
+          "state": null,
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [],
+          "previous_logs": null,
+          "logs_error": "컨테이너 상태가 아직 없습니다"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b39-nuripushnode-74c9d46b4b-86nhj",
+          "count": 2,
+          "last_seen": "2026-10-11T09:47:37.694532Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b39-nuripushnode-74c9d46b4b-86nhj",
+          "count": null,
+          "last_seen": "2026-10-11T09:47:35.807631Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b39-nuripushnode-74c9d46b4b-86nhj",
+          "object": "ReplicaSet/blind-b39-nuripushnode-74c9d46b4b",
+          "count": 1,
+          "last_seen": "2026-10-11T09:47:35Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:nuri-push-node",
+      "source": "DOCUMENT",
+      "title": "📘 [Runbook] nuri-push-node 운영 가이드",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 📘 [Runbook] nuri-push-node 운영 가이드\n\n## 1. 개요\n`nuri-push-node`는 사내 마이크로서비스에서 발생하는 다채널(메신저, SMS, 이메일) 알림 발송 요청을 단일 HTTP 엔드포인트로 접수하는 경량 중계 서비스입니다. \n외부 의존성(DB, 메시지 큐 등) 없이 로컬 메모리에서 발송 로직을 에뮬레이트하므로 단일 노드 k3s 환경에서 빠르고 독립적으로 동작합니다.\n\n## 2. 기본 정보\n* **컨테이너 이미지:** `corp.local/nuri-push-node:1.0`\n* **포트 및 프로토콜:** `10080 / TCP` (HTTP)\n* **헬스 체크 (Liveness/Readiness):** `HTTP GET /system/ping` (포트 10080)\n* **권장 자원 (Resource Requests/Limits):**\n  * 메모리 내 에뮬레이션을 수행하므로 CPU는 낮게, 메모리는 적절히 할당합니다.\n  * Requests: CPU `100m`, Memory `128Mi`\n  * Limits: CPU `500m`, Memory `256Mi`\n\n## 3. 환경 변수 (ConfigMap & Secret)\n환경 변수 누락 또는 형식 오류 시 컨테이너가 즉시 종료되며 `CrashLoopBackOff` 상태에 빠집니다.\n\n| 변수명 | 필수 | 기본값 | 검증 정규식 (형식) | 설명 |\n|---|:---:|---|---|---|\n| `NURI_PUSH_MODE` | O | - | `^(strict\\|relaxed)$` | 알림 발송 정책 모드 |\n| `NURI_CORP_API_KEY` | O | - | `^[A-Za-z0-9]{32}$` | 사내 시스템 인증용 32자리 API 키 (Secret 관리) |\n| `NURI_DEFAULT_SENDER` | O | - | `^[a-z0-9_]+@nuri-corp\\.local$` | 기본 발신자 사내 이메일 주소 |\n| `NURI_WORKER_COUNT` | O | - | `^[1-9][0-9]?$` | 동시 처리 워커 스레드 수 (1~99) |\n| `NURI_MAX_PAYLOAD_KB` | X | `512` | `^[1-9][0-9]{0,3}$` | 최대 허용 페이로드 크기 (KB) |\n\n## 4. 기동 실패 증상 및 로그 (Troubleshooting)\n배포 실패 시 Kubernetes에서는 Pod가 `Error` 및 `CrashLoopBackOff` 상태로 표시됩니다. `kubectl logs` 확인 시 아래의 에러 코드(Exit Code)와 로그가 출력됩니다.\n\n| Exit | 장애 원인 | Pod 로그 메시지 (`kubectl logs`) |\n|:---:|---|---|\n| **10** | `PUSH_MODE` 누락 | `[FATAL] [NURI-ERR-0010] NURI_PUSH_MODE is missing. Service cannot determine routing policy.` |\n| **11** | `API_KEY` 값 없음 | `[FATAL] [NURI-ERR-0011] NURI_CORP_API_KEY is empty. Unauthorized access risk detected.` |\n| **12** | `API_KEY` 형식 오류 | `[FATAL] [NURI-ERR-0012] NURI_CORP_API_KEY invalid format. Expected exactly 32 alphanumeric characters.` |\n| **13** | `SENDER` 이메일 오류 | `[FATAL] [NURI-ERR-0013] NURI_DEFAULT_SENDER contains invalid email. Must belong to @nuri-corp.local domain.` |\n| **14** | `WORKER_COUNT` 범위 초과 | `[FATAL] [NURI-ERR-0014] NURI_WORKER_COUNT out of bounds or invalid. Allowed range is 1 to 99.` |\n\n> **정상 기동 시 로그 (참고)**\n> ```text\n> [INFO] Bootstrapping nuri-push-node (v1.2.0)...\n> [INFO] Loading mock dependencies. External queue connections are disabled by design.\n> [INFO] Validating environment variables against NuriCorp compliance rules...\n> [INFO] All required environment variables are valid and loaded.\n> [INFO] Initializing local memory buffer for notification dispatch emulation...\n> [INFO] Registering route handlers for HTTP endpoints [/push/v1/send, /system/ping]...\n> [INFO] [NURI-SYS-0000] nuri-push-node successfully started and listening on 0.0.0.0:10080\n> ```\n\n## 5. 장애 확인 및 복구 순서\n\n**Step 1: Pod 상태 확인**\n```bash\nkubectl get pods -l app=nuri-push-node\n```\n* `0/1` 상태로 `CrashLoopBackOff`가 발생 중인지 확인합니다.\n\n**Step 2: Kubernetes Event 확인**\n```bash\nkubectl describe pod -l app=nuri-push-node\n```\n* **확인 포인트:** \n  * `Liveness probe failed: HTTP probe failed...` -> 앱이 떴으나 헬스체크(`/system/ping`) 응답을 못 하는 경우.\n  * `Back-off restarting failed container` -> 환경 변수 검증 실패로 앱이 즉시 종료되는 경우.\n\n**Step 3: 컨테이너 에러 로그 확인**\n```bash\nkubectl logs -l app=nuri-push-node --previous\n```\n* 컨테이너가 죽은 상태이므로 `--previous` 플래그를 사용하여 직전 실패 로그를 확인합니다.\n* 출력된 로그가 위 **[4. 기동 실패 증상]**의 어떤 에러 코드(NURI-ERR-001X)에 해당하는지 확인합니다.\n\n**Step 4: 환경 변수 수정 및 재시작**\n1. 에러 로그에 해당하는 ConfigMap 또는 Secret의 값을 정규식 명세에 맞게 수정합니다.\n   ```bash\n   kubectl edit configmap nuri-push-node-config\n   ```\n2. Pod를 삭제하여 변경된 설정으로 재기동시킵니다.\n   ```bash\n   kubectl delete pod -l app=nuri-push-node\n   ```\n3. 정상 기동 로그(`[NURI-SYS-0000]`)가 출력되는지 확인합니다."
+    },
+    {
+      "id": "incident:g1-npn-img-pull",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #44",
+      "version": "commit b000022 · nuri-push-node:1.0",
+      "updated_at": "2026-10-11T09:44:16.879546Z",
+      "text": "확정된 과거 사건: 배포 #44 (commit b000022, 이미지 nuri-push-node:1.0, 배포 시각 2026-10-11T09:44:02.645564Z)\n실패 종류: IMAGE_PULL\n실패 사유: rollout 실패: ImagePullBackOff (pod=blind-b22-nuripushnode-77b6dbdcd5-97mgh, generation=2): Back-off pulling image \"nuri-push-node:1.0\"\n확정 원인: IMAGE / image_not_pullable\n해결: 로컬 레지스트리 주소(corp.local/)가 누락되어 도커 허브에서 찾고 있습니다. 레지스트리 경로를 포함하세요."
+    },
+    {
+      "id": "incident:g3-img-a1",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #98",
+      "version": "commit b000049 · corp.local/nuri-push-node:1.0.99-hotfix",
+      "updated_at": "2026-10-11T09:50:12.795303Z",
+      "text": "확정된 과거 사건: 배포 #98 (commit b000049, 이미지 corp.local/nuri-push-node:1.0.99-hotfix, 배포 시각 2026-10-11T09:49:52.553644Z)\n실패 종류: IMAGE_PULL\n실패 사유: rollout 실패: ImagePullBackOff (pod=blind-b49-nuripushnode-64594f6f65-lqbf8, generation=2): Back-off pulling image \"corp.local/nuri-push-node:1.0.99-hotfix\"\n확정 원인: IMAGE / image_not_pullable\n해결: 레지스트리에 존재하는 유효한 이미지 태그로 변경하세요."
+    }
+  ],
+  "expected": {
+    "category": "SCHEDULING",
+    "root_cause": "insufficient_cpu",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:nuri-push-node"
+    ]
+  },
+  "notes": "변경: {\"cpu_request\": \"20000m\"} / 고치는 방법: 노드 전체 CPU 스펙(10 코어)의 2배에 달하는 CPU를 요구하고 있습니다. 적절한 수준으로 낮추세요."
+}

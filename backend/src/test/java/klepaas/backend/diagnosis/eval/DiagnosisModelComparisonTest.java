@@ -49,8 +49,15 @@ class DiagnosisModelComparisonTest {
     @Test
     void compareModelsOnCases() throws Exception {
         JsonNode pricing = DiagnosisEval.JSON.readTree(Path.of("src/test/resources/diagnosis-eval/pricing.json").toFile()).path("models");
-        boolean ragCases = "rag".equals(System.getenv("DIAGNOSIS_EVAL_CASES"));
-        List<Case> cases = DiagnosisEval.loadCases(ragCases ? DiagnosisEval.RAG_CASES : DiagnosisEval.CASES);
+        String caseSet = System.getenv().getOrDefault("DIAGNOSIS_EVAL_CASES", "base");
+        boolean ragCases = !caseSet.equals("base");
+        // rag: #104 가공 사례, blind-tune·blind-test: #123 독립 작성 사례
+        List<Case> cases = DiagnosisEval.loadCases(switch (caseSet) {
+            case "rag" -> DiagnosisEval.RAG_CASES;
+            case "blind-tune" -> DiagnosisEval.BLIND_CASES.resolve("tune");
+            case "blind-test" -> DiagnosisEval.BLIND_CASES.resolve("test");
+            default -> DiagnosisEval.CASES;
+        });
         List<String> items = new ArrayList<>(DiagnosisEval.ITEMS);
         if (ragCases) items.addAll(List.of("knowledge_hit", "knowledge_supported"));
         int repeat = Integer.parseInt(System.getenv().getOrDefault("DIAGNOSIS_EVAL_REPEAT", "1"));
@@ -138,7 +145,8 @@ class DiagnosisModelComparisonTest {
         Path dir = Path.of("build/diagnosis-eval");
         Files.createDirectories(dir);
         DiagnosisEval.JSON.writerWithDefaultPrettyPrinter().writeValue(dir.resolve("compare-" + stamp + ".json").toFile(),
-                Map.of("cases", cases.size(), "repeat", repeat, "models", report));
+                Map.of("case_set", caseSet, "cases", cases.size(), "repeat", repeat,
+                        "min_similarity", System.getenv().getOrDefault("DIAGNOSIS_EVAL_MIN_SIMILARITY", "0.3"), "models", report));
         Files.writeString(dir.resolve("compare-" + stamp + ".md"),
                 "사례 " + cases.size() + "개 × " + repeat + "회, " + stamp + "\n\n" + table);
         System.out.println(table);

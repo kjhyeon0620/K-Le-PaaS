@@ -1,0 +1,171 @@
+{
+  "id": "g2-sac-cpu-lim",
+  "group": "BLIND-INTERNAL",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-sac-cpu-lim (settlement-amount-calculator, 흔함 상), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 66,
+        "repository_id": 33,
+        "repository_name": "blind/b33-settlementamou",
+        "branch_name": "main",
+        "commit_hash": "b000033",
+        "image_uri": "corp.local/settlement-amount-calculator:1.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b33-settlementamou-5d4bb79b74-w5gl6 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+        "started_at": "2026-10-11T09:46:39.917508Z",
+        "finished_at": "2026-10-11T09:48:10.912640Z",
+        "created_at": "2026-10-11T09:46:39.917643Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "UNSCHEDULABLE",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 10502,
+        "domain_url": "b33-settlementamou.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "BASE_FEE_RATE",
+          "CALC_MODE",
+          "MERCHANT_TIER_LIST",
+          "SETTLEMENT_TIMEZONE"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/ping/alive",
+          "port": 10502,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "15",
+          "cpu_limit": null,
+          "memory_request": "128Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 65,
+        "commit_hash": "a000033",
+        "image_uri": "corp.local/settlement-amount-calculator:1.0",
+        "image_digest": "sha256:821cbabc345e8e5d01507429da2040def2566630e76311cfe778c64cb94c5644",
+        "finished_at": "2026-10-11T09:46:39.775164Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "resources",
+          "before": "ContainerResources[cpuRequest=100m, cpuLimit=null, memoryRequest=128Mi, memoryLimit=null]",
+          "after": "ContainerResources[cpuRequest=15, cpuLimit=null, memoryRequest=128Mi, memoryLimit=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "UNSCHEDULABLE",
+        "title": "Pod를 배치할 노드가 없습니다",
+        "summary": "스케줄러가 새 Pod를 둘 노드를 찾지 못했습니다.",
+        "checks": [
+          "이벤트의 FailedScheduling 메시지를 확인합니다",
+          "CPU·메모리 requests가 노드 여유보다 큰지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 66,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b33-settlementamou-5d4bb79b74-w5gl6 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 66,
+      "pods": [
+        {
+          "name": "blind-b33-settlementamou-5d4bb79b74-w5gl6",
+          "phase": "Pending",
+          "ready": false,
+          "restart_count": 0,
+          "state": null,
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [],
+          "previous_logs": null,
+          "logs_error": "컨테이너 상태가 아직 없습니다"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b33-settlementamou-5d4bb79b74-w5gl6",
+          "count": 2,
+          "last_seen": "2026-10-11T09:47:03.063693Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "FailedScheduling",
+          "message": "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+          "object": "Pod/blind-b33-settlementamou-5d4bb79b74-w5gl6",
+          "count": null,
+          "last_seen": "2026-10-11T09:46:39.955526Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b33-settlementamou-5d4bb79b74-w5gl6",
+          "object": "ReplicaSet/blind-b33-settlementamou-5d4bb79b74",
+          "count": 1,
+          "last_seen": "2026-10-11T09:46:39Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:settlement-amount-calculator",
+      "source": "DOCUMENT",
+      "title": "📘 Runbook: settlement-amount-calculator",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 📘 Runbook: settlement-amount-calculator\n\n## 1. 개요 (Overview)\n사내 가맹점들의 일일 결제 건을 모아 수수료율 및 가맹점 등급별 보정치를 적용해 최종 정산 지급액을 계산하는 경량 API 서비스입니다.\n**외부 시스템(DB 등) 연결이 없는 완전한 무상태(Stateless) 서비스**로, HTTP 요청 본문 데이터만으로 즉각적인 연산을 수행합니다. k3s 환경에서 문제 발생 시 즉각적인 Pod 재시작(Restart) 조치가 안전합니다.\n\n*   **이미지:** `corp.local/settlement-amount-calculator:1.0`\n*   **배포 환경:** 사내 단일 노드 k3s\n\n---\n\n## 2. 포트, 헬스 체크 및 자원 요구 (Network & Resources)\n*   **포트/프로토콜:** `10502` / `TCP (HTTP)`\n*   **헬스 체크 경로:** `HTTP GET /ping/alive` (Liveness 및 Readiness Probe에 사용)\n*   **자원 요구사항 (권장 권장치):** 경량 산술 연산만 수행하므로 적은 자원으로 구동됩니다.\n    *   Requests: CPU `100m`, Memory `128Mi`\n    *   Limits: CPU `500m`, Memory `256Mi`\n\n---\n\n## 3. 환경 변수 (Environment Variables)\n모든 설정은 환경 변수로 주입됩니다. 필수 환경 변수가 누락되거나 정규식 패턴에 맞지 않으면 컨테이너가 즉시 종료(Crash)됩니다.\n\n| 변수명 | 필수 | 기본값 | 형식(정규식) / 설명 |\n|---|---|---|---|\n| `BASE_FEE_RATE` | **O** | - | `^(0\\.[0-9]+)$` (예: `0.03`) / 기본 수수료율 |\n| `MERCHANT_TIER_LIST` | **O** | - | `^[A-Z](,[A-Z])*$` (예: `A,B,C`) / 허용된 가맹점 등급 |\n| `SETTLEMENT_TIMEZONE` | **O** | - | `^[+-][0-1][0-9]:[0-5][0-9]$` (예: `+09:00`) / 정산 기준 시간대 |\n| `CALC_MODE` | **O** | - | `^(STRICT\\|RELAXED)$` / 계산 모드 |\n| `MAX_CALC_ITEMS` | X | `5000` | `^[1-9][0-9]*$` / 1회 최대 처리 결제 건수 |\n\n---\n\n## 4. 기동 실패 증상 및 트러블슈팅 (Troubleshooting)\n\n### 정상 기동 시 로그\n정상일 경우 아래와 같은 로그가 순차적으로 출력되며 트래픽을 받을 준비를 마칩니다.\n```text\n[INFO] [SYS] Starting settlement-amount-calculator process...\n[INFO] [SYS] Validating environment variables for execution in isolated mode.\n...\n[INFO] [READY] settlement-amount-calculator is now listening on port 10502 for incoming HTTP requests.\n```\n\n### 배포/기동 실패 시 증상 (Kubernetes Event)\n환경 변수 오류 시 프로세스가 즉시 종료되며, k3s에서는 **`CrashLoopBackOff`** 또는 **`Error`** 상태가 발생합니다.\n*   **K8s Event 메시지:** `Back-off restarting failed container` 또는 `Pod sandbox changed, it will be killed and re-created.`\n\n### 에러 로그 및 조치 방법\n`kubectl logs` 확인 시 아래의 `[FATAL]` 로그가 보인다면 배포 매니페스트(ConfigMap/Deployment)의 환경 변수 값을 수정해야 합니다.\n\n*   **Exit Code 101:** `BASE_FEE_RATE` 누락\n    *   *Log:* `[FATAL] [ERR-SAC-001] BASE_FEE_RATE environment variable is missing...`\n*   **Exit Code 102:** `BASE_FEE_RATE` 형식 오류 (0으로 시작하는 소수점 아님)\n    *   *Log:* `[FATAL] [ERR-SAC-002] BASE_FEE_RATE is malformed...`\n*   **Exit Code 103:** `MERCHANT_TIER_LIST` 비어있음\n    *   *Log:* `[FATAL] [ERR-SAC-003] MERCHANT_TIER_LIST cannot be empty...`\n*   **Exit Code 104:** `SETTLEMENT_TIMEZONE` 형식 오류\n    *   *Log:* `[FATAL] [ERR-SAC-004] SETTLEMENT_TIMEZONE format is invalid...`\n*   **Exit Code 105:** `CALC_MODE` 설정 오류 (`STRICT` 또는 `RELAXED` 아님)\n    *   *Log:* `[FATAL] [ERR-SAC-005] CALC_MODE must be strictly 'STRICT' or 'RELAXED'.`\n*   **Exit Code 106:** `MAX_CALC_ITEMS` 형식 오류 (양의 정수 아님)\n    *   *Log:* `[FATAL] [ERR-SAC-006] MAX_CALC_ITEMS contains invalid characters...`\n\n---\n\n## 5. 장애 확인 순서 (Action Plan)\n\n1. **Pod 상태 확인:** `CrashLoopBackOff` 상태인지 확인합니다.\n   ```bash\n   kubectl get pods -l app=settlement-amount-calculator\n   ```\n2. **컨테이너 로그 확인:** `[FATAL]` 에러 코드(ERR-SAC-00X)를 확인하여 어떤 환경 변수가 잘못되었는지 파악합니다. (Crash된 이전 컨테이너 로그 확인 포함)\n   ```bash\n   kubectl logs -l app=settlement-amount-calculator --previous\n   ```\n3. **K8s 이벤트 확인:** Probe 실패인지 환경 변수로 인한 Exit인지 상세 이벤트를 확인합니다.\n   ```bash\n   kubectl describe pod -l app=settlement-amount-calculator\n   ```\n4. **조치:** Deployment 환경 변수를 수정하고 재배포합니다. 완전 무상태 서비스이므로 즉시 반영 및 복구됩니다."
+    },
+    {
+      "id": "incident:g2-sac-env-mis",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #62",
+      "version": "commit b000031 · corp.local/settlement-amount-calculator:1.0",
+      "updated_at": "2026-10-11T09:46:32.652115Z",
+      "text": "확정된 과거 사건: 배포 #62 (commit b000031, 이미지 corp.local/settlement-amount-calculator:1.0, 배포 시각 2026-10-11T09:46:28.555746Z)\n실패 종류: CRASH_LOOP\n실패 사유: rollout 실패: CrashLoopBackOff (pod=blind-b31-settlementamou-68c4f6b69d-k7pht, generation=2, 마지막 종료=Error, exit=101): back-off 10s restarting failed container=blind-b31-settlementamou pod=blind-b31-settlementamou-68c4f6b69d-k7pht_default(8f6fa7aa-711d-48bb-af70-942cc5711028)\n확정 원인: ENV_CONFIG / required_env_missing\n해결: 애플리케이션 시작에 필수적인 BASE_FEE_RATE 환경 변수가 누락되었습니다. 해당 환경 변수를 다시 설정하세요."
+    }
+  ],
+  "expected": {
+    "category": "SCHEDULING",
+    "root_cause": "insufficient_cpu",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:settlement-amount-calculator"
+    ]
+  },
+  "notes": "변경: {\"cpu_request\": \"15\"} / 고치는 방법: CPU 15개를 요청하여 노드 용량(10개)을 초과했습니다. cpu_request 값을 노드 용량 이내로 줄이세요."
+}

@@ -1,0 +1,192 @@
+{
+  "id": "g1-rd-img-pull",
+  "group": "BLIND-PUBLIC",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g1-rd-img-pull (redis, 흔함 상), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 6,
+        "repository_id": 1,
+        "repository_name": "blind/b01-redis",
+        "branch_name": "main",
+        "commit_hash": "b000001",
+        "image_uri": "redis:7-alpine-dev-local",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: ImagePullBackOff (pod=blind-b01-redis-5b7c989cf9-lkfwt, generation=2): Back-off pulling image \"redis:7-alpine-dev-local\"",
+        "started_at": "2026-10-11T09:40:05.677669Z",
+        "finished_at": "2026-10-11T09:40:24.149077Z",
+        "created_at": "2026-10-11T09:40:05.677864Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "IMAGE_PULL",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 6379,
+        "domain_url": "b01-redis.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": null,
+        "resources": {
+          "cpu_request": "100m",
+          "cpu_limit": null,
+          "memory_request": "128Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 1,
+        "commit_hash": "a000001",
+        "image_uri": "redis:7-alpine",
+        "image_digest": "sha256:ec4f171e9ff071bb2a1c936057d3be00206069b028b6c0d61df2477e1dd02c42",
+        "finished_at": "2026-10-11T09:40:04.973235Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "image_uri",
+          "before": "redis:7-alpine",
+          "after": "redis:7-alpine-dev-local",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "IMAGE_PULL",
+        "title": "이미지를 받지 못했습니다",
+        "summary": "노드가 이미지를 내려받지 못해 새 Pod가 시작되지 않았습니다.",
+        "checks": [
+          "이미지 태그가 레지스트리에 있는지 확인합니다 (이벤트의 not found)",
+          "비공개 이미지면 pull secret 설정과 자격 증명 만료를 확인합니다",
+          "이미지 주소의 오타를 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 6,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: ImagePullBackOff (pod=blind-b01-redis-5b7c989cf9-lkfwt, generation=2): Back-off pulling image \"redis:7-alpine-dev-local\"",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 6,
+      "pods": [
+        {
+          "name": "blind-b01-redis-5b7c989cf9-lkfwt",
+          "phase": "Pending",
+          "ready": false,
+          "restart_count": 0,
+          "state": "waiting",
+          "state_reason": "ImagePullBackOff",
+          "state_message": "Back-off pulling image \"redis:7-alpine-dev-local\"",
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [],
+          "previous_logs": null,
+          "logs_error": "container \"blind-b01-redis\" in pod \"blind-b01-redis-5b7c989cf9-lkfwt\" is waiting to start: trying and failing to pull image"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Failed",
+          "message": "Failed to pull image \"redis:7-alpine-dev-local\": rpc error: code = NotFound desc = failed to pull and unpack image \"docker.io/library/redis:7-alpine-dev-local\": failed to resolve reference \"docker.io/library/redis:7-alpine-dev-local\": docker.io/library/redis:7-alpine-dev-local: not found",
+          "object": "Pod/blind-b01-redis-5b7c989cf9-lkfwt",
+          "count": 2,
+          "last_seen": "2026-10-11T09:40:23Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Failed",
+          "message": "Error: ErrImagePull",
+          "object": "Pod/blind-b01-redis-5b7c989cf9-lkfwt",
+          "count": 2,
+          "last_seen": "2026-10-11T09:40:23Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulling",
+          "message": "Pulling image \"redis:7-alpine-dev-local\"",
+          "object": "Pod/blind-b01-redis-5b7c989cf9-lkfwt",
+          "count": 2,
+          "last_seen": "2026-10-11T09:40:22Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "BackOff",
+          "message": "Back-off pulling image \"redis:7-alpine-dev-local\"",
+          "object": "Pod/blind-b01-redis-5b7c989cf9-lkfwt",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:07Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Failed",
+          "message": "Error: ImagePullBackOff",
+          "object": "Pod/blind-b01-redis-5b7c989cf9-lkfwt",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:07Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b01-redis-5b7c989cf9-lkfwt to c6cc2114a105",
+          "object": "Pod/blind-b01-redis-5b7c989cf9-lkfwt",
+          "count": null,
+          "last_seen": "2026-10-11T09:40:05.752298Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b01-redis-5b7c989cf9-lkfwt",
+          "object": "ReplicaSet/blind-b01-redis-5b7c989cf9",
+          "count": 1,
+          "last_seen": "2026-10-11T09:40:05Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:redis",
+      "source": "DOCUMENT",
+      "title": "운영 런북: Redis (단일 노드 k3s)",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 운영 런북: Redis (단일 노드 k3s)\n\n## 1. 개요\n단일 노드 k3s 환경에서 애플리케이션의 캐시, 세션 저장소 및 메시지 브로커 용도로 사용하는 Redis 서비스입니다.\n- **이미지**: `redis:7-alpine` (공식 이미지)\n- **배포 형태**: 단일 Pod (Standalone)\n\n---\n\n## 2. 자원 요구 (Resource Requirements)\n- **CPU**: `requests: 100m`, `limits: 500m` (Redis는 단일 스레드 기반이므로 다수의 코어보다 빠른 CPU 클럭이 중요함)\n- **Memory**: `requests: 128Mi`, `limits: 512Mi` (캐시 용량에 맞춰 조정 필요)\n- **Storage**: 데이터를 영구 저장(AOF/RDB)해야 할 경우 `/data` 경로에 PVC 연결 필수. 임시 캐시 용도라면 `emptyDir` 사용 가능.\n\n---\n\n## 3. 환경 변수 및 설정 (Environment / Config)\n> ⚠️ **주의**: 공식 `redis` 이미지는 타 DB 이미지와 달리 환경 변수(예: `REDIS_PASSWORD`)만으로 설정이 적용되지 않습니다. 배포 매니페스트의 `args`나 `ConfigMap`(redis.conf)을 통해 설정해야 합니다.\n\n*   **주요 설정 (args 예시)**:\n    *   `--requirepass <비밀번호>`: 접속 비밀번호 설정\n    *   `--maxmemory <용량>`: 최대 메모리 제한 (Limits보다 작게 설정 필수)\n    *   `--maxmemory-policy allkeys-lru`: 메모리 가득 찰 경우 키 축출 정책\n    *   `--appendonly yes`: AOF 영속성 활성화\n*   **빠졌거나 잘못됐을 때의 증상**:\n    *   `requirepass` 누락: 인증 없이 접근 가능. 앱에서 암호를 들고 접근 시 `ERR AUTH <password> called without any password configured for the default user.` 로그 발생.\n    *   오타 및 잘못된 인자: Pod 기동 즉시 실패. 로그에 `Fatal error, can't open config file` 또는 `Bad directive or wrong number of arguments` 출력.\n\n---\n\n## 4. 포트, 프로토콜 및 헬스 체크\n- **포트 및 프로토콜**: `6379 / TCP`\n- **Liveness / Readiness Probe**:\n  - **방식**: `exec`를 이용한 `redis-cli` 명령어 실행\n  - **명령어**: `[\"redis-cli\", \"ping\"]` (비밀번호 설정 시: `[\"redis-cli\", \"-a\", \"$REDIS_PASSWORD\", \"ping\"]`)\n  - **기대 응답**: `PONG` (정상 시 0 반환)\n\n---\n\n## 5. 자주 나는 기동·배포 실패 및 증상\n\n### A. OOM (Out Of Memory)로 인한 재시작\n- **증상**: Pod가 주기적으로 재시작됨.\n- **K8s 이벤트 (`kubectl describe`)**: `State: Terminated`, `Reason: OOMKilled`\n- **원인**: Redis 내부 데이터가 K8s `limits.memory`를 초과함. `maxmemory` 설정이 없거나 Limits보다 크게 잡혀 있음.\n\n### B. 볼륨 쓰기 권한 부족 (Permission Denied)\n- **증상**: Pod가 기동하자마자 `CrashLoopBackOff` 상태 진입.\n- **Redis 로그**: `Can't open the append-only file: Permission denied` 또는 `Failed opening the RDB file`\n- **원인**: k3s의 HostPath나 외부 PVC 마운트 시, 컨테이너 내부의 Redis 유저(alpine 기준 UID `999`)가 `/data` 디렉터리에 대한 쓰기 권한이 없음.\n\n### C. 데이터 파일 손상\n- **증상**: 노드 강제 종료 후 Redis Pod가 `CrashLoopBackOff` 상태에서 복구되지 않음.\n- **Redis 로그**: `Bad file format reading the append only file: make a backup and quit`\n- **원인**: 비정상 종료로 인해 AOF/RDB 파일이 손상됨.\n\n---\n\n## 6. 장애 확인 순서 (Troubleshooting)\n\n1. **상태 및 이벤트 확인**\n   ```bash\n   kubectl get pods -l app=redis\n   kubectl describe pod <redis-pod-이름>\n   ```\n   *`Events` 섹션에서 `OOMKilled`, `Scheduling Failed`, `Probe failed` 여부 확인.*\n\n2. **애플리케이션(Redis) 로그 확인**\n   ```bash\n   kubectl logs <redis-pod-이름>\n   ```\n   *`Permission denied`, `Bad directive` 등의 에러 메시지 확인.*\n\n3. **내부 통신 및 헬스 체크 직접 테스트**\n   ```bash\n   kubectl exec -it <redis-pod-이름> -- redis-cli -a <비밀번호> ping\n   ```\n   *`PONG`이 반환되는지 확인하여 서비스 응답 상태 점검.*\n\n4. **데이터 초기화 (파일 손상 시 최후 수단)**\n   * AOF 손상 시: `kubectl exec -it <redis-pod-이름> -- redis-check-aof --fix /data/appendonly.aof`\n   * 복구 불가 시, 마운트된 볼륨의 데이터를 백업 후 삭제하여 빈 상태로 재기동."
+    },
+    {
+      "id": "incident:g1-rd-cpu-schd",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #7",
+      "version": "commit b000003 · redis:7-alpine",
+      "updated_at": "2026-10-11T09:41:37.152622Z",
+      "text": "확정된 과거 사건: 배포 #7 (commit b000003, 이미지 redis:7-alpine, 배포 시각 2026-10-11T09:40:05.678596Z)\n실패 종류: UNSCHEDULABLE\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b03-redis-58999f8f74-lgzfj 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.\n확정 원인: SCHEDULING / insufficient_cpu\n해결: 요청한 CPU(12 코어)가 노드 전체 용량(10 코어)을 초과합니다. cpu_request를 10 이하로 줄이세요."
+    }
+  ],
+  "expected": {
+    "category": "IMAGE",
+    "root_cause": "image_not_pullable",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:redis"
+    ]
+  },
+  "notes": "변경: {\"image\": \"redis:7-alpine-dev-local\"} / 고치는 방법: 레지스트리에 존재하는 올바른 이미지 태그로 수정하세요."
+}

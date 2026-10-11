@@ -91,6 +91,7 @@
 | 19 | #102 | CLI·API 기반 에이전트 상태 조회와 변경 제안 | 완료 (M) | [0102](specs/0102-agent-query-propose/spec.md) |
 | 20 | #103 | K-Le-PaaS MCP 서버와 에이전트 조회·제안 연결 | 완료 (L), 실제 클라이언트 확인은 사용자 | [0103](specs/0103-mcp-server/spec.md) |
 | 20-1 | #104 | 운영문서·장애 이력 RAG 기반 배포 진단 | 완료 (L) | [0104](specs/0104-rag-diagnosis/spec.md) |
+| 20-2 | #123 | 독립 작성 평가 세트로 RAG 진단 효과 측정 | 완료 (M), 독립 세트에서 RAG 개선 없음(기존 99% → 97%) | [0123](specs/0123-blind-rag-eval/spec.md) |
 | 21 | #59 | README, 콘솔 미연결 화면, 데모 결과 정리 | 미착수 | - |
 | - | #108 | rollout 타임아웃을 앱의 startup probe 허용 시간에 맞춤 | 미착수 (M), 순서 무관 | - |
 | - | #109 | CLI env 키 변환·Fabric8 버전·미사용 쿼리·모바일 사이드바 정리 | 미착수 (S~M), 순서 무관 | - |

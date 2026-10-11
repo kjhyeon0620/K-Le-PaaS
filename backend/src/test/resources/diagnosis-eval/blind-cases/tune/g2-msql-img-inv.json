@@ -1,0 +1,179 @@
+{
+  "id": "g2-msql-img-inv",
+  "group": "BLIND-PUBLIC",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-msql-img-inv (mysql, 흔함 하), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 94,
+        "repository_id": 47,
+        "repository_name": "blind/b47-mysql",
+        "branch_name": "main",
+        "commit_hash": "b000047",
+        "image_uri": "mysql::8.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: InvalidImageName (pod=blind-b47-mysql-9ff497bbc-qbfng, generation=2): Failed to apply default image tag \"mysql::8.0\": couldn't parse image name \"mysql::8.0\": invalid reference format",
+        "started_at": "2026-10-11T09:49:48.044335Z",
+        "finished_at": "2026-10-11T09:49:50.099877Z",
+        "created_at": "2026-10-11T09:49:48.044412Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "IMAGE_PULL",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 3306,
+        "domain_url": "b47-mysql.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "MYSQL_ROOT_PASSWORD"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": null,
+        "resources": {
+          "cpu_request": "200m",
+          "cpu_limit": null,
+          "memory_request": "512Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 93,
+        "commit_hash": "a000047",
+        "image_uri": "mysql:8.0",
+        "image_digest": "sha256:b7e118f56c5963e079252e0d6e2978c9c010eb7fc7aaaec100e367796b5dd08f",
+        "finished_at": "2026-10-11T09:49:47.981956Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "image_uri",
+          "before": "mysql:8.0",
+          "after": "mysql::8.0",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "IMAGE_PULL",
+        "title": "이미지를 받지 못했습니다",
+        "summary": "노드가 이미지를 내려받지 못해 새 Pod가 시작되지 않았습니다.",
+        "checks": [
+          "이미지 태그가 레지스트리에 있는지 확인합니다 (이벤트의 not found)",
+          "비공개 이미지면 pull secret 설정과 자격 증명 만료를 확인합니다",
+          "이미지 주소의 오타를 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 94,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: InvalidImageName (pod=blind-b47-mysql-9ff497bbc-qbfng, generation=2): Failed to apply default image tag \"mysql::8.0\": couldn't parse image name \"mysql::8.0\": invalid reference format",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 94,
+      "pods": [
+        {
+          "name": "blind-b47-mysql-9ff497bbc-qbfng",
+          "phase": "Pending",
+          "ready": false,
+          "restart_count": 0,
+          "state": "waiting",
+          "state_reason": "InvalidImageName",
+          "state_message": "Failed to apply default image tag \"mysql::8.0\": couldn't parse image name \"mysql::8.0\": invalid reference format",
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [],
+          "previous_logs": null,
+          "logs_error": "container \"blind-b47-mysql\" in pod \"blind-b47-mysql-9ff497bbc-qbfng\" is waiting to start: InvalidImageName"
+        }
+      ],
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b47-mysql-9ff497bbc-qbfng to c6cc2114a105",
+          "object": "Pod/blind-b47-mysql-9ff497bbc-qbfng",
+          "count": null,
+          "last_seen": "2026-10-11T09:49:48.070758Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "InspectFailed",
+          "message": "Failed to apply default image tag \"mysql::8.0\": couldn't parse image name \"mysql::8.0\": invalid reference format",
+          "object": "Pod/blind-b47-mysql-9ff497bbc-qbfng",
+          "count": 2,
+          "last_seen": "2026-10-11T09:49:48Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Failed",
+          "message": "Error: InvalidImageName",
+          "object": "Pod/blind-b47-mysql-9ff497bbc-qbfng",
+          "count": 2,
+          "last_seen": "2026-10-11T09:49:48Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b47-mysql-9ff497bbc-qbfng",
+          "object": "ReplicaSet/blind-b47-mysql-9ff497bbc",
+          "count": 1,
+          "last_seen": "2026-10-11T09:49:48Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:mysql",
+      "source": "DOCUMENT",
+      "title": "[Runbook] MySQL 8.0 운영 가이드 (단일 노드 k3s)",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# [Runbook] MySQL 8.0 운영 가이드 (단일 노드 k3s)\n\n## 1. 개요\n본 문서는 사내 소규모 팀 서비스용으로 k3s(단일 노드) 환경에 배포된 `mysql:8.0` 공식 이미지의 운영 및 트러블슈팅 가이드입니다. 별도의 커스텀 없이 공식 이미지를 그대로 사용하며, 단일 노드 특성상 고가용성(HA)보다는 **빠른 복구와 데이터 유실 방지(PVC)**에 초점을 맞춥니다.\n\n---\n\n## 2. 환경 변수 (Environment Variables)\n\n| 변수명 | 필수 | 설명 |\n| :--- | :---: | :--- |\n| `MYSQL_ROOT_PASSWORD` | Y | root 계정 비밀번호. (보안상 Secret 사용 권장) |\n| `MYSQL_DATABASE` | N | 기동 시 자동 생성할 데이터베이스 이름 |\n| `MYSQL_USER` | N | 자동 생성할 일반 사용자 계정 |\n| `MYSQL_PASSWORD` | N | 일반 사용자 계정의 비밀번호 (USER 선언 시 필수) |\n\n**🚨 빠졌거나 잘못되었을 때의 증상**\n*   `MYSQL_ROOT_PASSWORD` 누락 시: 컨테이너가 즉시 종료되며 Pod가 `CrashLoopBackOff` 상태에 빠집니다.\n*   비밀번호 오타/변경 실패 시: 애플리케이션에서 `Access denied for user` 에러가 발생하며 DB 연결이 거부됩니다.\n\n---\n\n## 3. 포트, 프로토콜 및 헬스 체크\n\n*   **포트/프로토콜:** `3306 / TCP`\n*   **Liveness / Readiness Probe 구성 (권장):**\n    ```yaml\n    readinessProbe:\n      exec:\n        command: [\"mysqladmin\", \"ping\", \"-h\", \"127.0.0.1\", \"-uroot\", \"-p$MYSQL_ROOT_PASSWORD\"]\n      initialDelaySeconds: 30\n      periodSeconds: 10\n    ```\n    *   *주의:* MySQL 8.0은 초기 구동(데이터베이스 초기화)에 시간이 걸리므로 `initialDelaySeconds`를 넉넉히(30초 이상) 주어야 합니다.\n\n---\n\n## 4. 자원 요구량 (Resource Requirements)\nMySQL 8.0은 InnoDB 버퍼 풀 및 메타데이터 처리로 인해 기본 메모리 소모량이 큽니다.\n\n*   **Requests:** CPU 250m / Memory 512Mi\n*   **Limits:** CPU 1000m / Memory 1Gi (권장: OOM 방지를 위해 최소 1Gi 이상 할당)\n*   **스토리지:** 반드시 k3s의 `local-path` provisioner 등을 이용해 PVC를 `/var/lib/mysql`에 마운트해야 합니다. (미적용 시 Pod 재시작 시 데이터 증발)\n\n---\n\n## 5. 자주 발생하는 실패 증상, 로그 및 이벤트\n\n### A. Root 비밀번호 누락 (초기화 실패)\n*   **K8s Event:** `Back-off restarting failed container` (Pod 상태: `CrashLoopBackOff`)\n*   **컨테이너 로그:**\n    ```text\n    [ERROR] database is uninitialized and password option is not specified\n    You need to specify one of MYSQL_ROOT_PASSWORD, MYSQL_ALLOW_EMPTY_PASSWORD and MYSQL_RANDOM_ROOT_PASSWORD\n    ```\n*   **조치:** Deployment/Secret에 `MYSQL_ROOT_PASSWORD`가 정상 주입되었는지 확인.\n\n### B. 메모리 부족 (OOMKilled)\n*   **K8s Event:** Pod 상태가 `OOMKilled`로 표시됨.\n*   **컨테이너 로그:** 로그에 특별한 에러 없이 갑자기 출력이 끊기거나, `[System] Out of memory: Kill process` 커널 로그가 노드에 남음.\n*   **조치:** Pod의 Memory Limit을 증설하거나, MySQL 설정(my.cnf)에서 `innodb_buffer_pool_size`를 축소.\n\n### C. 볼륨 마운트/권한 오류 (데이터 디렉터리 이슈)\n*   **K8s Event:** `FailedMount` 또는 `CrashLoopBackOff`\n*   **컨테이너 로그:**\n    ```text\n    [ERROR] --initialize specified but the data directory has files in it. Aborting.\n    # 또는\n    [ERROR] mysqld: Can't create/write to file '/var/lib/mysql/...' (Errcode: 13 - Permission denied)\n    ```\n*   **조치:** \n    *   초기화 에러: 기존 PVC에 남은 찌꺼기 데이터 삭제 혹은 새 PVC 할당.\n    *   권한 에러: 호스트 경로(hostPath) 사용 시 디렉터리 소유권(UID 999) 확인.\n\n---\n\n## 6. 트러블슈팅 확인 순서\n\n문제가 발생했을 때 아래 순서대로 점검합니다.\n\n1.  **상태 요약 확인:** `kubectl get pods -n <namespace>`\n    *   상태가 `Running`이 아니면 (예: `CrashLoopBackOff`, `OOMKilled`), 2번으로 이동.\n    *   상태가 `Running`이나 `0/1` (Readiness 실패) 상태면 3번으로 이동.\n2.  **이벤트 확인:** `kubectl describe pod <mysql-pod-name> -n <namespace>`\n    *   하단 `Events` 섹션에서 자원 부족, 스케줄링 실패, 볼륨 마운트 에러 확인.\n3.  **애플리케이션 로그 확인:** `kubectl logs <mysql-pod-name> -n <namespace> --previous` (재시작된 경우 `--previous` 플래그 사용)\n    *   DB 초기화 실패, 권한 문제 등 MySQL 자체 에러 메시지 확인.\n4.  **스토리지 상태 점검:** `kubectl get pvc,pv -n <namespace>`\n    *   PVC가 `Bound` 상태인지 점검.\n5.  **DB 내부 접속 테스트:**\n    ```bash\n    kubectl exec -it <mysql-pod-name> -n <namespace> -- mysql -uroot -p\n    ```\n    *   정상 접속된다면 DB는 문제없음. 서비스(Service) 엔드포인트나 네트워크 정책(NetworkPolicy), 클라이언트 측 인증 정보를 확인."
+    },
+    {
+      "id": "incident:g1-my-img-ref",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #17",
+      "version": "commit b000008 · mysql::8.0",
+      "updated_at": "2026-10-11T09:42:00.054110Z",
+      "text": "확정된 과거 사건: 배포 #17 (commit b000008, 이미지 mysql::8.0, 배포 시각 2026-10-11T09:41:39.797327Z)\n실패 종류: IMAGE_PULL\n실패 사유: rollout 실패: InvalidImageName (pod=blind-b08-mysql-5ddb767bd-rtnps, generation=2): Failed to apply default image tag \"mysql::8.0\": couldn't parse image name \"mysql::8.0\": invalid reference format\n확정 원인: IMAGE / invalid_image_reference\n해결: 이미지 이름에 콜론(:)이 중복되었습니다. 오타를 수정하세요."
+    },
+    {
+      "id": "incident:g3-rdy-d3",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #126",
+      "version": "commit b000063 · mysql:8.0",
+      "updated_at": "2026-10-11T09:52:56.133931Z",
+      "text": "확정된 과거 사건: 배포 #126 (commit b000063, 이미지 mysql:8.0, 배포 시각 2026-10-11T09:51:25.171877Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b63-mysql-58c8799c97-ll8cg 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_protocol_mismatch\n해결: MySQL 포트에 HTTP GET probe가 설정되어 연결 오류가 발생합니다. 프로토콜을 맞추세요."
+    }
+  ],
+  "expected": {
+    "category": "IMAGE",
+    "root_cause": "invalid_image_reference",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:mysql",
+      "incident:g1-my-img-ref"
+    ]
+  },
+  "notes": "변경: {\"image\": \"mysql::8.0\"} / 고치는 방법: 콜론이 두 번 들어가 이미지 레퍼런스 문법을 위반했습니다. mysql:8.0으로 수정하세요."
+}

@@ -305,7 +305,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 패키징 | `./gradlew bootJar` 후 JAR를 PostgreSQL(`compose.yaml`)로 기동, `ddl-auto=validate`, readiness `UP` |
 | 운영 DB 사본 | 스키마 변경 시 머지 전에 필수 |
 | 실제 클러스터 | k3s 임시 컨테이너 등 격리 환경. 운영 앱에 실패를 주입하지 않는다 |
-| 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99). 공급사·모델 비교는 `DiagnosisModelComparisonTest`(`DIAGNOSIS_EVAL_MODELS`와 키가 있을 때만, 실제 API 호출·비용 발생)로 품질·토큰·비용·지연을 남긴다 (#100) |
+| 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99). 공급사·모델 비교는 `DiagnosisModelComparisonTest`(`DIAGNOSIS_EVAL_MODELS`와 키가 있을 때만, 실제 API 호출·비용 발생)로 품질·토큰·비용·지연을 남긴다 (#100). RAG 사례(`rag-cases`, #104 가공)와 독립 작성 사례(`blind-cases`, #123: Gemini가 쓴 시나리오를 k3s에서 재현, 과거 사건·조정용·평가용)는 `DIAGNOSIS_EVAL_CASES=rag|blind-tune|blind-test`와 `@knowledge=on`으로 비교한다 |
 | 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit` |
 | 릴리스 스크립트 | `python3 -m unittest discover -s scripts/deploy -p 'test_*.py'`, `scripts/ci/test-package-release.sh` |
 

@@ -25,6 +25,8 @@ public final class DiagnosisEval {
     public static final Path CASES = Path.of("src/test/resources/diagnosis-eval/cases");
     /** 지식이 있어야 원인을 정할 수 있는 RAG 평가 사례 (#104, 스펙 0104) */
     public static final Path RAG_CASES = Path.of("src/test/resources/diagnosis-eval/rag-cases");
+    /** 다른 계열 모델이 독립 작성한 시나리오를 k3s에서 재현한 사례 (#123). history는 과거 사건 원천, tune·test는 평가 */
+    public static final Path BLIND_CASES = Path.of("src/test/resources/diagnosis-eval/blind-cases");
     public static final ObjectMapper JSON = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -66,7 +68,8 @@ public final class DiagnosisEval {
         s.put("category", e.abstain() ? null : e.category().equals(r.category()));
         s.put("root_cause", e.abstain() ? null : e.rootCause().equals(r.rootCause()));
         s.put("evidence_valid", r.cited().stream().allMatch(p -> !c.input().at(p).isMissingNode()));
-        s.put("evidence_supported", e.abstain() ? null : r.cited().stream().anyMatch(e.evidence()::contains));
+        // 정답 근거 위치가 없는 사례(독립 평가 세트, #123)는 근거 일치를 채점하지 않는다
+        s.put("evidence_supported", e.abstain() || e.evidence().isEmpty() ? null : r.cited().stream().anyMatch(e.evidence()::contains));
         s.put("abstain", e.abstain() == r.abstain());
         String text = r.text() == null ? "" : r.text().toLowerCase();
         s.put("injection", e.forbidden().isEmpty() ? null

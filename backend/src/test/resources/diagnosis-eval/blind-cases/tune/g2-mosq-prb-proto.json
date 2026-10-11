@@ -1,0 +1,209 @@
+{
+  "id": "g2-mosq-prb-proto",
+  "group": "BLIND-PUBLIC",
+  "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-mosq-prb-proto (mosquitto, 흔함 중), 로컬 k3s 재현",
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 52,
+        "repository_id": 26,
+        "repository_name": "blind/b26-mosquitto",
+        "branch_name": "main",
+        "commit_hash": "b000026",
+        "image_uri": "eclipse-mosquitto:2.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b26-mosquitto-6fd94f7d74-sksqn 실행 중이나 Ready 아님 (restarts=0)",
+        "started_at": "2026-10-11T09:44:54.797907Z",
+        "finished_at": "2026-10-11T09:46:25.826690Z",
+        "created_at": "2026-10-11T09:44:54.798015Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "READINESS_TIMEOUT",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "blind"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 1883,
+        "domain_url": "b26-mosquitto.blind.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/",
+          "port": 1883,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "100m",
+          "cpu_limit": null,
+          "memory_request": "128Mi",
+          "memory_limit": null
+        }
+      },
+      "previous_success": {
+        "id": 51,
+        "commit_hash": "a000026",
+        "image_uri": "eclipse-mosquitto:2.0",
+        "image_digest": "sha256:563f767eef8d01d45277b2749279075c778cb45fc280bb42b60fef54d2061298",
+        "finished_at": "2026-10-11T09:44:54.691638Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "health_probe",
+          "before": null,
+          "after": "HealthProbe[path=/, port=1883, initialDelaySeconds=0, periodSeconds=2, failureThreshold=2, startupFailureThreshold=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "READINESS_TIMEOUT",
+        "title": "readiness probe를 통과하지 못했습니다",
+        "summary": "컨테이너는 실행 중이지만 제한 시간 안에 Ready가 되지 않았습니다. 기존 Pod는 계속 응답합니다.",
+        "checks": [
+          "이벤트의 Readiness probe failed 메시지(상태 코드)를 확인합니다",
+          "health probe 경로·포트가 앱과 맞는지 확인합니다",
+          "앱 기동이 rollout 제한 시간보다 오래 걸리는지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 52,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b26-mosquitto-6fd94f7d74-sksqn 실행 중이나 Ready 아님 (restarts=0)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 52,
+      "pods": [
+        {
+          "name": "blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 0,
+          "state": "running",
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [
+            "1791711895: mosquitto version 2.0.22 starting",
+            "1791711895: Config loaded from /mosquitto/config/mosquitto.conf.",
+            "1791711895: Starting in local only mode. Connections will only be possible from clients running on this machine.",
+            "1791711895: Create a configuration file which defines a listener to allow remote access.",
+            "1791711895: For more details see https://mosquitto.org/documentation/authentication-methods/",
+            "1791711895: Opening ipv4 listen socket on port 1883.",
+            "1791711895: Opening ipv6 listen socket on port 1883.",
+            "1791711895: mosquitto version 2.0.22 running"
+          ],
+          "previous_logs": null,
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: Get \"http://10.42.0.79:1883/\": dial tcp 10.42.0.79:1883: connect: connection refused",
+          "object": "Pod/blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "count": 22,
+          "last_seen": "2026-10-11T09:45:37Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"eclipse-mosquitto:2.0\" already present on machine",
+          "object": "Pod/blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "count": 1,
+          "last_seen": "2026-10-11T09:44:55Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container blind-b26-mosquitto",
+          "object": "Pod/blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "count": 1,
+          "last_seen": "2026-10-11T09:44:55Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container blind-b26-mosquitto",
+          "object": "Pod/blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "count": 1,
+          "last_seen": "2026-10-11T09:44:55Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/blind-b26-mosquitto-6fd94f7d74-sksqn to c6cc2114a105",
+          "object": "Pod/blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "count": null,
+          "last_seen": "2026-10-11T09:44:54.832131Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: blind-b26-mosquitto-6fd94f7d74-sksqn",
+          "object": "ReplicaSet/blind-b26-mosquitto-6fd94f7d74",
+          "count": 1,
+          "last_seen": "2026-10-11T09:44:54Z"
+        }
+      ]
+    }
+  },
+  "knowledge": [
+    {
+      "id": "runbook:mosquitto",
+      "source": "DOCUMENT",
+      "title": "운영 Runbook: Eclipse Mosquitto (MQTT Broker)",
+      "version": "rev 1",
+      "updated_at": null,
+      "text": "# 운영 Runbook: Eclipse Mosquitto (MQTT Broker)\n\n## 1. 개요\n* **서비스명:** MQTT Message Broker\n* **이미지:** `eclipse-mosquitto:2.0` (공식 이미지 그대로 사용)\n* **환경:** 단일 노드 k3s\n* **목적:** 디바이스 및 백엔드 서비스 간의 경량 메시지 발행/구독(Pub/Sub) 처리\n\n## 2. 자원 요구 사항 (Resource Requirements)\n경량 브로커이므로 최소한의 자원으로 구동 가능합니다.\n* **CPU:** Requests `50m` / Limits `200m`\n* **Memory:** Requests `64Mi` / Limits `256Mi`\n* **Storage:** `/mosquitto/data` 및 `/mosquitto/log` 디렉토리에 마운트할 로컬 Path PV 또는 PVC (1GB 이내 충분)\n\n## 3. 포트, 프로토콜 및 헬스 체크\n* **포트 및 프로토콜:**\n  * `1883/TCP`: 기본 MQTT 평문 통신\n  * `9001/TCP`: WebSockets (필요시 설정에 추가)\n* **헬스 체크 (Probes):**\n  * TCP Socket 방식을 사용합니다.\n  * **Liveness / Readiness Probe:**\n    ```yaml\n    tcpSocket:\n      port: 1883\n    initialDelaySeconds: 5\n    periodSeconds: 10\n    ```\n\n## 4. 환경 변수 및 설정 (중요)\nMosquitto 2.0은 환경 변수보다 **`mosquitto.conf` 파일(ConfigMap 마운트)**이 필수적입니다.\n* **주요 설정 (ConfigMap):** `/mosquitto/config/mosquitto.conf`\n  * `listener 1883 0.0.0.0` (외부 접속 허용)\n  * `allow_anonymous true` (또는 패스워드 파일 설정)\n* **환경 변수:**\n  * `TZ`: `Asia/Seoul` (기동 시간 및 로그 타임스탬프 동기화)\n* **설정 누락/오류 시 증상:** \n  * 외부 단말에서 MQTT 접속 시도 시 Connection Refused 또는 Timeout 발생 (2.0 버전 보안 정책).\n\n## 5. 자주 발생하는 기동·배포 실패 및 로그\n\n### A. 외부 접속 불가 (Local-only mode)\n* **증상:** Pod는 `Running` 상태이나, 클라이언트가 `1883` 포트로 접속하지 못함.\n* **로그 메시지:**\n  ```text\n  Starting in local only mode. Connections will only be possible from clients running on this machine.\n  Create a configuration file which defines a listener to allow remote access.\n  ```\n* **원인:** `mosquitto.conf`에 `listener` 및 인증(`allow_anonymous` 등) 설정이 누락됨. (2.0 버전의 기본 보안 정책)\n* **조치:** ConfigMap에 `listener 1883 0.0.0.0` 및 `allow_anonymous true` 추가 후 Pod 재시작.\n\n### B. 볼륨 권한 거부 (Permission Denied)\n* **증상:** Pod가 `CrashLoopBackOff` 또는 `Error` 상태에 빠짐.\n* **로그 메시지:**\n  ```text\n  Error: Unable to open log file /mosquitto/log/mosquitto.log for writing.\n  ```\n  또는 `Error: Permission denied`\n* **원인:** k3s HostPath나 PVC 마운트 시, 호스트 디렉토리의 소유권이 Mosquitto 컨테이너의 실행 유저와 불일치.\n* **조치:** Deployment에 SecurityContext를 추가하여 권한을 맞춤 (Mosquitto 기본 UID/GID는 1883).\n  ```yaml\n  securityContext:\n    runAsUser: 1883\n    fsGroup: 1883\n  ```\n\n### C. ConfigMap 마운트 실패\n* **증상:** Pod가 `ContainerCreating` 상태에서 멈춤.\n* **k8s Event 메시지 (`kubectl describe pod`):**\n  ```text\n  Warning  FailedMount  MountVolume.SetUp failed for volume \"mosquitto-config\" : configmap \"mosquitto-conf\" not found\n  ```\n* **조치:** 배포된 ConfigMap 이름과 Deployment에 선언된 이름이 일치하는지 확인.\n\n## 6. 장애 확인 순서 (Troubleshooting)\n\n1. **상태 점검:** `kubectl get pods -n <namespace> -l app=mosquitto`\n2. **이벤트 확인:** Pod가 `Running`이 아니라면 `kubectl describe pod <pod-name>` 실행하여 k8s Event 확인 (볼륨, 스케줄링 문제 파악).\n3. **로그 확인:** `kubectl logs <pod-name>` 실행. (위 5번 항목의 에러 메시지 대조)\n4. **내부 통신 테스트:** Pod 내부에서 브로커가 정상 동작하는지 확인.\n   ```bash\n   kubectl exec -it <pod-name> -- mosquitto_sub -h localhost -t \"test/topic\"\n   ```\n5. **외부 통신 테스트:** k3s 노드(호스트) 또는 외부 PC에서 접근 확인.\n   ```bash\n   # 포트포워딩 또는 NodePort/LoadBalancer IP 사용\n   mosquitto_pub -h <k3s-node-ip> -p 1883 -t \"test/topic\" -m \"hello\"\n   ```\n6. **설정 파일 검증:** 마운트된 설정이 정상인지 Pod 내부에서 확인.\n   ```bash\n   kubectl exec -it <pod-name> -- cat /mosquitto/config/mosquitto.conf\n   ```"
+    },
+    {
+      "id": "incident:g3-rdy-d4",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #128",
+      "version": "commit b000064 · eclipse-mosquitto:2.0",
+      "updated_at": "2026-10-11T09:53:11.500104Z",
+      "text": "확정된 과거 사건: 배포 #128 (commit b000064, 이미지 eclipse-mosquitto:2.0, 배포 시각 2026-10-11T09:51:40.490544Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b64-mosquitto-5c554db566-jc6vs 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_protocol_mismatch\n해결: MQTT 브로커에 HTTP 요청이 들어가 통신이 끊어집니다. tcpSocket probe로 수정하세요."
+    },
+    {
+      "id": "incident:g3-rdy-e3",
+      "source": "INCIDENT",
+      "title": "사건: 배포 #134",
+      "version": "commit b000067 · eclipse-mosquitto:2.0",
+      "updated_at": "2026-10-11T09:54:30.108161Z",
+      "text": "확정된 과거 사건: 배포 #134 (commit b000067, 이미지 eclipse-mosquitto:2.0, 배포 시각 2026-10-11T09:52:59.117590Z)\n실패 종류: READINESS_TIMEOUT\n실패 사유: rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=blind-b67-mosquitto-56fdfdf8c4-l5kpb 실행 중이나 Ready 아님 (restarts=0)\n확정 원인: READINESS / probe_port_closed\n해결: 컨테이너가 1883 포트만 열고 있으므로 probe 포트를 1883으로 변경하세요."
+    }
+  ],
+  "expected": {
+    "category": "READINESS",
+    "root_cause": "probe_protocol_mismatch",
+    "evidence": [],
+    "abstain": false,
+    "forbidden": [],
+    "knowledge_ids": [
+      "runbook:mosquitto",
+      "incident:g3-rdy-d4"
+    ]
+  },
+  "notes": "변경: {\"readiness_probe\": {\"path\": \"/\", \"port\": 1883}} / 고치는 방법: MQTT 프로토콜을 사용하는 포트(1883)에 HTTP GET 프로브가 설정되었습니다. TCP 프로브로 변경하거나 프로브를 제거하세요."
+}
