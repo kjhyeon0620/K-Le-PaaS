@@ -119,7 +119,7 @@ DELETE /api/v1/deployments/{id}/incident
 
 에이전트 복구 제안(#102): `recovery-proposal`(PROPOSE_ONLY 이상, 본문 `reason` 선택)은 그 배포로 복구하는 승인 대기 명령(ROLLBACK, 계획 지문 고정)만 만들고 실행하지 않습니다. 응답은 `nlp/command`와 같은 형식이며, 사람이 `nlp/confirm`(FULL)으로 승인해야 실행됩니다. 실행할 수 없는 계획이면 409 `DEPLOY_005`로 명령을 만들지 않습니다.
 
-운영문서·장애 이력 RAG(#104): 앱 소유자가 운영 문서(마크다운)를 넣고(`knowledge`), 실패 배포의 원인을 진단 라벨로 확정하면(`incident`) 진단할 때 그 앱의 문서·사건과 플랫폼 공통 runbook(`src/main/resources/knowledge/*.md`)을 검색해 근거로 씁니다. 진단 응답의 `knowledge`에 인용된 지식(종류·출처·앱·버전·시점·발췌)이 나오고, 관측 근거는 `cited`에 남습니다. `retrieved_knowledge`는 검색돼 입력에 들어간 지식 전체와 유사도·인용 여부입니다(#125). 임베딩은 `OPENAI_API_KEY`로 하며 키가 없으면 지식 없이 진단합니다. 조회는 READ_ONLY 이상, 변경은 FULL입니다.
+운영문서·장애 이력 RAG(#104): 앱 소유자가 운영 문서(마크다운)를 넣고(`knowledge`), 실패 배포의 원인을 진단 라벨로 확정하면(`incident`) 진단할 때 그 앱의 문서·사건과 플랫폼 공통 runbook(`src/main/resources/knowledge/*.md`)을 검색해 근거로 씁니다. 진단 응답의 `knowledge`에 인용된 지식(종류·출처·앱·버전·시점·발췌)이 나오고, 관측 근거는 `cited`에 남습니다. `retrieved_knowledge`는 검색돼 입력에 들어간 지식 전체와 유사도·인용 여부입니다(#125). 임베딩은 `OPENAI_API_KEY`로 하며 키가 없으면 지식 없이 진단합니다. 진단에 지식을 넣는 것은 `DIAGNOSIS_RAG_ENABLED=true`일 때만이고 기본은 꺼져 있습니다(#123 독립 평가에서 개선이 없어 끔, #129). 조회는 READ_ONLY 이상, 변경은 FULL입니다.
 
 MCP 서버(#103): `/api/v1/mcp`는 공식 MCP Java SDK의 세션 없는 Streamable HTTP endpoint입니다. CLI 토큰을 `Authorization: Bearer`로 받고(READ_ONLY·PROPOSE_ONLY·FULL), 조회·진단·복구 계획·복구 제안 도구 7개를 제공합니다. 도구는 위 REST와 같은 서비스를 호출하며 승인·실행 도구는 없습니다. 클라이언트 설정과 도구는 [MCP 문서](../docs/MCP.md)에 있습니다.
 
