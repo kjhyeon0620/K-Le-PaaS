@@ -843,6 +843,8 @@ export interface DeploymentDiagnosis {
   warnings: string[]
   // 모델이 인용한 검색 지식: 앱 문서·확정 사건·플랫폼 runbook (#104)
   knowledge?: { source: string; ref: string; title: string; repository: string; version: string | null; updated_at: string | null; excerpt: string }[]
+  // 검색돼 입력에 들어간 지식 전체와 인용 여부 (#125)
+  retrieved_knowledge?: { source: string; ref: string; title: string; repository: string; version: string | null; similarity: number; cited: boolean }[]
   reused: boolean
   diagnosed_at: string | null
 }

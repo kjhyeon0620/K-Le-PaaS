@@ -170,6 +170,9 @@ class DeploymentDiagnosisServiceTest {
         assertThat(prompt.getValue()).contains("\"knowledge\":[").contains("E_BOOT_17").contains("지식 규칙");
         assertThat(result.promptVersion()).isEqualTo(DiagnosisPrompt.RAG_VERSION);
         assertThat(result.cited()).extracting(DiagnosisPrompt.Citation::pointer).containsExactly("/detail/deployment/fail_reason");
+        // 검색된 지식 전체와 인용 여부 (#125): 플랫폼 runbook은 검색됐지만 인용되지 않았다
+        assertThat(result.retrievedKnowledge()).extracting(r -> r.ref() + ":" + r.cited() + ":" + r.similarity())
+                .containsExactly("doc:3:true:0.61", "platform:image-pull.md:false:0.31");
         assertThat(result.knowledge()).singleElement().satisfies(k -> {
             assertThat(k.ref()).isEqualTo("doc:3");
             assertThat(k.version()).isEqualTo("rev 2");
@@ -193,11 +196,12 @@ class DeploymentDiagnosisServiceTest {
         assertThat(result.promptVersion()).isEqualTo(DiagnosisPrompt.VERSION);
         assertThat(result.warnings()).contains("지식 검색에 실패해 지식 없이 진단했습니다");
         assertThat(result.knowledge()).isEmpty();
+        assertThat(result.retrievedKnowledge()).isEmpty();
     }
 
     private static DeploymentDiagnosisResponse stored(String category) {
         return new DeploymentDiagnosisResponse(7L, "luna-2026", DiagnosisPrompt.VERSION, category, "required_env_missing",
-                false, "요약", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), false, null);
+                false, "요약", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), false, null);
     }
 
     @Test

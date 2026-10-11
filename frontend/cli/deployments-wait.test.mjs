@@ -221,7 +221,10 @@ test("knowledge put·incidents confirm·diagnose 지식 근거 (#104)", async (t
         root_cause: "required_env_missing", abstain: false, summary: "요약", observed_facts: [], hypotheses: [], next_checks: [],
         cited: [], warnings: [], reused: false, diagnosed_at: null,
         knowledge: [{ source: "INCIDENT", ref: "incident:7", title: "사건: 배포 #7", repository: "owner/app",
-          version: "commit abc1234 · img", updated_at: null, excerpt: "확정 원인: ENV_CONFIG" }] };
+          version: "commit abc1234 · img", updated_at: null, excerpt: "확정 원인: ENV_CONFIG" }],
+        retrieved_knowledge: [
+          { source: "INCIDENT", ref: "incident:7", title: "사건: 배포 #7", repository: "owner/app", version: null, similarity: 0.71, cited: true },
+          { source: "PLATFORM", ref: "platform:crashloop-config.md", title: "반복 종료", repository: "platform", version: null, similarity: 0.52, cited: false }] };
       response.end(JSON.stringify({ status: "success", data }));
     });
   });
@@ -244,4 +247,5 @@ test("knowledge put·incidents confirm·diagnose 지식 근거 (#104)", async (t
   assert.deepEqual(requests[1], { method: "PUT", url: "/api/v1/deployments/7/incident",
     body: { category: "ENV_CONFIG", root_cause: "required_env_missing", resolution: "env 복구" } });
   assert.match(diagnose.stdout, /지식 근거:\n\s+\[INCIDENT\] 사건: 배포 #7 \(owner\/app, commit abc1234/);
+  assert.match(diagnose.stdout, /지식 검색: 2건 \(인용 1\)\n\s+\* \[INCIDENT\] 사건: 배포 #7 \(유사도 0.71\)\n\s+\[PLATFORM\] 반복 종료 \(유사도 0.52\)/);
 });
