@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
+import { PreviewNotice } from "@/components/preview-notice"
 import { useGlobalWebSocket } from "@/hooks/use-global-websocket"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -1198,7 +1199,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="repositories">Repositories</TabsTrigger>
-          <TabsTrigger value="pullrequests">Pull Requests</TabsTrigger>
+          <TabsTrigger value="pullrequests">Pull Requests (준비 중)</TabsTrigger>
           <TabsTrigger value="pipelines">CI/CD Pipelines</TabsTrigger>
         </TabsList>
 
@@ -1312,8 +1313,11 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
                         >
                           <Settings className="w-3 h-3" />
                         </Button>
+                        {/* 저장소별 웹훅 설정 API가 없어 끈다 (#59). KANIKO 경로는 push webhook, 외부 이미지 경로는 CI가 배포 API를 호출한다 */}
                         <Switch 
                           checked={repo.autoDeployEnabled} 
+                          disabled
+                          title="준비 중: 저장소별 자동 배포 설정 API가 없습니다"
                           onCheckedChange={(checked) => handleWebhookToggle(repo.id, checked)}
                         />
                       </div>
@@ -1358,6 +1362,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
         </TabsContent>
 
         <TabsContent value="pullrequests" className="space-y-4">
+          <PreviewNotice>Pull Request 조회 API가 없어 목록이 비어 있습니다.</PreviewNotice>
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">

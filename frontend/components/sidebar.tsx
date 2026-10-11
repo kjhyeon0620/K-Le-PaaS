@@ -19,7 +19,7 @@ const navigation = [
   { name: "Commands", href: "commands", icon: Terminal },
   { name: "Deployments", href: "deployments", icon: GitBranch },
   { name: "GitHub", href: "github", icon: Github },
-  { name: "Monitoring", href: "monitoring", icon: Activity },
+  { name: "Monitoring", href: "monitoring", icon: Activity, preview: true },
   { name: "Settings", href: "settings", icon: Settings },
 ]
 
@@ -94,6 +94,9 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
               >
                 <Icon className={cn("w-4 h-4", !collapsed && "mr-3")} />
                 {!collapsed && item.name}
+                {!collapsed && "preview" in item && item.preview && (
+                  <span className="ml-auto text-[10px] text-sidebar-foreground/60">준비 중</span>
+                )}
               </Button>
             )
           })}
@@ -101,7 +104,7 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">
-          {!collapsed && <div className="text-xs text-sidebar-foreground/60">NCP K8s Automation Platform</div>}
+          {!collapsed && <div className="text-xs text-sidebar-foreground/60">Agent-safe Kubernetes PaaS</div>}
         </div>
       </div>
     </div>

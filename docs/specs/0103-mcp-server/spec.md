@@ -78,7 +78,27 @@ branch: feat/#103-mcp-server
 - 의존성: `io.modelcontextprotocol.sdk:mcp:2.0.1`(reactor-core, json-schema-validator 포함). SDK는 Jackson 3.1.4로 빌드됐고 앱은 Spring Boot가 관리하는 3.0.4로 실행된다. 테스트한 경로(프로토콜·도구 호출·스키마 검사)는 동작했다.
 
 ## 운영 반영
-- 마이그레이션·설정 변경 없음. 배포 후 사용자가 PROPOSE_ONLY 토큰으로 클라이언트를 등록해 확인한다(`docs/CLI_REFERENCE.md` MCP로 연결).
+- 마이그레이션·설정 변경 없음. 배포 후 사용자가 PROPOSE_ONLY 토큰으로 클라이언트를 등록해 확인한다(`docs/MCP.md`).
+
+### 실서버 검증 (2026-10-11, 사용자가 Codex로 실행)
+- 방법: Codex가 저장소 문서(`docs/MCP.md`)와 MCP 도구 정보만 보고 실서버에 연결했다(구현 소스 미열람). MCP HTTP 요청과 데스크톱 앱 세션에서 직접 호출했다. 토큰 값은 남기지 않았다.
+
+| 항목 | 결과 | 확인한 동작 |
+|---|---|---|
+| 도구 목록 | 통과 | 문서의 도구 7개와 일치 |
+| `list_repositories`, `list_deployments` | 통과 | 소유 앱 목록, 배포 이력과 상태 |
+| `get_deployment_detail` | 통과 | 실패 종류 CRASH_LOOP, exit 1, 직전 성공 대비 env 삭제 |
+| `get_deployment_logs` | 통과 | 과거 배포는 `NOT_CURRENT`와 빈 목록, 현재 배포는 `AVAILABLE`과 Pod·로그 |
+| `diagnose_deployment` | 통과 | 근거 부족 시 판단 보류, 첫 호출 `reused=false` → 다음 호출 `reused=true` |
+| `get_recovery_plan` | 통과 | 이전 성공 배포 대상 실행 가능, digest 고정 이미지 |
+| `propose_recovery` | 통과 | HIGH, `requires_confirmation=true` 승인 대기 제안 1건(승인하지 않음) |
+| 없는 배포 ID | 통과 | `isError=true`, `DEPLOY_001` |
+| 입력 범위 초과(`lines=500`) | 통과 | `isError=true`, 스키마 검증 오류 |
+| 조회 전용으로 준비한 토큰 | 통과 | 제안 외 6개 도구 호출 |
+| 배포 전용 토큰 / 인증 없음 | 통과 | HTTP 403 / 401 |
+
+- 한계: 토큰 scope는 발급 시 지정한 구분을 기준으로 했고 서버 메타데이터로 대조하지 않았다. READ_ONLY의 제안 거절(`CLI_005`)과 다른 사용자 자원 차단은 실서버에서 확인하지 않았다(자동 테스트 `McpServerHttpTest`로만 확인). 승인·배포·재시작·스케일은 실행하지 않았다.
+- 문서 보완(이 결과 반영): 과거 배포 로그 `NOT_CURRENT`, `refresh` 생략 시 진단 생성 조건, 업무 오류와 스키마 오류의 응답 형식 차이, 데스크톱 앱의 토큰 환경 변수 전달.
 
 ## 회고
 - 어긋난 점: 처음 질문에서 원격 HTTP와 TypeScript SDK를 함께 제시해 백엔드 언어와 맞지 않는 조합이 나왔다. 재질문으로 Java SDK로 정했다. 새 Spring 테스트 컨텍스트가 공유 테스트 DB의 연결 수를 넘겨 다른 테스트가 실패했고, 기존 HTTP 테스트와 같은 설정을 써서 컨텍스트를 공유했다.

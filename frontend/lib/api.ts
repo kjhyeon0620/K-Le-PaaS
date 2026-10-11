@@ -196,9 +196,10 @@ class ApiClient {
     }
   }
 
-  // ─── Dashboard (not in Java backend — stub) ───────────────────────────────
+  // ─── Dashboard (not in Java backend — stub, 연결된 저장소만 실제 API) ─────────
 
   async getDashboardData() {
+    const { repositories = [] } = await this.getProjectIntegrations()
     return {
       clusters: 0,
       deployments: 0,
@@ -207,7 +208,7 @@ class ApiClient {
       cpuUsage: 0,
       memoryUsage: 0,
       systemHealth: [] as Array<{ service: string; status: 'healthy' | 'warning' | 'error' }>,
-      connectedRepositories: [],
+      connectedRepositories: repositories,
       pullRequests: [],
     }
   }

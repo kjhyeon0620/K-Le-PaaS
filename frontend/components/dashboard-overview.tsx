@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PreviewBadge } from "@/components/preview-notice"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -244,7 +245,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
         {/* Alerts Card */}
         <Card className="lg:order-4">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Alerts</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">Alerts <PreviewBadge /></CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -291,7 +292,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
         </Card>
         <Card className="lg:order-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pull Requests</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">Pull Requests <PreviewBadge /></CardTitle>
             <GitPullRequest className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -334,7 +335,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
 
         <Card className="lg:order-3">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Utilization</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">System Utilization <PreviewBadge /></CardTitle>
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
