@@ -34,6 +34,7 @@ import static org.mockito.Mockito.*;
 /** 지식 색인·검색 (#104): 실제 PostgreSQL(V9), 임베딩은 단어 기반 가짜 벡터. */
 @DataJpaTest
 @Import({KnowledgeService.class, ResourceAccessService.class, JpaConfig.class})
+@org.springframework.test.context.TestPropertySource(properties = "diagnosis.rag.enabled=true")
 class KnowledgeServiceTest {
 
     @Autowired private KnowledgeService knowledge;
@@ -115,6 +116,17 @@ class KnowledgeServiceTest {
         assertThat(found.get(0).repository()).isEqualTo("kn/orders");
         // 질의와 관계없는 플랫폼 runbook은 기준값 아래라 빠진다
         assertThat(found).noneMatch(f -> f.source().equals("PLATFORM"));
+    }
+
+    @Test
+    void disabledSearchReturnsNothingWithoutEmbedding() {
+        knowledge.putDocument(app.getId(), "runbook", new PutDocumentRequest("orders 운영", "E_BOOT_17 → ADMIN_PASSWORD 확인"), owner.getId());
+        clearInvocations(embeddings);
+        var disabled = new KnowledgeService(null, documents, null, chunks, embeddings, 4, 0.45, false);
+
+        assertThat(disabled.enabled()).isFalse();
+        assertThat(disabled.search(app.getId(), "kn/orders", 1L, "{\"detail\":{\"deployment\":{\"fail_reason\":\"E_BOOT_17\"}}}")).isEmpty();
+        verify(embeddings, never()).embed(anyList());
     }
 
     @Test

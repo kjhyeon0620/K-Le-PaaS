@@ -101,6 +101,9 @@ diagnosis:
     reasoning-effort: ${DIAGNOSIS_LLM_REASONING_EFFORT:}
   # 운영문서·확정 사건 검색 (#104). 임베딩은 OPENAI_API_KEY를 쓰고, 키가 없으면 지식 없이 진단한다 (스펙 0104)
   rag:
+    # 진단에 지식을 넣을지 (#129). #123 독립 평가에서 개선이 없고 비용만 14~24% 늘어 기본으로 끈다.
+    # 로그만으로 원인을 알 수 없는 실제 사례가 쌓이면 다시 측정하고 켠다. 꺼져도 문서·사건 저장과 API는 동작한다
+    enabled: ${DIAGNOSIS_RAG_ENABLED:false}
     embedding-model: ${DIAGNOSIS_RAG_EMBEDDING_MODEL:text-embedding-3-small}
     top-k: ${DIAGNOSIS_RAG_TOP_K:4}
     # RAG 평가에서 관련 지식은 0.5 이상, 관계없는 문서는 0.39였다

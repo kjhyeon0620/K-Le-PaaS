@@ -147,7 +147,7 @@ POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소�
   → 입력 = {"detail": 배포 상세 응답, "logs": 로그 응답(40줄)}  (API와 같은 JSON)
   → Pod·이벤트·설정 변경이 없고 실패 종류가 원인을 가리키지 않으면 모델 없이 판단 보류 (model=rule, no-evidence-v1)
   → 비밀값 패턴 가림 (JSON 구조·위치 유지)
-  → 지식 검색 (#104): 그 앱의 문서·확정 사건(진단 중인 배포 제외)과 플랫폼 runbook 조각만 읽어 질의 임베딩과 코사인 유사도 상위 4개(기준값 이상)를
+  → 지식 검색 (#104, `diagnosis.rag.enabled`가 켜졌을 때만. 기본 꺼짐 #129): 그 앱의 문서·확정 사건(진단 중인 배포 제외)과 플랫폼 runbook 조각만 읽어 질의 임베딩과 코사인 유사도 상위 4개(기준값 이상)를
     입력의 knowledge로 더함. 없으면 입력·프롬프트가 지식 없는 경우와 같음(diagnosis-v1), 있으면 diagnosis-v2-rag. 검색 실패는 warning만 남김
   → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
   → 서버 검증: 라벨 목록(DiagnosisLabels) 밖이면 버림, 입력에 없는 근거 위치 버림, 근거 없는 단정은 판단 보류로, 근거 원문은 입력에서 잘라 넣음
@@ -174,6 +174,7 @@ DELETE /api/v1/deployments/{id}/incident            (FULL)
 - 저장(V9): `knowledge_documents`, `incidents`, `knowledge_chunks`. 조각은 제목 단위·800자로 나누고 `text-embedding-3-small` 벡터를 float32 bytea로 둔다. 검색은 앱에서 코사인 유사도를 계산한다(pgvector 없음, 앱당 조각 수천 개까지).
 - 갱신은 그 원천의 조각을 지우고 다시 만든다. 임베딩을 먼저 만들고 저장하므로 임베딩 실패(`AI_001`)면 아무것도 바뀌지 않는다.
 - 사건은 사람이 라벨(DiagnosisLabels)로 확정할 때만 만든다. AI 진단 결과는 자동으로 들어가지 않는다.
+- 진단 검색과 플랫폼 runbook 기동 색인은 `diagnosis.rag.enabled`가 켜졌을 때만 한다(기본 꺼짐, #129). #123 독립 평가 세트에서 개선이 없고(116/117 → 114/117) 비용이 14~24% 늘었기 때문이다. 로그만으로 원인을 알 수 없는 실제 사례가 쌓이면 다시 측정한다.
 - `OPENAI_API_KEY`가 없으면 색인·검색을 하지 않고 진단은 지식 없이 동작한다. 문서 변경 뒤의 저장 진단은 `refresh`로 다시 만든다.
 
 #### 재시작 대조 (#57, `InterruptedWorkReconciler`)
@@ -289,6 +290,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | 자연어 해석 모델 |
 | `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai). 선택한 공급사 키가 없으면 진단만 실패 |
 | `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115) |
+| `diagnosis.rag.enabled` | `${DIAGNOSIS_RAG_ENABLED:false}` | 진단에 지식을 넣을지. #123 독립 평가에서 개선이 없어 기본 꺼짐. 꺼져도 문서·사건 저장과 API는 동작 (#129) |
 | `diagnosis.rag.embedding-model` / `top-k` / `min-similarity` | `text-embedding-3-small` / `4` / `0.45` | 지식 검색 임베딩 모델, 상위 개수, 유사도 기준 (스펙 0104) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
 | `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |

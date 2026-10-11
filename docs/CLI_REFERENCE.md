@@ -145,7 +145,7 @@ klepaas deployments diagnose 42 --refresh
 
 `deployments recovery-plan <target-id>`는 이전 성공 배포 `<target-id>`로 복구하는 계획(배포할 이미지, digest 고정 여부, 되돌릴 설정, env 차이, 실행 불가 이유)을 출력한다. `deployments recover <target-id>`는 계획을 출력한 뒤 확인을 받고(`--yes`면 생략) 그 계획 지문으로 실행한다. 실행할 수 없는 계획이거나 확인 후 계획이 바뀌었으면(409) 종료 코드 `1`이다. `--json`은 `recovery-plan`에서 계획을, `recover`에서 `{plan, deployment}`를 출력한다. 결과는 `deployments wait <새 배포 id>`로 확인한다 (#101).
 
-`knowledge list|put|rm --repository-id <id>`는 앱 운영 문서를 관리한다. `put --slug <slug> --file <markdown>`은 문서를 만들거나 고치고(제목은 `--title` 또는 파일의 첫 `# ` 제목), 진단할 때 그 앱의 검색 근거가 된다. `incidents confirm <deployment-id> --category <범주> --root-cause <원인> [--resolution <메모>]`는 실패 배포의 원인을 사람이 확정해 과거 사건으로 남기고, `incidents rm`으로 지운다. 범주·원인은 진단 라벨 목록에서 고른다. 변경은 전체 권한만 할 수 있다 (#104). `deployments diagnose` 출력의 `지식 근거`에 인용된 문서·사건·플랫폼 runbook이 나오고, `지식 검색`에 검색된 지식 전체와 유사도가 나온다(`*`는 인용, #125).
+`knowledge list|put|rm --repository-id <id>`는 앱 운영 문서를 관리한다. `put --slug <slug> --file <markdown>`은 문서를 만들거나 고치고(제목은 `--title` 또는 파일의 첫 `# ` 제목), 진단 RAG를 켰을 때(`DIAGNOSIS_RAG_ENABLED=true`, 기본 꺼짐) 그 앱의 검색 근거가 된다. `incidents confirm <deployment-id> --category <범주> --root-cause <원인> [--resolution <메모>]`는 실패 배포의 원인을 사람이 확정해 과거 사건으로 남기고, `incidents rm`으로 지운다. 범주·원인은 진단 라벨 목록에서 고른다. 변경은 전체 권한만 할 수 있다 (#104). `deployments diagnose` 출력의 `지식 근거`에 인용된 문서·사건·플랫폼 runbook이 나오고, `지식 검색`에 검색된 지식 전체와 유사도가 나온다(`*`는 인용, #125).
 
 `deployments propose-recovery <target-id>`는 이전 성공 배포 `<target-id>`로 복구하는 승인 대기 명령만 만든다(`propose-only` 이상). 자연어 해석 없이 그 배포의 복구 계획 지문을 고정하고, 아무것도 실행하지 않는다. 출력의 `Command Log` ID를 사람이 전체 권한으로 10분 안에 `klepaas confirm <id>`로 승인해야 실행된다. 실행할 수 없는 계획이면 409로 종료 코드 `1`이다. `--reason`(200자 이하)은 승인할 사람에게 보일 제안 사유로 명령 이력에 남는다 (#102).
 

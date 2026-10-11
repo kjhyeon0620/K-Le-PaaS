@@ -27,6 +27,10 @@ public class PlatformKnowledgeIndexer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        if (!knowledgeService.enabled()) {
+            log.info("Platform knowledge not indexed: diagnosis.rag.enabled=false");
+            return;
+        }
         if (!embeddings.available()) {
             log.warn("Platform knowledge not indexed: OPENAI_API_KEY is not set");
             return;

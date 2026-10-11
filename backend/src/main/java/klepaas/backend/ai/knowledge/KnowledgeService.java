@@ -40,11 +40,14 @@ public class KnowledgeService {
     private final Embeddings embeddings;
     private final int topK;
     private final double minSimilarity;
+    // #123 독립 평가에서 개선이 없어 기본으로 끈다. 꺼져 있으면 진단 검색·임베딩을 하지 않는다. 문서·사건 저장은 그대로다
+    private final boolean enabled;
 
     public KnowledgeService(ResourceAccessService resourceAccessService, KnowledgeDocumentRepository documents,
                             IncidentRepository incidents, KnowledgeChunkRepository chunks, Embeddings embeddings,
                             @Value("${diagnosis.rag.top-k:4}") int topK,
-                            @Value("${diagnosis.rag.min-similarity:0.45}") double minSimilarity) {
+                            @Value("${diagnosis.rag.min-similarity:0.45}") double minSimilarity,
+                            @Value("${diagnosis.rag.enabled:false}") boolean enabled) {
         this.resourceAccessService = resourceAccessService;
         this.documents = documents;
         this.incidents = incidents;
@@ -52,6 +55,11 @@ public class KnowledgeService {
         this.embeddings = embeddings;
         this.topK = topK;
         this.minSimilarity = minSimilarity;
+        this.enabled = enabled;
+    }
+
+    public boolean enabled() {
+        return enabled;
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +144,7 @@ public class KnowledgeService {
      */
     @Transactional(readOnly = true)
     public List<KnowledgeItem> search(Long repositoryId, String repositoryName, Long deploymentId, String redactedInputJson) {
-        if (!embeddings.available()) return List.of();
+        if (!enabled || !embeddings.available()) return List.of();
         List<KnowledgeChunk> candidates = chunks.findSearchable(repositoryId).stream()
                 .filter(c -> c.getEmbeddingModel().equals(embeddings.model()))
                 .filter(c -> !(c.getSourceType() == Source.INCIDENT && deploymentId.equals(c.getDeploymentId())))
