@@ -45,6 +45,10 @@ public class KubernetesManifestGenerator {
     @Value("${kubernetes.rollout.timeout-ms:120000}")
     private long rolloutTimeoutMs;
 
+    // 앱별 대기 시간의 상한 (#108). 잘못된 probe 설정이 배포를 무한히 잡지 않게 한다
+    @Value("${kubernetes.rollout.max-timeout-ms:900000}")
+    private long maxRolloutTimeoutMs;
+
     @Value("${kubernetes.rollout.poll-interval-ms:2000}")
     private long rolloutPollIntervalMs;
 
@@ -157,7 +161,11 @@ public class KubernetesManifestGenerator {
      * 새 Pod가 회복되기 어려운 사유로 대기하면 즉시 FAILED, 시간 안에 결론이 없으면 타임아웃 FAILED.
      */
     public RolloutResult waitForRollout(String appName, long generation) {
-        long deadline = System.currentTimeMillis() + rolloutTimeoutMs;
+        return waitForRollout(appName, generation, rolloutTimeoutMs);
+    }
+
+    public RolloutResult waitForRollout(String appName, long generation, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
         Deployment last = null;
         while (System.currentTimeMillis() <= deadline) {
             try {
@@ -181,7 +189,7 @@ public class KubernetesManifestGenerator {
         }
         List<Pod> pods = podsAtTimeout(last, generation);
         String described = describePods(pods);
-        return RolloutResult.failed("rollout 타임아웃(" + rolloutTimeoutMs / 1000 + "초, generation=" + generation + "): "
+        return RolloutResult.failed("rollout 타임아웃(" + timeoutMs / 1000 + "초, generation=" + generation + "): "
                 + describeReplicas(last) + (described.isEmpty() ? "" : "; " + described), timeoutKind(pods));
     }
 
@@ -524,6 +532,18 @@ public class KubernetesManifestGenerator {
                     .endTemplate()
                 .endSpec()
                 .build();
+    }
+
+    /**
+     * 앱별 rollout 대기 시간 (#108): 기본값(이미지 pull·스케줄·readiness 몫) + startup probe가 허용한 기동 시간, 상한까지.
+     * startup 허용 = initialDelay(없으면 0) + period(없으면 Kubernetes 기본 10초) × startupFailureThreshold. startup probe가 없으면 기본값이다.
+     */
+    public long rolloutTimeoutMs(DeploymentConfig config) {
+        HealthProbe probe = config == null ? null : config.getHealthProbe();
+        long startupSeconds = probe == null || probe.startupFailureThreshold() == null ? 0
+                : (probe.initialDelaySeconds() == null ? 0 : probe.initialDelaySeconds())
+                + (long) (probe.periodSeconds() == null ? 10 : probe.periodSeconds()) * probe.startupFailureThreshold();
+        return Math.min(rolloutTimeoutMs + startupSeconds * 1000, Math.max(rolloutTimeoutMs, maxRolloutTimeoutMs));
     }
 
     // 설정이 없으면 null을 반환해 기존 manifest와 동일하게 probe를 생략한다

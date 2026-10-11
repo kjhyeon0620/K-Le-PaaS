@@ -97,7 +97,8 @@ POST /api/v1/deployments (FULL 또는 DEPLOY scope. DEPLOY는 지정 저장소�
        성공: 그 generation을 관측했고 Available, updated = available = desired, unavailable = 0
        FAILED: Progressing=False, 새 ReplicaSet Pod의 ImagePullBackOff·InvalidImageName·ErrImageNeverPull·
                CreateContainerConfigError·CrashLoopBackOff (타임아웃 전 즉시), Deployment 삭제,
-               `kubernetes.rollout.timeout-ms`(120초) 타임아웃 (readiness 실패, 스케줄 불가 등)
+               앱별 대기 시간 타임아웃 (readiness 실패, 스케줄 불가 등). 대기 시간 = `kubernetes.rollout.timeout-ms`(120초)
+               + startup probe 허용(initialDelay + period × startupFailureThreshold), 상한 `kubernetes.rollout.max-timeout-ms`(900초) (#108)
        CANCELED: 대기 중 다른 apply·restart·scale로 generation이 바뀜 (대체)
   → SUCCESS / FAILED / CANCELED (사유는 fail_reason), Slack·WebSocket 알림
   배포 요청 기록 (#95, 이전 배포는 null이고 "기록 없음"으로 표시, 추정하지 않음)
@@ -118,7 +119,7 @@ GET /api/v1/deployments/{id}/logs?lines=N (기본 100, 1~200)
 
 - 빌드 경로 기본값: `NCP → KANIKO`, `ON_PREMISE → GITHUB_ACTIONS_GHCR` ([ADR-0001](adr/0001-external-image-build.md)).
 - 외부 이미지 경로의 저장소는 raw push webhook을 무시한다. 이미지 push가 끝난 뒤 CI가 배포 API를 호출한다.
-- "진행 중"은 `PENDING`~`DEPLOYING` 상태이면서 마지막 갱신 후 `빌드 타임아웃 + rollout 타임아웃 + 10분` 이내인 배포다. 재시작 등으로 그보다 오래 멈춘 배포는 새 배포를 막지 않는다. 재시작 직후 대조 전에는 이전 프로세스의 배포도 이 규칙으로 새 요청을 막을 수 있다.
+- "진행 중"은 `PENDING`~`DEPLOYING` 상태이면서 마지막 갱신 후 `빌드 타임아웃 + rollout 대기 상한 + 10분` 이내인 배포다(#108). 재시작 등으로 그보다 오래 멈춘 배포는 새 배포를 막지 않는다. 재시작 직후 대조 전에는 이전 프로세스의 배포도 이 규칙으로 새 요청을 막을 수 있다.
 - 생성하는 리소스에는 `klepaas.io/repository-id` 라벨을 붙이고, 조회와 변경도 이 라벨과 설정된 namespace 안으로 제한한다 ([ADR-0006](adr/0006-resource-access-scope.md)).
 
 #### 이전 배포로 복구 (#101, `RecoveryService`)
@@ -285,6 +286,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `kubernetes.namespace` | `${K8S_NAMESPACE:default}` | 앱 리소스 namespace. 사용자 접근 범위 |
 | `kubernetes.image-pull-secret` | `${K8S_IMAGE_PULL_SECRET:ncp-cr}` | 기본 pull secret (저장소별 허용 필요) |
 | `kubernetes.runtime-resources.repositories` | - | 저장소별 허용 ConfigMap/Secret/pull secret 이름 (운영자 소유) |
+| `kubernetes.rollout.timeout-ms` / `max-timeout-ms` | 120000 / 900000 | rollout 판정 기본 대기 시간 / startup probe 허용을 더한 앱별 대기 시간의 상한(진행 중 판정 창도 상한 기준, #108) |
 | `kaniko.image` | `gcr.io/kaniko-project/executor:latest` | Kaniko 이미지 |
 | `deployment.domain.suffix` | `${DEPLOYMENT_DOMAIN_SUFFIX:klepaas.io}` | 기본 배포 도메인 |
 | `deployment.pipeline.poll-initial-interval` / `poll-max-interval` / `build-timeout` | 10s / 60s / 30m | 빌드 상태 polling |
@@ -321,7 +323,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 
 | 격차 | 영향 | 이슈 |
 |---|---|---|
-| rollout 타임아웃(`kubernetes.rollout.timeout-ms`, 120초)이 앱의 startup probe 허용 시간(`period_seconds × startup_failure_threshold`)과 무관한 고정값이다 | 기동이 120초보다 오래 걸리는 앱은 정상이어도 타임아웃 FAILED로 기록된다 | #108 |
 | 모니터링, alerts, PR 목록, Slack 설정, MCP 화면과 대시보드 상단 통계 카드(`getDashboardData` 고정값)가 stub이다 | 동작하지 않는 기능이 정상처럼 보인다 (예: 저장소가 있어도 "No repositories connected") | #59 |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |

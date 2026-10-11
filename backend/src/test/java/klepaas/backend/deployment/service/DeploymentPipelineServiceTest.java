@@ -54,7 +54,7 @@ class DeploymentPipelineServiceTest {
     private DeploymentPipelineService deploymentPipelineService;
 
     private static final DeploymentPipelineStepService.AppliedRollout APPLIED =
-            new DeploymentPipelineStepService.AppliedRollout("app", 3L);
+            new DeploymentPipelineStepService.AppliedRollout("app", 3L, 120_000L);
     private static final RolloutResult SUCCEEDED = new RolloutResult(RolloutResult.Outcome.SUCCEEDED, null);
 
     private Deployment ncpDeployment;
