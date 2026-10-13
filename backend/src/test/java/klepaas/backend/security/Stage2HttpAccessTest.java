@@ -233,6 +233,19 @@ class Stage2HttpAccessTest {
         int secondStatus = second.get(20, TimeUnit.SECONDS).path("_http_status").asInt();
         assertEquals(List.of(200, 409), List.of(firstStatus, secondStatus).stream().sorted().toList());
         evidence.append("A concurrent confirmations: statuses ").append(firstStatus).append(',').append(secondStatus).append('\n');
+
+        // 자연어 저장소 목록은 요청 사용자 것만 보인다 (#140)
+        when(nlpLlm.completeJson(any())).thenReturn(new klepaas.backend.ai.llm.LlmClient.Response(
+                "{\"intent\":\"LIST_REPOSITORIES\",\"args\":{},\"confidence\":1,\"message\":\"List\"}",
+                "test-model", new klepaas.backend.ai.llm.LlmClient.Usage(0, 0, null, null), 1));
+        JsonNode aList = ok("A JWT NLP repository list", send("POST", "/api/v1/nlp/command", aJwt,
+                "{\"command\":\"list repositories\"}")).path("data").path("result");
+        assertEquals("list_repositories", aList.path("type").asText());
+        assertTrue(aList.path("data").path("formatted").toString().contains("a-stage2/service"));
+        JsonNode bList = ok("B JWT NLP repository list", send("POST", "/api/v1/nlp/command", bJwt,
+                "{\"command\":\"list repositories\"}")).path("data").path("result");
+        assertEquals(0, bList.path("data").path("formatted").size());
+        assertFalse(bList.toString().contains("a-stage2"));
         verify(generator, times(1)).scale(eq("a-stage2-service"), eq(3), eq(repo.getId()));
     }
 

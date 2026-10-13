@@ -14,6 +14,7 @@ export type NLPResponseType =
   | 'deployment_status'
   | 'logs'
   | 'list_deployments'
+  | 'list_repositories'  // 전용 렌더러 없이 기본 보기(요약 + 데이터 JSON) (#140)
   | 'list_services'
   | 'list_ingresses'
   | 'list_namespaces'
