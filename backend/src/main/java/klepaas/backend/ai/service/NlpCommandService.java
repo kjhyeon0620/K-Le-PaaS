@@ -39,6 +39,7 @@ public class NlpCommandService {
     private final IntentParser intentParser;
     private final ActionDispatcher actionDispatcher;
     private final ApprovalTargetResolver approvalTargets;
+    private final NameTargets nameTargets;
     private final CommandLogRepository commandLogRepository;
     private final CommandConfirmationService confirmations;
     private final ConversationSessionRepository sessionRepository;
@@ -52,6 +53,7 @@ public class NlpCommandService {
             IntentParser intentParser,
             ActionDispatcher actionDispatcher,
             ApprovalTargetResolver approvalTargets,
+            NameTargets nameTargets,
             CommandLogRepository commandLogRepository,
             CommandConfirmationService confirmations,
             ConversationSessionRepository sessionRepository,
@@ -63,6 +65,7 @@ public class NlpCommandService {
         this.intentParser = intentParser;
         this.actionDispatcher = actionDispatcher;
         this.approvalTargets = approvalTargets;
+        this.nameTargets = nameTargets;
         this.commandLogRepository = commandLogRepository;
         this.confirmations = confirmations;
         this.sessionRepository = sessionRepository;
@@ -95,36 +98,34 @@ public class NlpCommandService {
         RiskLevel riskLevel = actionDispatcher.classifyRisk(parsedIntent.intent());
         boolean requiresConfirmation = riskLevel != RiskLevel.LOW;
 
-        // 인자 직렬화
-        String intentArgsJson = serializeArgs(parsedIntent);
+        // 앱 이름을 요청 사용자 저장소 하나로 해석해 대상을 인자에 고정한다 (#144). 승인 후 다시 찾지 않는다.
+        // 대상 intent(재시작·스케일·롤백·롤백 목록)가 아니면 인자를 그대로 돌려준다
+        NameTargets.Result named = nameTargets.resolve(parsedIntent.intent(), parsedIntent.args(), userId);
+        if (named.question() != null) {
+            return askBack(user, request, parsedIntent, riskLevel, responseText, session, named.question(), "대상 해석 실패");
+        }
+        parsedIntent = new ParsedIntent(parsedIntent.intent(), named.args(), parsedIntent.confidence(), parsedIntent.message());
 
         // 실행할 대상이 빠진 변경 명령은 승인 대기로 만들지 않고 되묻는다 (#135). 기록은 FAILED로 남긴다
         List<String> missingTargets = requiresConfirmation
                 ? ChangeTargets.missing(parsedIntent.intent(), parsedIntent.args()) : List.of();
         if (!missingTargets.isEmpty()) {
-            String question = ChangeTargets.question(parsedIntent.intent(), missingTargets);
-            CommandLog incomplete = CommandLog.builder()
-                    .user(user)
-                    .rawCommand(request.command())
-                    .interpretedIntent(parsedIntent.intent())
-                    .intentArgs(intentArgsJson)
-                    .riskLevel(riskLevel)
-                    .requiresConfirmation(false)
-                    .aiResponse(responseText)
-                    .session(session)
-                    .build();
-            incomplete.markFailed("대상 누락: " + String.join(", ", missingTargets));
-            commandLogRepository.save(incomplete);
-            session.touch();
-            sessionRepository.save(session);
-            return new NlpCommandResponse(incomplete.getId(), parsedIntent.intent(), question, null, riskLevel,
-                    false, session.getSessionToken(), null);
+            return askBack(user, request, parsedIntent, riskLevel, responseText, session,
+                    ChangeTargets.question(parsedIntent.intent(), missingTargets), "대상 누락: " + String.join(", ", missingTargets));
         }
+
+        // 인자 직렬화 (해석한 대상 포함)
+        String intentArgsJson = serializeArgs(parsedIntent);
 
         // 승인할 배포 설정을 고정한다 (#56). 확인하지 못하면 지문 없이 저장되고 confirm에서 거절된다
         var approval = requiresConfirmation
                 ? approvalTargets.resolve(parsedIntent.intent(), parsedIntent.args(), userId)
                 : java.util.Optional.<ApprovalTargetResolver.Resolved>empty();
+        // 재시작·스케일은 고정할 설정이 없고 대상만 보여 준다 (#144)
+        ApprovalTarget approvalTarget = approval.map(ApprovalTargetResolver.Resolved::target).orElse(null);
+        if (approvalTarget == null && requiresConfirmation) {
+            approvalTarget = approvalTargets.describe(parsedIntent.intent(), parsedIntent.args(), userId).orElse(null);
+        }
 
         // CommandLog 저장
         CommandLog commandLog = CommandLog.builder()
@@ -171,8 +172,29 @@ public class NlpCommandService {
                 riskLevel,
                 requiresConfirmation,
                 session.getSessionToken(),
-                approval.map(ApprovalTargetResolver.Resolved::target).orElse(null)
+                approvalTarget
         );
+    }
+
+    /** 승인 대기를 만들지 않고 되묻는다. 기록은 FAILED로 남긴다 (#135, #144) */
+    private NlpCommandResponse askBack(User user, NlpCommandRequest request, ParsedIntent parsedIntent, RiskLevel riskLevel,
+                                       String responseText, ConversationSession session, String question, String reason) {
+        CommandLog incomplete = CommandLog.builder()
+                .user(user)
+                .rawCommand(request.command())
+                .interpretedIntent(parsedIntent.intent())
+                .intentArgs(serializeArgs(parsedIntent))
+                .riskLevel(riskLevel)
+                .requiresConfirmation(false)
+                .aiResponse(responseText)
+                .session(session)
+                .build();
+        incomplete.markFailed(reason);
+        commandLogRepository.save(incomplete);
+        session.touch();
+        sessionRepository.save(session);
+        return new NlpCommandResponse(incomplete.getId(), parsedIntent.intent(), question, null, riskLevel,
+                false, session.getSessionToken(), null);
     }
 
     /**

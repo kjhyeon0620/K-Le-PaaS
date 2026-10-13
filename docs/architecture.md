@@ -57,11 +57,15 @@ POST /api/v1/nlp/command
        SCALE, RESTART                        → MEDIUM
        그 외(조회)                            → LOW
   → LOW: 즉시 실행 (소유권 범위 안의 조회)
+  → 재시작·스케일·롤백(목록 포함)의 앱 이름(app_name·repo, owner 선택)은 요청 사용자 저장소 안에서 하나로 해석한다.
+       정확 일치 → 없으면 이름이 들어 있는 저장소가 하나일 때 그 저장소. 둘 이상이거나 없으면 후보와 함께 되묻는다(FAILED).
+       재시작·스케일은 그 저장소의 최근 성공 배포 ID를, 롤백은 owner·repo를 인자에 고정한다. 승인 후 다시 찾지 않는다 (#144)
   → MEDIUM/HIGH: 실행 대상 인자가 빠졌으면(DEPLOY repository_id, SCALE deployment_id·replicas≥1, RESTART deployment_id,
        ROLLBACK owner·repo) 승인 대기를 만들지 않고 CommandLog(FAILED, "대상 누락: …")와 되묻는 message를 돌려준다 (#135)
   → MEDIUM/HIGH: CommandLog(PENDING) 저장 후 승인 대기
        배포 intent(DEPLOY·ROLLBACK·ROLLBACK_EXECUTION)는 소유권 확인 후 대상 저장소 설정 지문을 함께 저장하고
        응답 approval_target에 저장소·브랜치·commit·이미지·레플리카·포트·env 이름·지문 8자리를 보인다 (#56)
+       재시작·스케일도 approval_target에 대상 저장소·배포를 보인다. 설정을 적용하지 않아 지문은 null이다 (#144)
 POST /api/v1/nlp/confirm
   → 본인 명령이고, 생성 10분 이내이고, PENDING일 때만 EXECUTING으로 원자적 전이 (한 번만 소비)
   → 10분이 지났으면 EXPIRED (이력 조회 `GET /nlp/history` 직전에도 그 사용자의 만료된 PENDING을 EXPIRED로 바꾼다, #126)

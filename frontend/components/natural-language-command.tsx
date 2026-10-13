@@ -74,7 +74,7 @@ interface ApprovalTarget {
   max_replicas: number
   container_port: number
   env_names: string[]
-  config_fingerprint: string
+  config_fingerprint: string | null // 재시작·스케일은 null (#144)
 }
 
 const suggestedCommands = [
@@ -670,7 +670,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
                       ["레플리카", `${message.pending_action.approval_target.min_replicas}-${message.pending_action.approval_target.max_replicas}`],
                       ["포트", String(message.pending_action.approval_target.container_port)],
                       ["env", message.pending_action.approval_target.env_names.join(", ") || "-"],
-                      ["설정 지문", message.pending_action.approval_target.config_fingerprint],
+                      ["설정 지문", message.pending_action.approval_target.config_fingerprint ?? "-"],
                     ] as const).map(([label, value]) => (
                       <Fragment key={label}>
                         <dt className="text-muted-foreground">{label}</dt>

@@ -62,6 +62,26 @@ public class ApprovalTargetResolver {
         }
     }
 
+    /**
+     * 재시작·스케일 승인 화면에 보일 대상 (#144). 설정을 적용하지 않으므로 고정할 지문은 없다(config_fingerprint null).
+     * 소유권을 확인한 배포만 보이고, 확인하지 못하면 비어 있다.
+     */
+    public Optional<ApprovalTarget> describe(Intent intent, Map<String, Object> args, Long userId) {
+        if ((intent != Intent.SCALE && intent != Intent.RESTART) || args == null) return Optional.empty();
+        try {
+            var deployment = resourceAccessService.requireDeployment(toLong(args.get("deployment_id")), userId);
+            SourceRepository repo = deployment.getSourceRepository();
+            var config = deploymentConfigRepository.findBySourceRepositoryId(repo.getId());
+            return Optional.of(new ApprovalTarget(repo.getId(), repo.getOwner() + "/" + repo.getRepoName(),
+                    deployment.getBranchName(), deployment.getCommitHash(), config.map(c -> c.getBuildStrategy()).orElse(null),
+                    deployment.getImageUri(), config.map(c -> c.getMinReplicas()).orElse(0), config.map(c -> c.getMaxReplicas()).orElse(0),
+                    config.map(c -> c.getContainerPort()).orElse(0),
+                    config.map(c -> c.getEnvVars().keySet().stream().sorted().toList()).orElse(java.util.List.of()), null));
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
     // 복구 명령 (#101): 대상 배포의 복구 계획. 실행할 수 없으면 지문 없이 이유를 보인다.
     // 에이전트 제안(#102)은 target_deployment_id로 대상을 지정하고, 자연어 명령은 commit으로 찾는다
     private Optional<Resolved> resolveRecovery(Map<String, Object> args, Long userId) {

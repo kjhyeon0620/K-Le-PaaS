@@ -42,6 +42,7 @@ class NlpCommandServiceTest {
     @Mock private IntentParser intentParser;
     @Mock private ActionDispatcher actionDispatcher;
     @Mock private ApprovalTargetResolver approvalTargets;
+    @Mock private NameTargets nameTargets;
     @Mock private CommandLogRepository commandLogRepository;
     @Mock private CommandConfirmationService confirmations;
     @Mock private ConversationSessionRepository sessionRepository;
@@ -55,8 +56,10 @@ class NlpCommandServiceTest {
     @BeforeEach
     void setUp() {
         var systemPromptResource = new ByteArrayResource("테스트 시스템 프롬프트".getBytes());
+        // 기본은 인자를 그대로 둔다. 이름 해석 자체는 NameTargetsTest가 본다 (#144)
+        lenient().when(nameTargets.resolve(any(), any(), any())).thenAnswer(inv -> NameTargets.Result.keep(inv.getArgument(1)));
         nlpCommandService = new NlpCommandService(
-                nlpLlm, intentParser, actionDispatcher, approvalTargets,
+                nlpLlm, intentParser, actionDispatcher, approvalTargets, nameTargets,
                 commandLogRepository, confirmations, sessionRepository, userRepository, resourceAccessService,
                 systemPromptResource
         );
@@ -184,6 +187,62 @@ class NlpCommandServiceTest {
         assertThat(saved.get().getErrorMessage()).isEqualTo("대상 누락: deployment_id");
         assertThat(saved.get().isRequiresConfirmation()).isFalse();
         verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+        verifyNoInteractions(approvalTargets);
+    }
+
+    @Test
+    @DisplayName("이름으로 정한 대상은 deployment_id로 기록에 고정하고 승인 화면에 실제 저장소를 보인다 (#144)")
+    void namedRestartPinsResolvedTargetAndShowsIt() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.save(any())).willReturn(testSession);
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
+        given(intentParser.parse("test")).willReturn(new klepaas.backend.ai.dto.ParsedIntent(Intent.RESTART,
+                java.util.Map.of("app_name", "sample-node"), 0.9, "재시작합니다"));
+        given(actionDispatcher.classifyRisk(Intent.RESTART)).willReturn(RiskLevel.MEDIUM);
+        given(nameTargets.resolve(eq(Intent.RESTART), any(), eq(1L))).willReturn(
+                NameTargets.Result.keep(java.util.Map.of("app_name", "sample-node", "deployment_id", 22L)));
+        var target = new klepaas.backend.ai.dto.ApprovalTarget(2L, "kjhyeon0620/klepaas-sample-node", "main", "abcdef0",
+                BuildStrategy.GITHUB_ACTIONS_GHCR, "ghcr.io/kjhyeon0620/klepaas-sample-node:sha-abcdef0", 1, 1, 8080,
+                List.of("SAMPLE_GREETING"), null);
+        given(approvalTargets.describe(eq(Intent.RESTART), any(), eq(1L))).willReturn(Optional.of(target));
+        var saved = new java.util.concurrent.atomic.AtomicReference<CommandLog>();
+        given(commandLogRepository.save(any())).willAnswer(inv -> {
+            saved.set(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+
+        NlpCommandResponse response = nlpCommandService.processCommand(1L, new NlpCommandRequest("sample-node 재시작해줘", null));
+
+        assertThat(response.requiresConfirmation()).isTrue();
+        assertThat(response.approvalTarget().repository()).isEqualTo("kjhyeon0620/klepaas-sample-node");
+        assertThat(saved.get().getStatus()).isEqualTo(CommandStatus.PENDING);
+        assertThat(saved.get().getIntentArgs()).contains("\"deployment_id\":22");
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("이름을 하나로 정하지 못하면 승인 대기 없이 후보와 함께 되묻는다 (#144)")
+    void ambiguousNameAsksBack() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.save(any())).willReturn(testSession);
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
+        given(intentParser.parse("test")).willReturn(new klepaas.backend.ai.dto.ParsedIntent(Intent.SCALE,
+                java.util.Map.of("app_name", "api", "replicas", 2), 0.9, "늘립니다"));
+        given(actionDispatcher.classifyRisk(Intent.SCALE)).willReturn(RiskLevel.MEDIUM);
+        given(nameTargets.resolve(eq(Intent.SCALE), any(), eq(1L))).willReturn(new NameTargets.Result(
+                java.util.Map.of("app_name", "api", "replicas", 2), "'api'에 해당하는 저장소가 여러 개입니다. 다음 중 어느 저장소인가요: a/api, b/api"));
+        var saved = new java.util.concurrent.atomic.AtomicReference<CommandLog>();
+        given(commandLogRepository.save(any())).willAnswer(inv -> {
+            saved.set(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+
+        NlpCommandResponse response = nlpCommandService.processCommand(1L, new NlpCommandRequest("api 2개로", null));
+
+        assertThat(response.requiresConfirmation()).isFalse();
+        assertThat(response.message()).contains("a/api, b/api");
+        assertThat(saved.get().getStatus()).isEqualTo(CommandStatus.FAILED);
+        assertThat(saved.get().getErrorMessage()).isEqualTo("대상 해석 실패");
         verifyNoInteractions(approvalTargets);
     }
 
