@@ -130,7 +130,10 @@ branch: feat/#136-nlp-llm-luna
 - 검증: 머지 후 배포 결과와 사용자 운영 확인을 `운영 반영`에 기록.
 
 ## 운영 반영
-- (머지 후 배포 workflow 결과와 사용자 운영 확인)
+- 2026-10-13 PR #139 머지(`e3cda2f`), main 배포 run 38417850658 build·deploy success.
+- 사실 확인: 배포가 끝나기 전 이전 릴리스에 보낸 `ask "저장소 목록 보여줘"`가 `Gemini API 호출 실패: 404 NOT_FOUND`였다. 운영 키로도 `gemini-2.5-flash`가 막혀 있어 **전환 전부터 운영 자연어 명령이 실패하고 있었다**. 언제부터인지는 확인하지 않았다.
+- 2026-10-14 운영 확인 (사용자, CLI): 같은 명령이 intent `LIST_REPOSITORIES`, 위험도 LOW, 승인 없음으로 해석됐다. 모델 전환은 동작한다.
+- 범위 밖 발견: `LIST_REPOSITORIES` 실행이 실제 목록 대신 고정 안내 문구를 돌려준다(#140). #58 평가는 해석까지만 채점해 드러나지 않았다.
 
 ## 회고
 - 어긋난 점: (1) 같은 타입의 두 번째 `LlmClient` 빈이 생기자 `NlpCommandService`를 직접 `@Import`하는 슬라이스 테스트 2개가 컨텍스트를 만들지 못했다(자연어 빈 없음). 스펙의 "테스트" 현재 동작에 HTTP 테스트만 적고 슬라이스 테스트를 빠뜨렸다. (2) 자연어 경로를 실제로 타는 HTTP 테스트 2개가 `GeminiClient.generate`를 stub하고 있어 mock 대상을 바꿨다. (3) `NlpCommandService`·`NlpCommandServiceTest`가 CRLF·LF 혼합 파일이라 diff가 파일 전체로 보인다(#138).

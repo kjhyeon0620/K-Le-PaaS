@@ -18,6 +18,7 @@
 - `main`은 배포 브랜치다. 직접 푸시하지 않는다. `main` push는 플랫폼 운영 배포를 실행한다 ([CICD.md](docs/CICD.md)).
 - Conventional Commits `type: summary`를 쓴다. 예: `feat: enforce CLI token scopes on the server`
 - PR 제목은 이슈 제목과 같게 한다. 본문에는 `Closes #N`을 넣는다.
+- 줄바꿈은 LF다(`.gitattributes`의 `* text=auto`, `.bat`·`.cmd`만 CRLF). 형식만 바꾸는 커밋은 내용 변경과 섞지 않고 `.git-blame-ignore-revs`에 넣는다. 로컬 blame에서 건너뛰려면 `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 
 ## Documentation
 - 어떤 변경에 어떤 문서를 함께 고쳐야 하는지는 [문서 동기화 표](docs/specs/README.md#6-문서-동기화-완료-조건)를 따른다.

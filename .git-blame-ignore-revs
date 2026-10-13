@@ -1,0 +1,5 @@
+# git blame에서 건너뛸 커밋. 내용 변경 없이 형식만 바꾼 커밋을 넣는다.
+# GitHub blame은 이 파일을 자동으로 읽는다. 로컬: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# refactor: CRLF 줄바꿈을 LF로 정규화 (#138)
+c957191b159ba822c320ae2f906c2f141a3a07f8
