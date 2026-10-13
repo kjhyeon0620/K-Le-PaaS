@@ -312,6 +312,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 운영 DB 사본 | 스키마 변경 시 머지 전에 필수 |
 | 실제 클러스터 | k3s 임시 컨테이너 등 격리 환경. 운영 앱에 실패를 주입하지 않는다 |
 | 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99). 공급사·모델 비교는 `DiagnosisModelComparisonTest`(`DIAGNOSIS_EVAL_MODELS`와 키가 있을 때만, 실제 API 호출·비용 발생)로 품질·토큰·비용·지연을 남긴다 (#100). RAG 사례(`rag-cases`, #104 가공)와 독립 작성 사례(`blind-cases`, #123: Gemini가 쓴 시나리오를 k3s에서 재현, 과거 사건·조정용·평가용)는 `DIAGNOSIS_EVAL_CASES=rag|blind-tune|blind-test`와 `@knowledge=on`으로 비교한다 |
+| 자연어 명령 평가 | `./gradlew test --tests '*NlpEvalCasesTest'`: 고정 입력 30개(`backend/src/test/resources/nlp-eval/cases.json`) 형식과 채점기. 실제 모델 평가는 `NlpModelEvalTest`(`NLP_EVAL_MODELS=provider:model,...`와 키가 있을 때만, 실제 API 호출·비용 발생), 채점 규칙을 바꾸면 `NLP_EVAL_REPLAY=<결과 json>`으로 재호출 없이 재채점한다 (#58) |
 | 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit` |
 | 릴리스 스크립트 | `python3 -m unittest discover -s scripts/deploy -p 'test_*.py'`, `scripts/ci/test-package-release.sh` |
 
@@ -326,6 +327,8 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 모니터링, alerts, PR 목록, 저장소별 자동 배포 스위치, 설정의 조직·환경·Slack·에이전트 탭, 대시보드 통계 카드 일부는 백엔드 API가 없다 | 화면에 "준비 중"으로 표시해 정상 기능처럼 보이지 않게 했다(#59). 기능은 없다 | 범위 밖 (필요 시 이슈) |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
+| 자연어 명령 프롬프트(`system-prompt.txt`)는 SCALE·RESTART 대상을 "deployment_id 또는 app_name"으로 안내하지만, 실행 코드(`ActionDispatcher.executeScale`·`executeRestart`)는 `deployment_id`만 읽는다 | 앱 이름만 준 스케일·재시작 요청은 해석과 승인까지 진행된 뒤 실행에서 실패한다 (#58 평가 사례 작성 중 발견) | #135 |
+| 자연어 명령 기본 모델 `gemini-2.5-flash`(`GEMINI_MODEL` 기본값)는 Google이 신규 사용자에게 막았다. 새 키·프로젝트에서 호출하면 404 "no longer available to new users"다 (2026-10-13 확인) | 운영 키가 이전 프로젝트 키면 아직 동작할 수 있으나, 키를 바꾸거나 모델이 내려가면 자연어 명령 전체가 실패한다. 교체 후보 비교는 #58(`gpt-6-luna` 권장) | 이슈 후보 (#58 결과) |
 | 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |

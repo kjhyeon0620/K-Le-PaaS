@@ -136,6 +136,22 @@ class ActionDispatcherTest {
     }
 
     @Test
+    @DisplayName("상태를 바꾸는 intent는 모두 승인 대상(LOW 아님)이고, 새 intent는 변경·조회 중 하나로 분류해야 한다 (#58)")
+    void everyChangeIntentRequiresConfirmation() {
+        var read = java.util.EnumSet.of(Intent.STATUS, Intent.LOGS, Intent.LIST_DEPLOYMENTS, Intent.LIST_REPOSITORIES,
+                Intent.LIST_PODS, Intent.POD_STATUS, Intent.SERVICE_STATUS, Intent.DEPLOYMENT_STATUS, Intent.LIST_SERVICES,
+                Intent.LIST_INGRESSES, Intent.LIST_NAMESPACES, Intent.LIST_ENDPOINTS, Intent.GET_SERVICE, Intent.GET_DEPLOYMENT,
+                Intent.POD_LOGS, Intent.LIST_ROLLBACK, Intent.OVERVIEW, Intent.LIST_COMMANDS, Intent.COST_ANALYSIS,
+                Intent.HELP, Intent.UNKNOWN);
+        var change = klepaas.backend.ai.eval.NlpEval.CHANGE_INTENTS;
+
+        for (Intent intent : Intent.values()) {
+            assertThat(read.contains(intent) ^ change.contains(intent)).as("변경·조회 중 하나: " + intent).isTrue();
+        }
+        change.forEach(intent -> assertThat(actionDispatcher.classifyRisk(intent)).as(intent.name()).isNotEqualTo(RiskLevel.LOW));
+    }
+
+    @Test
     @DisplayName("STATUS는 LOW 리스크")
     void classifyStatusAsLow() {
         assertThat(actionDispatcher.classifyRisk(Intent.STATUS)).isEqualTo(RiskLevel.LOW);
