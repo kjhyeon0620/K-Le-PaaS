@@ -96,7 +96,7 @@ flowchart LR
 | 배포 (Kaniko) | 구현, 운영 미사용 | NCP Object Storage + Kaniko Job + NCR 경로. 다른 provider(AWS·온프레미스 Kaniko)는 없음 |
 | 배포 요청 상세·로그 | 구현 | API, CLI, 콘솔. 로그는 저장·스트리밍하지 않음 |
 | 승인 복구 | 구현, 운영 실증 | #101, #105 |
-| 자연어 명령 | 구현 | Gemini 해석, 위험도·승인, 명령 이력 |
+| 자연어 명령 | 구현 | Gemini 해석, 위험도·승인, 명령 이력. 고정 입력 30개 × 5회 평가: 교체 후보 `gemini-3.8-flash` intent 92%, `gpt-6-luna` 95%, 두 모델 모두 확인 없이 변경 실행 해석 0 (#58) |
 | AI 진단 | 실험, 운영 사용 | 근거 기반, 결과 재사용. RAG는 기본 꺼짐 |
 | 에이전트·MCP | 구현, 실서버 확인 | 제안 전용 토큰, 복구 제안, `/api/v1/mcp` |
 | CLI | 구현 | `auth`, `ask`, `confirm`, `history`, `repositories`, `deployments`, `knowledge`, `incidents`, `cost`, `doctor` |
