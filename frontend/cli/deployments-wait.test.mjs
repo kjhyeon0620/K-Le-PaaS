@@ -70,6 +70,7 @@ test("ask는 승인 대상을 보여 주고, 설정이 바뀐 confirm 409는 기
   assert.match(ask.stdout, /owner\/app \(#2\)/);
   assert.match(ask.stdout, /SAMPLE_GREETING/);
   assert.match(ask.stdout, /1a2b3c4d/);
+  assert.match(ask.stdout, /승인하려면 10분 안에 전체 권한으로 실행하세요: klepaas confirm 7/);
 
   const confirm = await runCli(server, ["confirm", "7", "--yes"]);
   assert.equal(confirm.error?.code, 1);
@@ -154,6 +155,44 @@ test("repositories list는 앱 목록을 보여 준다 (#102)", async (t) => {
   const result = await runCli(server, ["repositories", "list"]);
   assert.equal(result.error, null, result.stderr);
   assert.match(result.stdout, /7\s+owner\/app\s+ON_PREMISE/);
+});
+
+test("ask는 승인이 필요 없거나 되묻는 응답에는 승인 안내를 내지 않고, --json은 응답 그대로다 (#146)", async (t) => {
+  const reply = { command_log_id: 8, intent: "RESTART", risk_level: "MEDIUM", requires_confirmation: false,
+    message: "실행할 대상이 부족해 승인 요청을 만들지 않았습니다. 다음을 알려 주세요: 대상 배포 ID", result: null };
+  const server = createServer((request, response) => {
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ status: "success", data: reply }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const human = await runCli(server, ["ask", "재시작해줘"]);
+  assert.equal(human.error, null, human.stderr);
+  assert.match(human.stdout, /Needs Confirm\s+no/);
+  assert.doesNotMatch(human.stdout, /klepaas confirm/);
+
+  const json = await runCli(server, ["--json", "ask", "재시작해줘"]);
+  assert.equal(json.error, null, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), reply);
+});
+
+test("TTY가 아닌 ask는 승인을 묻지 않고 승인 요청도 보내지 않는다 (#146)", async (t) => {
+  const urls = [];
+  const server = createServer((request, response) => {
+    urls.push(request.url);
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ status: "success", data: { command_log_id: 9, intent: "RESTART", risk_level: "MEDIUM",
+      requires_confirmation: true, message: "재시작하겠습니다.", result: null } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const result = await runCli(server, ["ask", "sample-node 재시작해줘"]);
+  assert.equal(result.error, null, result.stderr);
+  assert.match(result.stdout, /klepaas confirm 9/);
+  assert.doesNotMatch(result.stdout, /\[y\/N\]/);
+  assert.deepEqual(urls, ["/api/v1/nlp/command"]);
 });
 
 test("propose-recovery는 승인 대기 명령만 만들고 승인 방법을 안내한다 (#102)", async (t) => {

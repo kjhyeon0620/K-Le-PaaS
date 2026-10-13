@@ -247,10 +247,26 @@ async function handleAsk(args, globalOptions, client) {
     printJson(response);
     return;
   }
-  printCommandResponse(response);
+  // 사람이 터미널에서 실행할 때만 그 자리에서 승인을 묻는다 (#146). 에이전트·스크립트(TTY 아님)는 승인 대기만 만든다.
+  // 기본 답은 N이고, 거절하면 아무 요청도 보내지 않아 명령은 10분 동안 승인 대기로 남는다
+  const interactive = Boolean(response.requires_confirmation && response.command_log_id != null
+    && process.stdin.isTTY && process.stdout.isTTY);
+  printCommandResponse(response, { confirmHint: !interactive });
+  if (!interactive) return;
+
+  const confirmed = await askConfirmation(`\ncommand_log_id=${response.command_log_id} 명령을 실행할까요?`);
+  if (!confirmed) {
+    console.log(confirmHint(response.command_log_id));
+    return;
+  }
+  printConfirmResult(await client.confirmCommand(response.command_log_id, true), true);
 }
 
-function printCommandResponse(response) {
+function confirmHint(commandLogId) {
+  return `\n승인하려면 10분 안에 전체 권한으로 실행하세요: klepaas confirm ${commandLogId}`;
+}
+
+function printCommandResponse(response, { confirmHint: showHint = true } = {}) {
   printKeyValues([
     ["Command Log", response.command_log_id ?? "-"],
     ["Intent", response.intent ?? "-"],
@@ -264,6 +280,10 @@ function printCommandResponse(response) {
   if (response.result != null) {
     console.log("\nResult:");
     printJson(response.result);
+  }
+  // 승인 대기 명령은 ask와 별도로 사람이 승인해야 실행된다 (#146, 제안 전용 토큰의 confirm은 403)
+  if (showHint && response.requires_confirmation && response.command_log_id != null) {
+    console.log(confirmHint(response.command_log_id));
   }
 }
 
@@ -307,6 +327,10 @@ async function handleConfirm(args, globalOptions, client) {
     return;
   }
 
+  printConfirmResult(response, confirmed);
+}
+
+function printConfirmResult(response, confirmed) {
   console.log(response.message || (confirmed ? "명령을 실행했습니다." : "명령 실행을 취소했습니다."));
   if (response.result != null) {
     console.log("\nResult:");
@@ -569,8 +593,6 @@ async function handleDeployments(args, globalOptions, client) {
         return;
       }
       printCommandResponse(response);
-      console.log(`
-사람이 전체 권한으로 10분 안에 승인해야 실행됩니다: klepaas confirm ${response.command_log_id}`);
       return;
     }
     case "recovery-plan":
