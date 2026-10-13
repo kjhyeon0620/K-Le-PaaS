@@ -11,7 +11,7 @@
    ├─ Web console (Next.js, /console) ─┐
    ├─ CLI (frontend/cli, Node)  ───────┼─▶ Spring Boot API (/api/v1)
    ├─ 자연어 명령 ─────────────────────┤      ├─ 인증: JWT(Web) · CLI 토큰(scope)
-   └─ CI (GitHub Actions) ─────────────┘      ├─ ai: Gemini → Intent → 위험도 → 승인 → 실행
+   └─ CI (GitHub Actions) ─────────────┘      ├─ ai: LLM → Intent → 위험도 → 승인 → 실행
                                               ├─ deployment: 저장소·설정·배포·스케일·파이프라인
                                               ├─ infra: NCP(Object Storage·Kaniko·NCR), Kubernetes(Fabric8)
                                               ├─ webhook: GitHub push
@@ -27,7 +27,7 @@
 | Backend | Java 17, Spring Boot 4.0.2, Spring Security, Spring Data JPA, Flyway, Fabric8, AWS SDK v2(S3 호환), Springdoc, Jackson `SNAKE_CASE` |
 | Frontend | Next.js 15, React 19, TypeScript 5, Tailwind 4, shadcn/ui ([DESIGN.md](../frontend/DESIGN.md)) |
 | CLI | `frontend/cli/*.mjs` (Node) |
-| AI | Gemini 2.5 Flash (`gemini.api.model`), 시스템 프롬프트 `backend/src/main/resources/prompts/system-prompt.txt` |
+| AI | 자연어 명령 OpenAI `gpt-6-luna` (`nlp.llm.*`, #136), 진단 OpenAI `gpt-6-luna` (`diagnosis.llm.*`, #100). 공급사는 설정으로 바꾼다. 시스템 프롬프트 `backend/src/main/resources/prompts/system-prompt.txt` |
 | DB | PostgreSQL 16 (운영, 백엔드와 같은 호스트), `ddl-auto=validate`, Flyway `db/migration` ([ADR-0008](adr/0008-postgresql-production-database.md)) |
 | 플랫폼 배포 | GitHub Actions ARM64 빌드 → SSH receiver → systemd 릴리스 ([ADR-0005](adr/0005-platform-release-systemd-receiver.md)) |
 
@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(진단 모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현, `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만든다) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
@@ -51,7 +51,7 @@
 
 ```text
 POST /api/v1/nlp/command
-  → Gemini로 intent 해석 (IntentParser)
+  → nlpLlm(기본 gpt-6-luna)으로 intent 해석 (NlpPrompt → LlmClient → IntentParser)
   → ActionDispatcher가 위험도 결정
        DEPLOY, ROLLBACK, ROLLBACK_EXECUTION → HIGH
        SCALE, RESTART                        → MEDIUM
@@ -158,7 +158,7 @@ POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소�
   → 결과와 토큰 사용량을 deployment_diagnoses에 이력으로 저장 (실패하면 저장하지 않음). 인프라 변경 없음
 ```
 
-- 공급사는 `diagnosis.llm.provider`·`model`로 고른다. 기본값은 #99 사례 비교로 정했다 (스펙 0100). 자연어 명령은 Gemini를 그대로 쓴다.
+- 공급사는 `diagnosis.llm.provider`·`model`로 고른다. 기본값은 #99 사례 비교로 정했다 (스펙 0100). 자연어 명령은 `nlp.llm.*`로 따로 고른다(#136).
 - 요청 하나의 출력(생각 포함)은 `LlmClient.MAX_OUTPUT_TOKENS`(2,048)로 묶는다. 로그에 입력·캐시 입력·출력·추론 토큰을 나눠 남기고, 금액은 토큰과 가격표로 계산한다. 비용 절감 후보(추론 강도, 출력 간결화, 입력 정리)는 #99 품질 기준을 넘지 못해 운영에 적용하지 않았다 (스펙 0115).
 - 모델 응답을 읽을 수 없으면 500 `AI_002`, 호출 실패·키 없음은 500 `AI_001`. 추정 결과로 채우지 않는다.
 
@@ -290,7 +290,8 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `kaniko.image` | `gcr.io/kaniko-project/executor:latest` | Kaniko 이미지 |
 | `deployment.domain.suffix` | `${DEPLOYMENT_DOMAIN_SUFFIX:klepaas.io}` | 기본 배포 도메인 |
 | `deployment.pipeline.poll-initial-interval` / `poll-max-interval` / `build-timeout` | 10s / 60s / 30m | 빌드 상태 polling |
-| `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | 자연어 해석 모델 |
+| `nlp.llm.provider` / `model` | `${NLP_LLM_PROVIDER:openai}` / `${NLP_LLM_MODEL:gpt-6-luna}` | 자연어 명령 해석 모델 (gemini·anthropic·openai). #58 비교로 정했다. 키가 없거나 호출이 실패하면 `AI_001`이고 자동 대체는 없다 (스펙 0136) |
+| `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | `GeminiClient` 기본 모델. 자연어 명령·진단은 각자 `*.llm.model`을 넘기므로 쓰지 않는다 |
 | `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai). 선택한 공급사 키가 없으면 진단만 실패 |
 | `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115) |
 | `diagnosis.rag.enabled` | `${DIAGNOSIS_RAG_ENABLED:false}` | 진단에 지식을 넣을지. #123 독립 평가에서 개선이 없어 기본 꺼짐. 꺼져도 문서·사건 저장과 API는 동작 (#129) |
@@ -301,7 +302,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `app.base-url`, `cors.allowed-origins` | localhost | Web console 주소 |
 | `spring.datasource.url` / `username` / `password` | `${DB_URL:jdbc:postgresql://localhost:5432/klepaas}` / `${DB_USERNAME:klepaas}` / `${DB_PASSWORD}` | DB 접속. 비밀번호는 기본값 없음 |
 
-비밀값(`DB_PASSWORD`, `JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`, `OPENAI_API_KEY`·`ANTHROPIC_API_KEY`(진단 공급사에 따라), `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
+비밀값(`DB_PASSWORD`, `JWT_SECRET`, GitHub OAuth/App, NCP 키, `GEMINI_API_KEY`·`OPENAI_API_KEY`·`ANTHROPIC_API_KEY`(진단·자연어 명령 공급사에 따라, 기본은 `OPENAI_API_KEY`만), `SLACK_WEBHOOK_URL`, `GITHUB_WEBHOOK_SECRET`)은 환경변수로만 주입한다. 목록은 [README 환경변수](../README.md#환경변수)에 있다.
 
 ## 8. 테스트와 검증 층위
 
@@ -328,7 +329,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
 | 자연어 명령 프롬프트(`system-prompt.txt`)는 SCALE·RESTART 대상을 "deployment_id 또는 app_name"으로 안내하지만, 실행 코드(`ActionDispatcher.executeScale`·`executeRestart`)는 `deployment_id`만 읽는다 | 앱 이름만 준 스케일·재시작 요청은 해석과 승인까지 진행된 뒤 실행에서 실패한다 (#58 평가 사례 작성 중 발견) | #135 |
-| 자연어 명령 기본 모델 `gemini-2.5-flash`(`GEMINI_MODEL` 기본값)는 Google이 신규 사용자에게 막았다. 새 키·프로젝트에서 호출하면 404 "no longer available to new users"다 (2026-10-13 확인) | 운영 키가 이전 프로젝트 키면 아직 동작할 수 있으나, 키를 바꾸거나 모델이 내려가면 자연어 명령 전체가 실패한다. 교체 후보 비교는 #58(`gpt-6-luna` 권장) | 이슈 후보 (#58 결과) |
 | 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |

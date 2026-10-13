@@ -3,7 +3,6 @@ package klepaas.backend.ai.service;
 import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.repository.CommandLogRepository;
 import klepaas.backend.ai.repository.ConversationSessionRepository;
-import klepaas.backend.ai.client.GeminiClient;
 import klepaas.backend.ai.dto.NlpConfirmRequest;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
@@ -40,7 +39,7 @@ class CommandConfirmationConcurrencyTest {
     @Autowired private ConversationSessionRepository sessions;
     @Autowired private UserRepository users;
     @Autowired private JdbcTemplate jdbc;
-    @MockitoBean private GeminiClient geminiClient;
+    @MockitoBean(name = "nlpLlm") private klepaas.backend.ai.llm.LlmClient nlpLlm;
     @MockitoBean private IntentParser intentParser;
     @MockitoBean private ActionDispatcher dispatcher;
     @MockitoBean private ApprovalTargetResolver approvalTargets;

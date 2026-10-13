@@ -16,7 +16,7 @@ K-Le-PaaS 백엔드는 자연어/CLI/Web 요청을 감사 가능하고 위험도
 - Kaniko Kubernetes Job 기반 이미지 빌드
 - commit SHA 기반 image URI 생성
 - Fabric8 Kubernetes Client 기반 Deployment, Service, Ingress apply
-- Gemini 2.5 Flash 기반 자연어 intent parsing
+- LLM 기반 자연어 intent parsing (기본 OpenAI `gpt-6-luna`, `nlp.llm.*`로 공급사 변경, #136)
 - LOW / MEDIUM / HIGH risk classification
 - MEDIUM / HIGH 명령 confirmation flow (배포 명령은 승인 당시 설정 지문으로 고정, #56)
 - command log와 command history 저장
@@ -44,7 +44,7 @@ K-Le-PaaS 백엔드는 자연어/CLI/Web 요청을 감사 가능하고 위험도
 
 ```text
 klepaas.backend/
-├── ai/          # Gemini client, intent parser, dispatcher, NLP command API
+├── ai/          # LLM clients, intent parser, dispatcher, NLP command API
 ├── auth/        # GitHub OAuth, JWT, CLI token, CLI web login
 ├── cost/        # 비용 추정, diff, explain, budget check
 ├── deployment/  # repository, deployment, scaling, pipeline orchestration
@@ -237,8 +237,10 @@ KANIKO_IMAGE=gcr.io/kaniko-project/executor:latest
 
 SLACK_WEBHOOK_URL=
 
+# 자연어 명령 해석 모델 (#136). 기본 openai / gpt-6-luna. 선택한 공급사 키만 필요
+NLP_LLM_PROVIDER=openai
+NLP_LLM_MODEL=gpt-6-luna
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
 ```
 
 비밀값은 커밋하지 않습니다.

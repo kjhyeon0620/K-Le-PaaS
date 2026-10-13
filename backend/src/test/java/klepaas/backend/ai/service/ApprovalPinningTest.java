@@ -1,6 +1,5 @@
 package klepaas.backend.ai.service;
 
-import klepaas.backend.ai.client.GeminiClient;
 import klepaas.backend.ai.dto.NlpConfirmRequest;
 import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.repository.CommandLogRepository;
@@ -52,7 +51,7 @@ class ApprovalPinningTest {
     @Autowired private SourceRepositoryRepository repositories;
     @Autowired private DeploymentConfigRepository configs;
     @Autowired private JdbcTemplate jdbc;
-    @MockitoBean private GeminiClient geminiClient;
+    @MockitoBean(name = "nlpLlm") private klepaas.backend.ai.llm.LlmClient nlpLlm;
     @MockitoBean private IntentParser intentParser;
     @MockitoBean private ActionDispatcher dispatcher;
     @MockitoBean private klepaas.backend.deployment.service.RecoveryService recoveryService;

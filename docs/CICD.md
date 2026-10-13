@@ -107,3 +107,12 @@ Check the failed workflow's exit status and inspect `systemctl status` and `jour
 준비 릴리스는 PR #97로 운영 배포됐다 (2026-10-10). 활성화 릴리스는 PR #98이며, 배포 후 롤백 대상은 준비 릴리스 이상이어야 한다. 활성화 릴리스는 새 마이그레이션과 새 `failure_kind` 값을 추가하지 않는다.
 
 각 릴리스는 별도 PR과 사용자 승인을 거친다. V4→V5는 로컬 패키징 JAR 및 운영 DB 사본에서 기존 배포 행·값 유지, 새 컬럼 null, Flyway 적용, Hibernate validate, readiness를 확인한다. 로컬에서는 이전 JAR의 조회·배포 행 생성/갱신도 검증한다. 운영 원본에 검증용 UNKNOWN을 넣지 않는다. 상세 범위와 증거는 [스펙 0057](specs/0057-reconcile-interrupted-work/spec.md)을 따른다.
+
+## #136 자연어 명령 모델 전환 확인과 되돌리기
+
+#136 릴리스부터 자연어 명령은 `nlp.llm.*`(기본 `openai` / `gpt-6-luna`)로 해석한다. 운영 backend `EnvironmentFile`에 이미 있는 `OPENAI_API_KEY`(진단용)를 쓰므로 서버 설정 변경 없이 배포와 함께 전환된다.
+
+1. 배포 workflow가 성공한 뒤, 운영자가 상태를 바꾸지 않는 명령 하나로 확인한다: `npm run cli -- ask "저장소 목록 보여줘"`. 정상 응답이면 전환이 끝난 것이다. `AI_001`이면 키 또는 공급사 호출 문제다.
+2. backend 로그에 `자연어 명령 해석: provider=openai, model=...` 한 줄이 남는다. 사용자 입력과 키는 남기지 않는다.
+3. 되돌리기: backend `EnvironmentFile`에 `NLP_LLM_PROVIDER`·`NLP_LLM_MODEL`을 넣고 backend unit을 재시작한다 (예: 이전 Gemini 키가 쓸 수 있는 모델). `gemini-2.5-flash`는 신규 사용자에게 막혀 새 키·프로젝트에서는 404다. 또는 이전 릴리스로 롤백한다. 이 전환에는 스키마 변경이 없다.
+4. 공급사 호출이 실패해도 다른 공급사로 자동 대체하지 않는다. 실패는 `AI_001`로 드러나고 명령은 기록·실행되지 않는다 ([스펙 0136](specs/0136-nlp-llm-luna/spec.md)).

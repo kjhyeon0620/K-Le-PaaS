@@ -1,7 +1,6 @@
 package klepaas.backend.ai.service;
 
-import klepaas.backend.ai.client.GeminiClient;
-import klepaas.backend.ai.client.dto.GeminiResponse;
+import klepaas.backend.ai.llm.LlmClient;
 import klepaas.backend.ai.dto.NlpCommandRequest;
 import klepaas.backend.ai.dto.NlpCommandResponse;
 import klepaas.backend.ai.dto.NlpConfirmRequest;
@@ -39,7 +38,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class NlpCommandServiceTest {
 
-    @Mock private GeminiClient geminiClient;
+    @Mock private LlmClient nlpLlm;
     @Mock private IntentParser intentParser;
     @Mock private ActionDispatcher actionDispatcher;
     @Mock private ApprovalTargetResolver approvalTargets;
@@ -57,7 +56,7 @@ class NlpCommandServiceTest {
     void setUp() {
         var systemPromptResource = new ByteArrayResource("테스트 시스템 프롬프트".getBytes());
         nlpCommandService = new NlpCommandService(
-                geminiClient, intentParser, actionDispatcher, approvalTargets,
+                nlpLlm, intentParser, actionDispatcher, approvalTargets,
                 commandLogRepository, confirmations, sessionRepository, userRepository, resourceAccessService,
                 systemPromptResource
         );
@@ -107,7 +106,7 @@ class NlpCommandServiceTest {
         assertThat(response.approvalTarget()).isEqualTo(target);
         verify(actionDispatcher, never()).dispatch(any(), any(), any());
         verify(actionDispatcher, never()).dispatch(any(), any(), any(), any());
-        verifyNoInteractions(geminiClient);
+        verifyNoInteractions(nlpLlm);
     }
 
     @Test
@@ -131,11 +130,41 @@ class NlpCommandServiceTest {
     }
 
     @Test
+    @DisplayName("모델에는 지시문과 사용자 입력을 이어 붙인 문자열 하나를 보낸다 (#58 평가와 같은 문자열, #136)")
+    void sendsSamePromptStringAsEvaluation() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.save(any())).willReturn(testSession);
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
+        given(intentParser.parse("test")).willReturn(
+                new klepaas.backend.ai.dto.ParsedIntent(Intent.HELP, java.util.Map.of(), 1.0, "도움말"));
+        given(actionDispatcher.classifyRisk(Intent.HELP)).willReturn(RiskLevel.LOW);
+        given(commandLogRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        nlpCommandService.processCommand(1L, new NlpCommandRequest("도움말", null));
+
+        verify(nlpLlm).completeJson("테스트 시스템 프롬프트\n\n사용자 입력: 도움말");
+    }
+
+    @Test
+    @DisplayName("모델 호출이 실패하면 AI_001로 끝나고 명령 기록·실행이 없다 (#136, 자동 대체 없음)")
+    void modelFailureLeavesNoCommand() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.save(any())).willReturn(testSession);
+        given(nlpLlm.completeJson(any())).willThrow(new klepaas.backend.ai.exception.AiProcessingException(
+                klepaas.backend.global.exception.ErrorCode.AI_API_ERROR, "openai API 키가 설정되지 않았습니다"));
+
+        assertThatThrownBy(() -> nlpCommandService.processCommand(1L, new NlpCommandRequest("배포 3번 재시작", null)))
+                .isInstanceOf(klepaas.backend.ai.exception.AiProcessingException.class);
+        verify(commandLogRepository, never()).save(any());
+        verifyNoInteractions(intentParser, actionDispatcher);
+    }
+
+    @Test
     @DisplayName("LOW 리스크 명령은 즉시 실행")
     void processLowRiskCommand() {
         given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
         given(sessionRepository.save(any())).willReturn(testSession);
-        given(geminiClient.generate(any())).willReturn(mockGeminiResponse("test"));
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
         given(intentParser.parse("test")).willReturn(
                 new klepaas.backend.ai.dto.ParsedIntent(Intent.HELP, java.util.Map.of(), 1.0, "도움말"));
         given(actionDispatcher.classifyRisk(Intent.HELP)).willReturn(RiskLevel.LOW);
@@ -155,7 +184,7 @@ class NlpCommandServiceTest {
     void processHighRiskCommand() {
         given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
         given(sessionRepository.save(any())).willReturn(testSession);
-        given(geminiClient.generate(any())).willReturn(mockGeminiResponse("test"));
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
         given(intentParser.parse("test")).willReturn(
                 new klepaas.backend.ai.dto.ParsedIntent(Intent.DEPLOY,
                         java.util.Map.of("repository_id", 1, "branch_name", "main"), 0.95, "배포합니다"));
@@ -177,7 +206,7 @@ class NlpCommandServiceTest {
     void processHighRiskCommandPinsApprovalTarget() {
         given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
         given(sessionRepository.save(any())).willReturn(testSession);
-        given(geminiClient.generate(any())).willReturn(mockGeminiResponse("test"));
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
         given(intentParser.parse("test")).willReturn(new klepaas.backend.ai.dto.ParsedIntent(Intent.DEPLOY,
                 java.util.Map.of("repository_id", 1), 0.95, "배포합니다"));
         given(actionDispatcher.classifyRisk(Intent.DEPLOY)).willReturn(RiskLevel.HIGH);
@@ -294,7 +323,7 @@ class NlpCommandServiceTest {
         assertThatThrownBy(() -> nlpCommandService.processCommand(1L,
                 new NlpCommandRequest("deploy", "other-session")))
                 .isInstanceOf(EntityNotFoundException.class);
-        verifyNoInteractions(geminiClient, actionDispatcher);
+        verifyNoInteractions(nlpLlm, actionDispatcher);
     }
 
     @Test
@@ -319,14 +348,7 @@ class NlpCommandServiceTest {
                 List.of("SAMPLE_GREETING"), fingerprint.substring(0, 8)), fingerprint);
     }
 
-    private GeminiResponse mockGeminiResponse(String text) {
-        return new GeminiResponse(List.of(
-                new GeminiResponse.Candidate(
-                        new GeminiResponse.Content(
-                                List.of(new GeminiResponse.Part(text)),
-                                "model"
-                        )
-                )
-        ));
+    private LlmClient.Response llmResponse(String text) {
+        return new LlmClient.Response(text, "test-model", new LlmClient.Usage(0, 0, null, null), 1);
     }
 }
