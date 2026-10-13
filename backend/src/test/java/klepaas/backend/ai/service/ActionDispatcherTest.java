@@ -278,12 +278,40 @@ class ActionDispatcherTest {
     }
 
     @Test
-    @DisplayName("LIST_REPOSITORIES 디스패치 시 안내 메시지 반환")
-    void dispatchListRepositories() {
+    @DisplayName("LIST_REPOSITORIES는 요청 사용자의 저장소만 조회해 실제 목록을 돌려준다 (#140)")
+    void dispatchListRepositoriesReturnsOwnRepositories() {
+        User owner = User.builder().name("owner").email("owner@example.test").role(Role.USER).build();
+        ReflectionTestUtils.setField(owner, "id", 1L);
+        SourceRepository repo = SourceRepository.builder().user(owner).owner("acme").repoName("sample-node")
+                .gitUrl("https://github.com/acme/sample-node").cloudVendor(CloudVendor.NCP).build();
+        ReflectionTestUtils.setField(repo, "id", 7L);
+        ReflectionTestUtils.setField(repo, "createdAt", java.time.LocalDateTime.of(2026, 10, 14, 1, 2, 3));
+        given(sourceRepositoryRepository.findAllByUserId(1L)).willReturn(List.of(repo));
+
         var parsedIntent = new ParsedIntent(Intent.LIST_REPOSITORIES, Map.of(), 0.9, "저장소 목록");
         FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 1L);
 
-        assertThat(result.message()).contains("저장소 목록");
+        assertThat(result.type()).isEqualTo("list_repositories");
+        assertThat(result.message()).isEqualTo("저장소 목록: 총 1개");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) result.data().formatted();
+        assertThat(items).containsExactly(Map.of("id", 7L, "full_name", "acme/sample-node", "owner", "acme",
+                "repo_name", "sample-node", "created_at", "2026-10-14T01:02:03Z"));
+        verify(sourceRepositoryRepository).findAllByUserId(1L);
+        org.mockito.Mockito.verifyNoMoreInteractions(sourceRepositoryRepository);
+    }
+
+    @Test
+    @DisplayName("저장소가 없으면 빈 목록과 등록 안내를 돌려준다 (#140)")
+    void dispatchListRepositoriesEmpty() {
+        given(sourceRepositoryRepository.findAllByUserId(2L)).willReturn(List.of());
+
+        var parsedIntent = new ParsedIntent(Intent.LIST_REPOSITORIES, Map.of(), 0.9, "저장소 목록");
+        FormattedResponseDto result = (FormattedResponseDto) actionDispatcher.dispatch(parsedIntent, 2L);
+
+        assertThat(result.type()).isEqualTo("list_repositories");
+        assertThat((List<?>) result.data().formatted()).isEmpty();
+        assertThat(result.message()).contains("등록된 저장소가 없습니다");
     }
 
     @Test

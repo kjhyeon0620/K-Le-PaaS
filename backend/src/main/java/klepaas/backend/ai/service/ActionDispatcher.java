@@ -275,14 +275,27 @@ public class ActionDispatcher {
                 items, metadata);
     }
 
+    /** 요청 사용자의 저장소만 돌려준다 (GET /api/v1/repositories와 같은 범위, #140) */
     private Object executeListRepositories(Long userId) {
-        Map<String, Object> formatted = new LinkedHashMap<>();
-        formatted.put("message", "저장소 목록은 /api/v1/repositories API를 통해 확인하세요.");
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (SourceRepository repo : sourceRepositoryRepository.findAllByUserId(userId)) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", repo.getId());
+            item.put("full_name", repo.getOwner() + "/" + repo.getRepoName());
+            item.put("owner", repo.getOwner());
+            item.put("repo_name", repo.getRepoName());
+            // 저장 시각은 UTC다. API 응답과 같은 형식(Z)으로 쓴다 (#81)
+            item.put("created_at", repo.getCreatedAt() == null ? null : repo.getCreatedAt().toInstant(java.time.ZoneOffset.UTC).toString());
+            items.add(item);
+        }
 
-        return FormattedResponseDto.of("list_deployments",
-                "저장소 목록을 조회하려면 대시보드를 확인하세요.",
-                "저장소 목록",
-                formatted, null);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("total", items.size());
+
+        String message = items.isEmpty()
+                ? "등록된 저장소가 없습니다. 콘솔이나 API로 저장소를 먼저 등록하세요."
+                : "저장소 목록: 총 " + items.size() + "개";
+        return FormattedResponseDto.of("list_repositories", message, "저장소 " + items.size() + "개", items, metadata);
     }
 
     // ─── Rollback operations ──────────────────────────────────────────────────
