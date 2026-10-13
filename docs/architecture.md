@@ -57,6 +57,8 @@ POST /api/v1/nlp/command
        SCALE, RESTART                        → MEDIUM
        그 외(조회)                            → LOW
   → LOW: 즉시 실행 (소유권 범위 안의 조회)
+  → MEDIUM/HIGH: 실행 대상 인자가 빠졌으면(DEPLOY repository_id, SCALE deployment_id·replicas≥1, RESTART deployment_id,
+       ROLLBACK owner·repo) 승인 대기를 만들지 않고 CommandLog(FAILED, "대상 누락: …")와 되묻는 message를 돌려준다 (#135)
   → MEDIUM/HIGH: CommandLog(PENDING) 저장 후 승인 대기
        배포 intent(DEPLOY·ROLLBACK·ROLLBACK_EXECUTION)는 소유권 확인 후 대상 저장소 설정 지문을 함께 저장하고
        응답 approval_target에 저장소·브랜치·commit·이미지·레플리카·포트·env 이름·지문 8자리를 보인다 (#56)
@@ -328,7 +330,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 모니터링, alerts, PR 목록, 저장소별 자동 배포 스위치, 설정의 조직·환경·Slack·에이전트 탭, 대시보드 통계 카드 일부는 백엔드 API가 없다 | 화면에 "준비 중"으로 표시해 정상 기능처럼 보이지 않게 했다(#59). 기능은 없다 | 범위 밖 (필요 시 이슈) |
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
-| 자연어 명령 프롬프트(`system-prompt.txt`)는 SCALE·RESTART 대상을 "deployment_id 또는 app_name"으로 안내하지만, 실행 코드(`ActionDispatcher.executeScale`·`executeRestart`)는 `deployment_id`만 읽는다 | 앱 이름만 준 스케일·재시작 요청은 해석과 승인까지 진행된 뒤 실행에서 실패한다 (#58 평가 사례 작성 중 발견) | #135 |
 | 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |
 | 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |

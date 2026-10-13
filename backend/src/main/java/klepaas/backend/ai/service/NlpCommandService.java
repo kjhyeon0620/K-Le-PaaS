@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Propagation;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -96,6 +97,29 @@ public class NlpCommandService {
 
         // 인자 직렬화
         String intentArgsJson = serializeArgs(parsedIntent);
+
+        // 실행할 대상이 빠진 변경 명령은 승인 대기로 만들지 않고 되묻는다 (#135). 기록은 FAILED로 남긴다
+        List<String> missingTargets = requiresConfirmation
+                ? ChangeTargets.missing(parsedIntent.intent(), parsedIntent.args()) : List.of();
+        if (!missingTargets.isEmpty()) {
+            String question = ChangeTargets.question(parsedIntent.intent(), missingTargets);
+            CommandLog incomplete = CommandLog.builder()
+                    .user(user)
+                    .rawCommand(request.command())
+                    .interpretedIntent(parsedIntent.intent())
+                    .intentArgs(intentArgsJson)
+                    .riskLevel(riskLevel)
+                    .requiresConfirmation(false)
+                    .aiResponse(responseText)
+                    .session(session)
+                    .build();
+            incomplete.markFailed("대상 누락: " + String.join(", ", missingTargets));
+            commandLogRepository.save(incomplete);
+            session.touch();
+            sessionRepository.save(session);
+            return new NlpCommandResponse(incomplete.getId(), parsedIntent.intent(), question, null, riskLevel,
+                    false, session.getSessionToken(), null);
+        }
 
         // 승인할 배포 설정을 고정한다 (#56). 확인하지 못하면 지문 없이 저장되고 confirm에서 거절된다
         var approval = requiresConfirmation
