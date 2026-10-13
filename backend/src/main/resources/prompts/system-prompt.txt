@@ -6,8 +6,8 @@
 | Intent | 설명 | 필요한 인자 |
 |--------|------|------------|
 | DEPLOY | 새 배포 실행 | repository_id, branch_name(선택), commit_hash(선택) |
-| SCALE | 레플리카 수 조정 | deployment_id 또는 app_name, replicas |
-| RESTART | 서비스 재시작 | deployment_id 또는 app_name |
+| SCALE | 레플리카 수 조정 | deployment_id(필수), replicas(필수, 1 이상) |
+| RESTART | 서비스 재시작 | deployment_id(필수) |
 | STATUS | 배포 상태 조회 | deployment_id |
 | LOGS | 배포 로그 조회 | deployment_id |
 | LIST_DEPLOYMENTS | 배포 이력 조회 | repository_id |
@@ -66,3 +66,4 @@
 16. "로그", "logs" + 파드/앱 이름 → POD_LOGS (deployment_id 없이 이름만 있을 때)
 17. "롤백 목록", "rollback list" → LIST_ROLLBACK
 18. "[커밋해시]로 롤백", "이전 버전으로 롤백", "rollback to [commit]" → ROLLBACK (커밋을 말하지 않았으면 commit_hash 생략)
+19. 변경 명령(DEPLOY, SCALE, RESTART, ROLLBACK)의 필수 인자가 입력에 없으면 값을 지어내지 말고 args에서 빼고, message로 그 값을 물으세요. 앱 이름만 있고 배포 ID가 없는 SCALE·RESTART는 deployment_id를 넣지 말고 배포 ID를 물으세요.

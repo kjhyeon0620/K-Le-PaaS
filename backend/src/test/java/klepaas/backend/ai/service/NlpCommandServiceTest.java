@@ -160,6 +160,34 @@ class NlpCommandServiceTest {
     }
 
     @Test
+    @DisplayName("대상이 빠진 변경 명령은 승인 대기 없이 되묻고 FAILED로 기록한다 (#135)")
+    void changeCommandWithoutTargetAsksBack() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(sessionRepository.save(any())).willReturn(testSession);
+        given(nlpLlm.completeJson(any())).willReturn(llmResponse("test"));
+        given(intentParser.parse("test")).willReturn(new klepaas.backend.ai.dto.ParsedIntent(Intent.RESTART,
+                java.util.Map.of("app_name", "sample-node"), 0.9, "재시작합니다"));
+        given(actionDispatcher.classifyRisk(Intent.RESTART)).willReturn(RiskLevel.MEDIUM);
+        var saved = new java.util.concurrent.atomic.AtomicReference<CommandLog>();
+        given(commandLogRepository.save(any())).willAnswer(inv -> {
+            saved.set(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+
+        NlpCommandResponse response = nlpCommandService.processCommand(1L, new NlpCommandRequest("sample-node 재시작해줘", null));
+
+        assertThat(response.requiresConfirmation()).isFalse();
+        assertThat(response.result()).isNull();
+        assertThat(response.riskLevel()).isEqualTo(RiskLevel.MEDIUM);
+        assertThat(response.message()).contains("대상 배포 ID");
+        assertThat(saved.get().getStatus()).isEqualTo(CommandStatus.FAILED);
+        assertThat(saved.get().getErrorMessage()).isEqualTo("대상 누락: deployment_id");
+        assertThat(saved.get().isRequiresConfirmation()).isFalse();
+        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+        verifyNoInteractions(approvalTargets);
+    }
+
+    @Test
     @DisplayName("LOW 리스크 명령은 즉시 실행")
     void processLowRiskCommand() {
         given(userRepository.findById(1L)).willReturn(Optional.of(testUser));

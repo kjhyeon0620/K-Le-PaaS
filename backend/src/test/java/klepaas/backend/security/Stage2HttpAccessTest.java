@@ -246,6 +246,17 @@ class Stage2HttpAccessTest {
                 "{\"command\":\"list repositories\"}")).path("data").path("result");
         assertEquals(0, bList.path("data").path("formatted").size());
         assertFalse(bList.toString().contains("a-stage2"));
+
+        // 대상이 빠진 변경 명령은 승인 대기를 만들지 않는다 (#135)
+        when(nlpLlm.completeJson(any())).thenReturn(new klepaas.backend.ai.llm.LlmClient.Response(
+                "{\"intent\":\"SCALE\",\"args\":{\"replicas\":0},\"confidence\":1,\"message\":\"Scale\"}",
+                "test-model", new klepaas.backend.ai.llm.LlmClient.Usage(0, 0, null, null), 1));
+        JsonNode incomplete = ok("A JWT NLP change without target", send("POST", "/api/v1/nlp/command", aJwt,
+                "{\"command\":\"scale every app to zero\"}")).path("data");
+        assertFalse(incomplete.path("requires_confirmation").asBoolean());
+        assertTrue(incomplete.path("message").asText().contains("대상 배포 ID"));
+        assertEquals(409, send("POST", "/api/v1/nlp/confirm", aJwt,
+                confirmBody(incomplete.path("command_log_id").asLong(), true)).path("_http_status").asInt());
         verify(generator, times(1)).scale(eq("a-stage2-service"), eq(3), eq(repo.getId()));
     }
 
