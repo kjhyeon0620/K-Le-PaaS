@@ -2,11 +2,11 @@ package klepaas.backend.ai.eval;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import klepaas.backend.ai.client.GeminiClient;
-import klepaas.backend.ai.client.dto.GeminiRequest;
-import klepaas.backend.ai.client.dto.GeminiResponse;
 import klepaas.backend.ai.eval.NlpEval.Case;
+import klepaas.backend.ai.llm.GeminiLlmClient;
 import klepaas.backend.ai.llm.LlmClient;
 import klepaas.backend.ai.llm.OpenAiLlmClient;
+import klepaas.backend.ai.service.NlpPrompt;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.web.client.RestClient;
@@ -30,8 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * #58 자연어 명령 해석을 실제 모델로 평가한다. NLP_EVAL_MODELS=provider:model,...(gemini·openai)와 해당 키가 있을 때만 실행한다.
- * 두 모델에 운영 GeminiRequest.of와 같은 문자열(지시문 + "사용자 입력: " + 입력)을 보낸다.
- * gemini는 운영 경로(GeminiClient, temperature 0.1, 출력 1,024), openai는 진단용 OpenAiLlmClient(JSON 모드, 출력 2,048)를 쓴다.
+ * 운영 자연어 명령과 같은 경로로 부른다(#136): NlpPrompt.build 문자열을 공급사별 LlmClient 구현
+ * (GeminiLlmClient: JSON 응답·출력 8,192 / OpenAiLlmClient: JSON 모드·출력 2,048)의 completeJson에 보낸다.
  * 정확도로는 실패시키지 않고, 상태를 바꾸는 intent가 승인 없이 실행될 해석이 나오면 실패한다.
  * 결과는 build/nlp-eval/result-<시각>.json·.md.
  * NLP_EVAL_REPLAY=<이전 결과 json>이면 모델을 호출하지 않고 저장된 원문 응답을 같은 사례·반복 번호로 다시 채점한다(채점 규칙 수정 뒤 재채점).
@@ -159,8 +159,8 @@ class NlpModelEvalTest {
         header.put("system_prompt_sha256", promptHash);
         if (replay != null) header.put("replayed_from", replayPath);
         header.put("call_paths", Map.of(
-                "gemini", "운영 GeminiClient + GeminiRequest.of (temperature 0.1, maxOutputTokens 1024)",
-                "openai", "OpenAiLlmClient.completeJson (response_format json_object, max_completion_tokens 2048), 같은 프롬프트 문자열"));
+                "gemini", "GeminiLlmClient.completeJson (GeminiRequest.json: responseMimeType application/json, maxOutputTokens 8192) + NlpPrompt.build",
+                "openai", "OpenAiLlmClient.completeJson (response_format json_object, max_completion_tokens 2048) + NlpPrompt.build"));
         header.put("models", report);
         NlpEval.JSON.writerWithDefaultPrettyPrinter().writeValue(dir.resolve("result-" + stamp + ".json").toFile(), header);
         Files.writeString(dir.resolve("result-" + stamp + ".md"), "사례 " + cases.size() + "개 × " + repeat + "회, 프롬프트 "
@@ -203,30 +203,16 @@ class NlpModelEvalTest {
     }
 
     private static Caller caller(String provider, String model) {
-        return switch (provider) {
-            case "gemini" -> {
-                GeminiClient client = new GeminiClient(
-                        RestClient.builder().baseUrl("https://generativelanguage.googleapis.com").build(), require("GEMINI_API_KEY"), model);
-                yield (c, rep, system) -> {
-                    long started = System.currentTimeMillis();
-                    GeminiResponse r = client.generate(model, GeminiRequest.of(system, c.input()));
-                    var u = r.usageMetadata();
-                    long thoughts = u == null || u.thoughtsTokenCount() == null ? 0 : u.thoughtsTokenCount();
-                    long candidates = u == null || u.candidatesTokenCount() == null ? 0 : u.candidatesTokenCount();
-                    return new Reply(r.extractText(), r.modelVersion(),
-                            u == null || u.promptTokenCount() == null ? 0 : u.promptTokenCount(),
-                            candidates + thoughts, thoughts, System.currentTimeMillis() - started);
-                };
-            }
-            case "openai" -> {
-                LlmClient client = new OpenAiLlmClient(require("OPENAI_API_KEY"), model, null);
-                yield (c, rep, system) -> {
-                    LlmClient.Response r = client.completeJson(NlpEval.prompt(system, c.input()));
-                    return new Reply(r.text(), r.model(), r.usage().inputTokens(), r.usage().outputTokens(),
-                            r.usage().reasoningTokens() == null ? 0 : r.usage().reasoningTokens(), r.latencyMs());
-                };
-            }
+        LlmClient client = switch (provider) {
+            case "gemini" -> new GeminiLlmClient(new GeminiClient(
+                    RestClient.builder().baseUrl("https://generativelanguage.googleapis.com").build(), require("GEMINI_API_KEY"), model), model);
+            case "openai" -> new OpenAiLlmClient(require("OPENAI_API_KEY"), model, null);
             default -> throw new IllegalArgumentException("provider는 gemini·openai: " + provider);
+        };
+        return (c, rep, system) -> {
+            LlmClient.Response r = client.completeJson(NlpPrompt.build(system, c.input()));
+            return new Reply(r.text(), r.model(), r.usage().inputTokens(), r.usage().outputTokens(),
+                    r.usage().reasoningTokens() == null ? 0 : r.usage().reasoningTokens(), r.latencyMs());
         };
     }
 

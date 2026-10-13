@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.ai.client.GeminiClient;
-import klepaas.backend.ai.client.dto.GeminiResponse;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenRequest;
@@ -77,6 +76,7 @@ class Stage2HttpAccessTest {
 
     @MockitoBean private GitHubAppClient github;
     @MockitoBean private GeminiClient gemini;
+    @MockitoBean(name = "nlpLlm") private klepaas.backend.ai.llm.LlmClient nlpLlm;
     @MockitoBean private KubernetesClient kubernetes;
     @MockitoBean private KubernetesManifestGenerator generator;
     @MockitoBean private DeploymentObservationReader observationReader;
@@ -199,10 +199,10 @@ class Stage2HttpAccessTest {
         assertEquals(repo.getId(), deployments.findById(createdId).orElseThrow().getSourceRepository().getId());
         verify(pipeline).executePipeline(createdId);
 
-        when(gemini.generate(any())).thenReturn(new GeminiResponse(List.of(new GeminiResponse.Candidate(
-                new GeminiResponse.Content(List.of(new GeminiResponse.Part(
-                        "{\"intent\":\"SCALE\",\"args\":{\"deployment_id\":" + deployment.getId()
-                                + ",\"replicas\":3},\"confidence\":1,\"message\":\"Scale\"}")), "model")))));
+        when(nlpLlm.completeJson(any())).thenReturn(new klepaas.backend.ai.llm.LlmClient.Response(
+                "{\"intent\":\"SCALE\",\"args\":{\"deployment_id\":" + deployment.getId()
+                                + ",\"replicas\":3},\"confidence\":1,\"message\":\"Scale\"}",
+                "test-model", new klepaas.backend.ai.llm.LlmClient.Usage(0, 0, null, null), 1));
         JsonNode command = ok("A JWT create pending NLP command", send("POST", "/api/v1/nlp/command", aJwt,
                 "{\"command\":\"scale to three\"}")).path("data");
         long commandId = command.path("command_log_id").asLong();

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.ai.client.GeminiClient;
-import klepaas.backend.ai.client.dto.GeminiResponse;
 import klepaas.backend.auth.jwt.JwtTokenProvider;
 import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.auth.token.dto.CreateCliAccessTokenRequest;
@@ -71,6 +70,7 @@ class CliTokenScopeHttpTest {
 
     @MockitoBean private GitHubAppClient github;
     @MockitoBean private GeminiClient gemini;
+    @MockitoBean(name = "nlpLlm") private klepaas.backend.ai.llm.LlmClient nlpLlm;
     @MockitoBean private KubernetesClient kubernetes;
     @MockitoBean private KubernetesManifestGenerator generator;
     @MockitoBean private DeploymentPipelineService pipeline;
@@ -167,10 +167,10 @@ class CliTokenScopeHttpTest {
                 .branchName("main").commitHash("abcdef0").build());
         String agent = cliTokens.createToken(owner.getId(),
                 new CreateCliAccessTokenRequest("agent", 1, CliTokenScope.PROPOSE_ONLY)).token();
-        when(gemini.generate(any())).thenReturn(new GeminiResponse(List.of(new GeminiResponse.Candidate(
-                new GeminiResponse.Content(List.of(new GeminiResponse.Part(
-                        "{\"intent\":\"RESTART\",\"args\":{\"deployment_id\":" + deployment.getId()
-                                + "},\"confidence\":1,\"message\":\"Restart\"}")), "model")))));
+        when(nlpLlm.completeJson(any())).thenReturn(new klepaas.backend.ai.llm.LlmClient.Response(
+                "{\"intent\":\"RESTART\",\"args\":{\"deployment_id\":" + deployment.getId()
+                                + "},\"confidence\":1,\"message\":\"Restart\"}",
+                "test-model", new klepaas.backend.ai.llm.LlmClient.Usage(0, 0, null, null), 1));
 
         JsonNode proposed = body(send("POST", "/api/v1/nlp/command", agent, "{\"command\":\"restart it\"}"));
         long commandId = proposed.path("data").path("command_log_id").asLong();

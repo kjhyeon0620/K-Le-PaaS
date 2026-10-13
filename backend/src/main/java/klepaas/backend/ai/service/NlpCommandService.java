@@ -2,9 +2,7 @@ package klepaas.backend.ai.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import klepaas.backend.ai.client.GeminiClient;
-import klepaas.backend.ai.client.dto.GeminiRequest;
-import klepaas.backend.ai.client.dto.GeminiResponse;
+import klepaas.backend.ai.llm.LlmClient;
 import klepaas.backend.ai.dto.*;
 import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.exception.AiProcessingException;
@@ -19,6 +17,7 @@ import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
@@ -35,7 +34,7 @@ import java.nio.charset.StandardCharsets;
 @Transactional(readOnly = true)
 public class NlpCommandService {
 
-    private final GeminiClient geminiClient;
+    private final LlmClient nlpLlm;
     private final IntentParser intentParser;
     private final ActionDispatcher actionDispatcher;
     private final ApprovalTargetResolver approvalTargets;
@@ -48,7 +47,7 @@ public class NlpCommandService {
     private final String systemPrompt;
 
     public NlpCommandService(
-            GeminiClient geminiClient,
+            @Qualifier("nlpLlm") LlmClient nlpLlm,
             IntentParser intentParser,
             ActionDispatcher actionDispatcher,
             ApprovalTargetResolver approvalTargets,
@@ -59,7 +58,7 @@ public class NlpCommandService {
             ResourceAccessService resourceAccessService,
             @Value("classpath:prompts/system-prompt.txt") Resource systemPromptResource
     ) {
-        this.geminiClient = geminiClient;
+        this.nlpLlm = nlpLlm;
         this.intentParser = intentParser;
         this.actionDispatcher = actionDispatcher;
         this.approvalTargets = approvalTargets;
@@ -83,10 +82,10 @@ public class NlpCommandService {
         // 세션 관리
         ConversationSession session = getOrCreateSession(user, request.sessionId());
 
-        // Gemini API 호출
-        GeminiRequest geminiRequest = GeminiRequest.of(systemPrompt, request.command());
-        GeminiResponse geminiResponse = geminiClient.generate(geminiRequest);
-        String responseText = geminiResponse.extractText();
+        // 모델 호출 (#136). 실패하면 AI_001로 끝나고 명령 기록·실행은 없다
+        LlmClient.Response llmResponse = nlpLlm.completeJson(NlpPrompt.build(systemPrompt, request.command()));
+        String responseText = llmResponse.text();
+        log.info("자연어 명령 해석: provider={}, model={}, latencyMs={}", nlpLlm.provider(), llmResponse.model(), llmResponse.latencyMs());
 
         // Intent 파싱
         ParsedIntent parsedIntent = intentParser.parse(responseText);

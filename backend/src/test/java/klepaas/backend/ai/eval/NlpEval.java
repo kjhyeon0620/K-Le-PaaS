@@ -66,10 +66,6 @@ public final class NlpEval {
         return Files.readString(SYSTEM_PROMPT);
     }
 
-    /** 운영 GeminiRequest.of와 같은 문자열. 두 모델에 똑같이 보낸다 */
-    public static String prompt(String systemPrompt, String input) {
-        return systemPrompt + "\n\n사용자 입력: " + input;
-    }
 
     public static RiskLevel risk(Intent intent) {
         return DISPATCHER.classifyRisk(intent);
