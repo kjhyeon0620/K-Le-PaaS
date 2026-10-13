@@ -257,6 +257,24 @@ class Stage2HttpAccessTest {
         assertTrue(incomplete.path("message").asText().contains("대상 배포 ID"));
         assertEquals(409, send("POST", "/api/v1/nlp/confirm", aJwt,
                 confirmBody(incomplete.path("command_log_id").asLong(), true)).path("_http_status").asInt());
+
+        // 앱 이름으로 지정한 재시작 (#144): A는 자기 저장소로 정해져 승인 화면에 보이고 승인하면 그 저장소가 재시작된다.
+        // B는 같은 이름이어도 A의 저장소를 찾지 않고 존재도 드러나지 않는다
+        when(nlpLlm.completeJson(any())).thenReturn(new klepaas.backend.ai.llm.LlmClient.Response(
+                "{\"intent\":\"RESTART\",\"args\":{\"app_name\":\"service\"},\"confidence\":1,\"message\":\"Restart\"}",
+                "test-model", new klepaas.backend.ai.llm.LlmClient.Usage(0, 0, null, null), 1));
+        JsonNode named = ok("A JWT NLP restart by app name", send("POST", "/api/v1/nlp/command", aJwt,
+                "{\"command\":\"restart service\"}")).path("data");
+        assertTrue(named.path("requires_confirmation").asBoolean());
+        assertEquals("a-stage2/service", named.path("approval_target").path("repository").asText());
+        ok("A JWT confirm restart by app name", send("POST", "/api/v1/nlp/confirm", aJwt,
+                confirmBody(named.path("command_log_id").asLong(), true)));
+        verify(generator).restart("a-stage2-service", repo.getId());
+
+        JsonNode strangerNamed = ok("B JWT NLP restart by A's app name", send("POST", "/api/v1/nlp/command", bJwt,
+                "{\"command\":\"restart service\"}")).path("data");
+        assertFalse(strangerNamed.path("requires_confirmation").asBoolean());
+        assertFalse(strangerNamed.toString().contains("a-stage2"));
         verify(generator, times(1)).scale(eq("a-stage2-service"), eq(3), eq(repo.getId()));
     }
 

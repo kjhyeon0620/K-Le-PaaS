@@ -31,7 +31,7 @@ import static org.mockito.Mockito.*;
 
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({CommandConfirmationService.class, NlpCommandService.class, JpaConfig.class})
+@Import({CommandConfirmationService.class, NlpCommandService.class, NameTargets.class, JpaConfig.class})
 class CommandConfirmationConcurrencyTest {
     @Autowired private CommandConfirmationService confirmations;
     @Autowired private NlpCommandService commands;

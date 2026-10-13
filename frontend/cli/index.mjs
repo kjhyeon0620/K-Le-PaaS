@@ -279,7 +279,8 @@ function printApprovalTarget(target) {
     ["Replicas", `${target.min_replicas}-${target.max_replicas}`],
     ["Container Port", target.container_port],
     ["Env Names", target.env_names?.length ? target.env_names.join(", ") : "-"],
-    ["Config", target.config_fingerprint],
+    // 재시작·스케일은 고정할 설정이 없어 지문이 없다 (#144)
+    ["Config", target.config_fingerprint ?? "-"],
   ]);
 }
 

@@ -40,7 +40,7 @@ import static org.mockito.Mockito.*;
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @TestPropertySource(properties = "jwt.secret=approval-pinning-test-secret-at-least-32-bytes")
-@Import({CommandConfirmationService.class, NlpCommandService.class, ApprovalTargetResolver.class,
+@Import({CommandConfirmationService.class, NlpCommandService.class, NameTargets.class, ApprovalTargetResolver.class,
         ResourceAccessService.class, DeploymentConfigSnapshots.class, JpaConfig.class})
 class ApprovalPinningTest {
     @Autowired private NlpCommandService commands;
