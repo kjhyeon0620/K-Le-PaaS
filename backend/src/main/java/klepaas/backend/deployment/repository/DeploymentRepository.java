@@ -28,9 +28,6 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
     @EntityGraph(attributePaths = {"sourceRepository"})
     Page<Deployment> findBySourceRepositoryId(Long sourceRepositoryId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"sourceRepository"})
-    Page<Deployment> findBySourceRepositoryUserId(Long userId, Pageable pageable);
-
     Optional<Deployment> findByGithubDeliveryId(String githubDeliveryId);
 
     // 상세 화면의 비교 대상: 같은 저장소에서 이 배포보다 먼저 만들어진 마지막 성공 배포 (#95)

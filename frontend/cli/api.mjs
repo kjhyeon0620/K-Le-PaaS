@@ -275,6 +275,9 @@ export class ApiClient {
   }
 }
 
+// 값이 이름 → 값 맵인 필드. 키가 사용자 데이터(env 이름 등)라 바꾸지 않는다 (#109)
+const MAP_VALUED_FIELDS = new Set(["env_vars"]);
+
 function toSnakeCase(value) {
   if (Array.isArray(value)) {
     return value.map((item) => toSnakeCase(item));
@@ -282,7 +285,10 @@ function toSnakeCase(value) {
 
   if (value && typeof value === "object" && !(value instanceof Date)) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, nestedValue]) => [camelToSnake(key), toSnakeCase(nestedValue)])
+      Object.entries(value).map(([key, nestedValue]) => {
+        const name = camelToSnake(key);
+        return [name, MAP_VALUED_FIELDS.has(name) ? nestedValue : toSnakeCase(nestedValue)];
+      })
     );
   }
 

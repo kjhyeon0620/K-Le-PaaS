@@ -708,8 +708,8 @@ class KubernetesManifestGeneratorTest {
         Mockito.verify(resource, Mockito.never()).create();
     }
 
-    // 서버 GET 응답처럼 managedFields(fieldsV1)를 가진 Deployment. Fabric8 7.2.0 + Jackson 2.20에서 그대로 replace()하면
-    // 보내기 전 clone 단계에서 직렬화가 실패한다 (#86)
+    // 서버 GET 응답처럼 managedFields(fieldsV1)를 가진 Deployment. Fabric8 7.2.0 + Jackson 2.20에서는 그대로 replace()하면
+    // 보내기 전 clone 단계에서 직렬화가 실패했다 (#86). 7.6.1에서는 복제된다 (#109)
     private io.fabric8.kubernetes.api.model.apps.Deployment observedWithManagedFields() {
         return new io.fabric8.kubernetes.client.utils.KubernetesSerialization().unmarshal("""
                 {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"owner-repo","resourceVersion":"42",
@@ -718,6 +718,17 @@ class KubernetesManifestGeneratorTest {
                    "fieldsType":"FieldsV1","fieldsV1":{"f:metadata":{"f:labels":{".":{},"f:app.kubernetes.io/name":{}}}}}]},
                  "spec":{"replicas":2,"template":{"metadata":{"labels":{"app.kubernetes.io/name":"owner-repo"}}}}}
                 """, io.fabric8.kubernetes.api.model.apps.Deployment.class);
+    }
+
+    @Test
+    @DisplayName("서버에서 읽은 객체를 managedFields까지 그대로 복제할 수 있다 (Fabric8과 실행 Jackson 버전 정합, #109)")
+    void observedDeploymentWithManagedFieldsClones() {
+        var observed = observedWithManagedFields();
+
+        var copy = new io.fabric8.kubernetes.client.utils.KubernetesSerialization().clone(observed);
+
+        assertThat(copy.getMetadata().getManagedFields()).hasSize(1);
+        assertThat(copy.getMetadata().getManagedFields().get(0).getFieldsV1()).isNotNull();
     }
 
     @Test

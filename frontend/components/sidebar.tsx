@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +30,17 @@ interface SidebarProps {
 
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
+
+  // 좁은 화면(768px 미만)에서는 접힌 막대로 시작하고, 그 폭으로 줄면 접는다. 펼치는 것은 사용자가 고른다 (#109)
+  useEffect(() => {
+    const narrow = window.matchMedia("(max-width: 767px)")
+    if (narrow.matches) setCollapsed(true)
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setCollapsed(true)
+    }
+    narrow.addEventListener("change", onChange)
+    return () => narrow.removeEventListener("change", onChange)
+  }, [])
 
   return (
     <div
