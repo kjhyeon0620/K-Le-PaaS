@@ -60,7 +60,7 @@ dependencies {
 	implementation 'io.modelcontextprotocol.sdk:mcp:2.0.1'
 
 	// K8s client (fabric8)
-	implementation 'io.fabric8:kubernetes-client:7.2.0'
+	implementation 'io.fabric8:kubernetes-client:7.6.1'
 
 	// AI 진단 공급사 (#100). Gemini는 RestClient로 직접 호출한다
 	implementation 'com.anthropic:anthropic-java:2.34.0'

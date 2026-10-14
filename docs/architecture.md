@@ -332,11 +332,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 격차 | 영향 | 이슈 |
 |---|---|---|
 | 모니터링, alerts, PR 목록, 저장소별 자동 배포 스위치, 설정의 조직·환경·Slack·에이전트 탭, 대시보드 통계 카드 일부는 백엔드 API가 없다 | 화면에 "준비 중"으로 표시해 정상 기능처럼 보이지 않게 했다(#59). 기능은 없다 | 범위 밖 (필요 시 이슈) |
-| Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
-| 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |
-| CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |
-| `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | #109 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |

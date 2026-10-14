@@ -141,8 +141,8 @@ public class KubernetesManifestGenerator {
     }
 
     private Deployment replaceWithObservedVersion(Deployment deployment) {
-        // managedFields는 서버가 관리한다. 요청에서 빼면 서버는 기존 값을 유지한다.
-        // 그대로 보내면 Fabric8 7.2.0이 replace() 전 복제에서 Jackson 2.20과 맞지 않아 실패한다 (#86)
+        // managedFields는 서버가 관리한다. 요청에서 빼면 서버는 기존 값을 유지한다 (#86).
+        // Fabric8 7.2.0 + Jackson 2.20에서는 그대로 보내면 replace() 전 복제가 실패했다. 7.6.1(Jackson 2.20 기준)부터는 복제되지만 보낼 이유가 없다 (#109)
         deployment.getMetadata().setManagedFields(null);
         return kubernetesClient.apps().deployments().inNamespace(namespace).resource(deployment)
                 .lockResourceVersion(deployment.getMetadata().getResourceVersion()).replace();
