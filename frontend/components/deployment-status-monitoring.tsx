@@ -7,11 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -37,7 +32,6 @@ import {
   Activity,
   ExternalLink,
   Terminal,
-  Save,
   History,
 } from "lucide-react"
 import { api, type DeploymentConfigResponse, type DeploymentStatus, type RepositoryWorkload } from "@/lib/api"
@@ -48,6 +42,7 @@ import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
 import { DeploymentLogsDialog } from "@/components/deployment-logs-dialog"
 import { DeploymentHistory, DeploymentRequestDetail } from "@/components/deployment-request-detail"
+import { DeploymentConfigForm } from "@/components/deployment-config-form"
 import { formatDuration } from "@/lib/utils"
 import { formatKst, formatTimeAgo, parseServerTime } from "@/lib/time"
 import { formatImageDisplay } from "@/lib/utils/image-formatter"
@@ -62,28 +57,6 @@ interface DeploymentStatusMonitoringProps {
 
 const IN_PROGRESS_STATUSES: readonly DeploymentStatus[] = ["PENDING", "UPLOADING_SOURCE", "BUILDING", "DEPLOYING"]
 
-type BuildServiceInput = {
-  build_strategy: string
-  image_uri_template: string
-  image_pull_secret_name: string
-  service_type: string
-  node_port: string
-  container_port: string
-  domain_url: string
-}
-
-function toBuildServiceInput(config: DeploymentConfigResponse | undefined): BuildServiceInput {
-  return {
-    build_strategy: config?.build_strategy ?? "",
-    image_uri_template: config?.image_uri_template ?? "",
-    image_pull_secret_name: config?.image_pull_secret_name ?? "",
-    service_type: config?.service_type ?? "CLUSTER_IP",
-    node_port: config?.node_port == null ? "" : String(config.node_port),
-    container_port: config ? String(config.container_port) : "",
-    domain_url: config?.domain_url ?? "",
-  }
-}
-
 function deploymentDurationSeconds(startedAt: string | null, finishedAt: string | null): number | null {
   const start = parseServerTime(startedAt)
   const end = parseServerTime(finishedAt)
@@ -91,48 +64,6 @@ function deploymentDurationSeconds(startedAt: string | null, finishedAt: string 
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000))
 }
 
-const PROBE_FIELDS = [
-  ["path", "Health path", "/health"],
-  ["port", "Probe port", "container port"],
-  ["initial_delay_seconds", "Initial delay (s)", "0"],
-  ["period_seconds", "Period (s)", "10"],
-  ["failure_threshold", "Failure threshold", "3"],
-  ["startup_failure_threshold", "Startup failure threshold", "off"],
-] as const
-const RESOURCE_FIELDS = [
-  ["cpu_request", "CPU request", "100m"],
-  ["cpu_limit", "CPU limit", "500m"],
-  ["memory_request", "Memory request", "128Mi"],
-  ["memory_limit", "Memory limit", "256Mi"],
-] as const
-type RuntimeCheckField = (typeof PROBE_FIELDS)[number][0] | (typeof RESOURCE_FIELDS)[number][0]
-type RuntimeCheckInput = Record<RuntimeCheckField, string>
-
-function toRuntimeCheckInput(config: DeploymentConfigResponse | undefined): RuntimeCheckInput {
-  const values: Record<string, string | number | null | undefined> = {
-    ...config?.health_probe,
-    ...config?.resources,
-  }
-  const fields = [...PROBE_FIELDS, ...RESOURCE_FIELDS].map(([key]) => [key, String(values[key] ?? "")])
-  return Object.fromEntries(fields) as RuntimeCheckInput
-}
-
-function toNumberOrNull(value: string): number | null {
-  return value.trim() === "" ? null : Number(value)
-}
-
-function toTextOrNull(value: string): string | null {
-  return value.trim() === "" ? null : value.trim()
-}
-
-function parseEnvFromNames(value: string): string[] {
-  const names = value
-    .split(/[,\n]/)
-    .map((name) => name.trim())
-    .filter(Boolean)
-
-  return Array.from(new Set(names))
-}
 
 export function DeploymentStatusMonitoring({
   onNavigateToMonitoring,
@@ -171,11 +102,6 @@ export function DeploymentStatusMonitoring({
   const [configErrors, setConfigErrors] = useState<Record<string, string>>({})
   const [loadError, setLoadError] = useState<string | null>(null)
   const [detailsTab, setDetailsTab] = useState("status")
-  const [buildServiceInput, setBuildServiceInput] = useState<BuildServiceInput>(toBuildServiceInput(undefined))
-  const [envFromConfigMapsInput, setEnvFromConfigMapsInput] = useState("")
-  const [envFromSecretsInput, setEnvFromSecretsInput] = useState("")
-  const [runtimeCheckInput, setRuntimeCheckInput] = useState<RuntimeCheckInput>(toRuntimeCheckInput(undefined))
-  const [configSaving, setConfigSaving] = useState(false)
 
   // Dialog states for Rollback, Scale, Restart, Logs
   const [rollbackDialogOpen, setRollbackDialogOpen] = useState(false)
@@ -223,17 +149,6 @@ export function DeploymentStatusMonitoring({
     const interval = setInterval(fetchRepositories, 30000)
     return () => clearInterval(interval)
   }, [])
-
-  useEffect(() => {
-    if (!selectedRepo || !detailsOpen) {
-      return
-    }
-    const config = deploymentConfigs[selectedRepo.full_name]
-    setEnvFromConfigMapsInput(config?.env_from_config_maps.join(", ") ?? "")
-    setEnvFromSecretsInput(config?.env_from_secrets.join(", ") ?? "")
-    setRuntimeCheckInput(toRuntimeCheckInput(config))
-    setBuildServiceInput(toBuildServiceInput(config))
-  }, [deploymentConfigs, detailsOpen, selectedRepo])
 
   // GitHub 화면의 Configure: 목록을 불러온 뒤 해당 저장소의 설정 탭을 연다
   useEffect(() => {
@@ -284,47 +199,10 @@ export function DeploymentStatusMonitoring({
     return <Badge variant="outline">{status}</Badge>
   }
 
-  const handleViewDetails = (repo: RepositoryWorkload) => {
+  const handleViewDetails = (repo: RepositoryWorkload, tab: "status" | "config" = "status") => {
     setSelectedRepo(repo)
-    setDetailsTab("status")
+    setDetailsTab(tab)
     setDetailsOpen(true)
-  }
-
-  const handleSaveBuildAndService = async () => {
-    if (!selectedRepo) {
-      return
-    }
-
-    try {
-      setConfigSaving(true)
-      const input = buildServiceInput
-      const updatedConfig = await api.updateDeploymentBuildAndService(selectedRepo.owner, selectedRepo.repo, {
-        build_strategy: toTextOrNull(input.build_strategy),
-        image_uri_template: toTextOrNull(input.image_uri_template),
-        image_pull_secret_name: toTextOrNull(input.image_pull_secret_name),
-        service_type: toTextOrNull(input.service_type),
-        node_port: input.service_type === "NODE_PORT" ? toNumberOrNull(input.node_port) : null,
-        container_port: Number(input.container_port),
-        domain_url: toTextOrNull(input.domain_url),
-      })
-      setDeploymentConfigs((current) => ({
-        ...current,
-        [selectedRepo.full_name]: updatedConfig,
-      }))
-      toast({
-        title: "Build and service settings saved",
-        description: "The settings apply on the next deployment.",
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save build and service settings."
-      toast({
-        title: "Save failed",
-        description: message,
-        variant: "destructive",
-      })
-    } finally {
-      setConfigSaving(false)
-    }
   }
 
   const handleOpenLogs = (repo: RepositoryWorkload) => {
@@ -350,119 +228,6 @@ export function DeploymentStatusMonitoring({
   const handleActionSuccess = () => {
     // Refresh repositories after successful action
     fetchRepositories()
-  }
-
-  const handleSaveProbeAndResources = async () => {
-    if (!selectedRepo) {
-      return
-    }
-
-    try {
-      setConfigSaving(true)
-      const input = runtimeCheckInput
-      const updatedConfig = await api.updateDeploymentProbeAndResources(
-        selectedRepo.owner,
-        selectedRepo.repo,
-        {
-          path: input.path.trim(),
-          port: toNumberOrNull(input.port),
-          initial_delay_seconds: toNumberOrNull(input.initial_delay_seconds),
-          period_seconds: toNumberOrNull(input.period_seconds),
-          failure_threshold: toNumberOrNull(input.failure_threshold),
-          startup_failure_threshold: toNumberOrNull(input.startup_failure_threshold),
-        },
-        {
-          cpu_request: toTextOrNull(input.cpu_request),
-          cpu_limit: toTextOrNull(input.cpu_limit),
-          memory_request: toTextOrNull(input.memory_request),
-          memory_limit: toTextOrNull(input.memory_limit),
-        }
-      )
-      setDeploymentConfigs((current) => ({
-        ...current,
-        [selectedRepo.full_name]: updatedConfig,
-      }))
-      toast({
-        title: "Health probe and resources saved",
-        description: "The settings apply on the next deployment.",
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save health probe and resource settings."
-      toast({
-        title: "Save failed",
-        description: message,
-        variant: "destructive",
-      })
-    } finally {
-      setConfigSaving(false)
-    }
-  }
-
-  const handleToggleImagePullSecret = async (enabled: boolean) => {
-    if (!selectedRepo) {
-      return
-    }
-
-    try {
-      setConfigSaving(true)
-      const updatedConfig = await api.updateDeploymentImagePullSecretEnabled(
-        selectedRepo.owner,
-        selectedRepo.repo,
-        enabled
-      )
-      setDeploymentConfigs((current) => ({
-        ...current,
-        [selectedRepo.full_name]: updatedConfig,
-      }))
-      toast({
-        title: enabled ? "Image pull secret enabled" : "Image pull secret disabled",
-        description: "The setting applies on the next deployment.",
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save the image pull secret setting."
-      toast({
-        title: "Save failed",
-        description: message,
-        variant: "destructive",
-      })
-    } finally {
-      setConfigSaving(false)
-    }
-  }
-
-  const handleSaveRuntimeEnvFrom = async () => {
-    if (!selectedRepo) {
-      return
-    }
-
-    try {
-      setConfigSaving(true)
-      const envFromConfigMaps = parseEnvFromNames(envFromConfigMapsInput)
-      const envFromSecrets = parseEnvFromNames(envFromSecretsInput)
-      const updatedConfig = await api.updateDeploymentRuntimeEnvFrom(
-        selectedRepo.owner,
-        selectedRepo.repo,
-        envFromConfigMaps,
-        envFromSecrets
-      )
-      setDeploymentConfigs((current) => ({
-        ...current,
-        [selectedRepo.full_name]: updatedConfig,
-      }))
-      toast({
-        title: "Runtime envFrom saved",
-        description: "ConfigMap and Secret names will be injected on the next deployment.",
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save runtime envFrom settings."
-      toast({
-        title: "Save failed",
-        description: message,
-        variant: "destructive",
-      })
-    } finally {
-      setConfigSaving(false)
-    }
   }
 
   // 사용자 인증 상태 확인
@@ -652,7 +417,7 @@ export function DeploymentStatusMonitoring({
                       <History className="mr-2 h-4 w-4" />
                       History
                     </Button>
-                    <Button variant="outline" className="w-full" onClick={() => handleViewDetails(repo)}>
+                    <Button variant="outline" className="w-full" onClick={() => handleViewDetails(repo, "config")}>
                       <Eye className="mr-2 h-4 w-4" />
                       Config
                     </Button>
@@ -757,213 +522,17 @@ export function DeploymentStatusMonitoring({
                     Failed to load deployment config. Refresh and try again; nothing is saved until it loads.
                   </div>
                 ) : (
-                  <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Build, image &amp; service</CardTitle>
-                    <CardDescription>
-                      How the image is built or chosen and how the app is exposed. Applies on the next deployment.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="build-strategy">Build strategy</Label>
-                        <Select
-                          value={buildServiceInput.build_strategy}
-                          onValueChange={(value) => setBuildServiceInput((current) => ({ ...current, build_strategy: value }))}
-                        >
-                          <SelectTrigger id="build-strategy" className="w-full">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="KANIKO">KANIKO</SelectItem>
-                            <SelectItem value="GITHUB_ACTIONS_GHCR">GITHUB_ACTIONS_GHCR</SelectItem>
-                            <SelectItem value="PREBUILT_IMAGE">PREBUILT_IMAGE</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="service-type">Service type</Label>
-                        <Select
-                          value={buildServiceInput.service_type}
-                          onValueChange={(value) => setBuildServiceInput((current) => ({ ...current, service_type: value }))}
-                        >
-                          <SelectTrigger id="service-type" className="w-full">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CLUSTER_IP">CLUSTER_IP</SelectItem>
-                            <SelectItem value="NODE_PORT">NODE_PORT</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor="image-uri-template">Image URI template</Label>
-                        <Input
-                          id="image-uri-template"
-                          value={buildServiceInput.image_uri_template}
-                          onChange={(event) => setBuildServiceInput((current) => ({ ...current, image_uri_template: event.target.value }))}
-                          placeholder="ghcr.io/{owner}/{repoName}:sha-{commitHash}"
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="image-pull-secret-name">Image pull secret name</Label>
-                        <Input
-                          id="image-pull-secret-name"
-                          value={buildServiceInput.image_pull_secret_name}
-                          onChange={(event) => setBuildServiceInput((current) => ({ ...current, image_pull_secret_name: event.target.value }))}
-                          placeholder="server default"
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="node-port">NodePort</Label>
-                        <Input
-                          id="node-port"
-                          value={buildServiceInput.node_port}
-                          onChange={(event) => setBuildServiceInput((current) => ({ ...current, node_port: event.target.value }))}
-                          placeholder="30000-32767"
-                          disabled={buildServiceInput.service_type !== "NODE_PORT"}
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="container-port">Container port</Label>
-                        <Input
-                          id="container-port"
-                          value={buildServiceInput.container_port}
-                          onChange={(event) => setBuildServiceInput((current) => ({ ...current, container_port: event.target.value }))}
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="domain-url">Domain</Label>
-                        <Input
-                          id="domain-url"
-                          value={buildServiceInput.domain_url}
-                          onChange={(event) => setBuildServiceInput((current) => ({ ...current, domain_url: event.target.value }))}
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      KANIKO builds from source. GITHUB_ACTIONS_GHCR and PREBUILT_IMAGE deploy an image built elsewhere
-                      using the image URI template. The server rejects pull secret names the operator has not allowed
-                      for this repository.
-                    </p>
-                    <Button onClick={handleSaveBuildAndService} disabled={configSaving}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {configSaving ? "Saving..." : "Save build & service"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Runtime envFrom</CardTitle>
-                    <CardDescription>
-                      Store Kubernetes ConfigMap and Secret names for deployment-time environment sources.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="env-from-configmaps">ConfigMap names</Label>
-                      <Textarea
-                        id="env-from-configmaps"
-                        value={envFromConfigMapsInput}
-                        onChange={(event) => setEnvFromConfigMapsInput(event.target.value)}
-                        placeholder="smart-sousvide-runtime-config"
-                        className="min-h-20 font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Separate multiple names with commas or new lines.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="env-from-secrets">Secret names</Label>
-                      <Textarea
-                        id="env-from-secrets"
-                        value={envFromSecretsInput}
-                        onChange={(event) => setEnvFromSecretsInput(event.target.value)}
-                        placeholder="smart-sousvide-app-env"
-                        className="min-h-20 font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Only Secret names are stored. Secret values are never shown or submitted here.
-                      </p>
-                    </div>
-                    <Button onClick={handleSaveRuntimeEnvFrom} disabled={configSaving}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {configSaving ? "Saving..." : "Save runtime envFrom"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Image pull secret</CardTitle>
-                    <CardDescription>
-                      Turn this off for public images. Deployments then run without imagePullSecrets, so an
-                      expired registry credential cannot block them.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <Label htmlFor="image-pull-secret-enabled">Use image pull secret</Label>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {selectedRepo && deploymentConfigs[selectedRepo.full_name]?.image_pull_secret_name
-                          ? deploymentConfigs[selectedRepo.full_name]?.image_pull_secret_name
-                          : "server default"}
-                      </p>
-                    </div>
-                    <Switch
-                      id="image-pull-secret-enabled"
-                      checked={selectedRepo ? deploymentConfigs[selectedRepo.full_name]?.image_pull_secret_enabled !== false : true}
-                      onCheckedChange={handleToggleImagePullSecret}
-                      disabled={configSaving || !selectedRepo || !deploymentConfigs[selectedRepo.full_name]}
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Health probe &amp; resources</CardTitle>
-                    <CardDescription>
-                      An HTTP readiness probe keeps a deployment from succeeding until the app answers on this path.
-                      Leave the path empty for no probe and resource fields empty for no requests/limits.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {[PROBE_FIELDS, RESOURCE_FIELDS].map((fields, index) => (
-                      <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {fields.map(([key, label, placeholder]) => (
-                          <div key={key} className="space-y-1">
-                            <Label htmlFor={`runtime-check-${key}`}>{label}</Label>
-                            <Input
-                              id={`runtime-check-${key}`}
-                              value={runtimeCheckInput[key]}
-                              onChange={(event) =>
-                                setRuntimeCheckInput((current) => ({ ...current, [key]: event.target.value }))
-                              }
-                              placeholder={placeholder}
-                              className="font-mono text-sm"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                    <p className="text-xs text-muted-foreground">
-                      The startup probe uses the same path; it allows period × startup failure threshold seconds to boot.
-                    </p>
-                    <Button onClick={handleSaveProbeAndResources} disabled={configSaving}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {configSaving ? "Saving..." : "Save probe & resources"}
-                    </Button>
-                  </CardContent>
-                </Card>
-                  </>
+                  // 열 때의 설정으로 시작한다. 30초 목록 갱신이 입력 중인 값을 덮어쓰지 않는다 (#106)
+                  <DeploymentConfigForm
+                    key={selectedRepo.full_name}
+                    owner={selectedRepo.owner}
+                    repo={selectedRepo.repo}
+                    config={deploymentConfigs[selectedRepo.full_name]}
+                    onSaved={(saved) => {
+                      setDeploymentConfigs((current) => ({ ...current, [selectedRepo.full_name]: saved }))
+                      toast({ title: "Deployment settings saved", description: "The settings apply on the next deployment." })
+                    }}
+                  />
                 )}
               </TabsContent>
             </Tabs>

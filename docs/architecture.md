@@ -320,7 +320,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 실제 클러스터 | k3s 임시 컨테이너 등 격리 환경. 운영 앱에 실패를 주입하지 않는다 |
 | 진단 평가 | `./gradlew test --tests '*DiagnosisEvalTest'`: 실패 사례 12개(`backend/src/test/resources/diagnosis-eval/cases`)를 같은 채점기로 채점한다. 규칙 기준선 수치를 고정한다 (#99). 공급사·모델 비교는 `DiagnosisModelComparisonTest`(`DIAGNOSIS_EVAL_MODELS`와 키가 있을 때만, 실제 API 호출·비용 발생)로 품질·토큰·비용·지연을 남긴다 (#100). RAG 사례(`rag-cases`, #104 가공)와 독립 작성 사례(`blind-cases`, #123: Gemini가 쓴 시나리오를 k3s에서 재현, 과거 사건·조정용·평가용)는 `DIAGNOSIS_EVAL_CASES=rag|blind-tune|blind-test`와 `@knowledge=on`으로 비교한다 |
 | 자연어 명령 평가 | `./gradlew test --tests '*NlpEvalCasesTest'`: 고정 입력 30개(`backend/src/test/resources/nlp-eval/cases.json`) 형식과 채점기. 실제 모델 평가는 `NlpModelEvalTest`(`NLP_EVAL_MODELS=provider:model,...`와 키가 있을 때만, 실제 API 호출·비용 발생), 채점 규칙을 바꾸면 `NLP_EVAL_REPLAY=<결과 json>`으로 재호출 없이 재채점한다 (#58) |
-| 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit` |
+| 프론트 | `cd frontend && npm run build`, `npx tsc --noEmit`. 순수 로직은 `node --experimental-strip-types --test lib/*.test.ts`로 검사한다(배포 설정 폼 검사·변경 목록, #106). 테스트 파일은 `tsconfig` 검사에서 뺀다 |
 | 릴리스 스크립트 | `python3 -m unittest discover -s scripts/deploy -p 'test_*.py'`, `scripts/ci/test-package-release.sh` |
 
 각 검증이 어느 층위인지 구분해서 기록한다. 로컬 통과를 운영 검증으로 표현하지 않는다.
@@ -335,7 +335,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | Fabric8 7.2.0은 Jackson 2.18 기준인데 Spring Boot 의존성 관리로 Jackson 2.20.2가 실행된다. 서버에서 읽은 객체(`managedFields` 포함)를 `replace()`하면 복제 단계에서 직렬화가 실패한다 | Deployment 교체는 `managedFields`를 빼고 보내 우회했다(#86). 다른 경로에서 서버 객체를 그대로 다시 보내면 같은 오류가 날 수 있다 | #109 |
 | #95 이전 배포에는 요청 경로·설정·digest·실패 종류가 없다 | 과거 배포 상세는 "기록 없음", 비교는 이미지만 | 해소하지 않음 (backfill하지 않기로 결정) |
 | 콘솔 사이드바가 모바일 폭에서 접히지 않는다 | 375px 폭에서 본문이 좁아진다 (#95 화면 확인 중 발견, 앱 공통 레이아웃) | #109 |
-| 콘솔 배포 설정 입력이 어렵다 (#55에서 사용자가 입력하지 못해 API로 대신 입력) | "설정만으로 새 앱 등록"의 실제 장벽 | #106 |
 | CLI 요청 함수(`frontend/cli/api.mjs` `toSnakeCase`)가 map 값의 키(예: env 이름 `SAMPLE_GREETING`)까지 snake_case로 바꾼다 | env를 보내는 CLI 명령을 만들면 키가 깨진다. 현재 그런 명령은 없다 | #109 |
 | `DeploymentRepository.findBySourceRepositoryUserId`를 호출하는 코드가 없다 | 쓰이지 않는 쿼리가 남아 있다 (#79에서 확인) | #109 |
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |

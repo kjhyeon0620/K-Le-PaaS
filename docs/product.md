@@ -78,7 +78,7 @@
 | 10 | #55 | 두 번째 앱 배포·실패·복구 실증 | 완료 (PR #94), 운영 실증 | [0055](specs/0055-second-app-demo/spec.md) |
 | 10-1 | #95 | 배포 요청 상세 화면과 요청별 설정·근거 기록 | 완료 (PR #96) | [0095](specs/0095-deployment-request-detail/spec.md) |
 | 11 | #57 | 재시작 후 미완료 배포·명령 상태 대조 | 완료 (1단계 PR #97, 2단계 PR #98) (L) | [0057](specs/0057-reconcile-interrupted-work/spec.md) |
-| 12 | #106 | 콘솔에서 새 앱 배포 설정 입력·검증 | 미착수 (M) | - |
+| 12 | #106 | 콘솔에서 새 앱 배포 설정 입력·검증 | 완료 (M), env·레플리카 입력, 한 번 저장·변경 확인, 화면 미리 검사 | [0106](specs/0106-console-deployment-config/spec.md) |
 | 12-1 | #107 | NodePort 전용 앱의 domain_url 필수 제거 | 완료 (S), V10 | - |
 | 13 | #58 | 자연어 명령 해석 실제 모델 평가 기준선 | 완료 (M), `gemini-3.8-flash`·`gpt-6-luna` 비교. 운영 `gemini-2.5-flash`는 신규 사용자 차단으로 측정 불가 | [0058](specs/0058-nlp-model-eval-baseline/spec.md) |
 | 13-1 | #135 | 앱 이름만 준 스케일·재시작 명령이 승인 후 실행에서 실패 | 완료 (M), 대상이 빠진 변경 명령은 승인 전에 되물음 | [0135](specs/0135-scale-restart-target/spec.md) |

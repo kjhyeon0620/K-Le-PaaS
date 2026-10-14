@@ -649,49 +649,26 @@ class ApiClient {
     return normalizeDeploymentConfigResponse(owner, repo, config)
   }
 
-  // 빌드·이미지·서비스 설정. 보내지 않은 항목(replica, envFrom, probe 등)은 현재 값을 유지한다.
-  async updateDeploymentBuildAndService(
+  // 콘솔 설정 화면의 한 번 저장 (#106). 화면이 모든 항목을 보내므로 현재 값과 섞지 않는다
+  async saveDeploymentConfig(
     owner: string,
     repo: string,
-    settings: Pick<DeploymentConfigResponse,
-      'build_strategy' | 'image_uri_template' | 'image_pull_secret_name' | 'service_type' | 'node_port' | 'container_port' | 'domain_url'>
+    body: Record<string, unknown>
   ): Promise<DeploymentConfigResponse> {
-    return this.putDeploymentConfig(owner, repo, settings)
+    const repos = await this.request<any[]>('/api/v1/repositories')
+    const targetRepo = (repos || []).find(
+      (r: any) => r.owner === owner && r.repo_name === repo
+    )
+    if (!targetRepo) throw new Error('Repository not found')
+    const saved = await this.request<DeploymentConfigResponse>(`/api/v1/repositories/${targetRepo.id}/config`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+    return normalizeDeploymentConfigResponse(owner, repo, saved)
   }
 
   async updateDeploymentConfig(owner: string, repo: string, replicaCount: number): Promise<any> {
     return this.putDeploymentConfig(owner, repo, { min_replicas: replicaCount, max_replicas: replicaCount })
-  }
-
-  async updateDeploymentRuntimeEnvFrom(
-    owner: string,
-    repo: string,
-    envFromConfigMaps: readonly string[],
-    envFromSecrets: readonly string[]
-  ): Promise<DeploymentConfigResponse> {
-    return this.putDeploymentConfig(owner, repo, {
-      env_from_config_maps: [...envFromConfigMaps],
-      env_from_secrets: [...envFromSecrets],
-    })
-  }
-
-  // health_probe·resources는 보낸 그룹 전체를 교체한다. probe path가 비어 있으면 probe를 해제한다.
-  async updateDeploymentProbeAndResources(
-    owner: string,
-    repo: string,
-    healthProbe: HealthProbe,
-    resources: ContainerResources
-  ): Promise<DeploymentConfigResponse> {
-    return this.putDeploymentConfig(owner, repo, { health_probe: healthProbe, resources })
-  }
-
-  // false면 Pod에 imagePullSecrets를 넣지 않는다 (공개 이미지)
-  async updateDeploymentImagePullSecretEnabled(
-    owner: string,
-    repo: string,
-    enabled: boolean
-  ): Promise<DeploymentConfigResponse> {
-    return this.putDeploymentConfig(owner, repo, { image_pull_secret_enabled: enabled })
   }
 
   // 현재 설정에 overrides를 덮어 PUT한다. health_probe·resources는 overrides에 있을 때만 보내 서버 값을 보존한다.
