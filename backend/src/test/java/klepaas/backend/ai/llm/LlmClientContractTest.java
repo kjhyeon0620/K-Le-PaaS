@@ -104,6 +104,23 @@ class LlmClientContractTest {
     }
 
     @Test
+    void compatibleServerGetsJsonModeWithoutReasoningEffort() throws Exception {
+        String base = serve(200, """
+                {"id":"c2","object":"chat.completion","created":1,"model":"gemma4:26b-a4b",
+                 "choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"{\\"intent\\":\\"STATUS\\"}"}}],
+                 "usage":{"prompt_tokens":120,"completion_tokens":30,"total_tokens":150}}""");
+        var client = OpenAiLlmClient.compatible(base, "gemma4:26b-a4b", "");
+
+        var r = client.completeJson("prompt");
+
+        assertThat(client.provider()).isEqualTo("openai-compatible");
+        assertThat(r.text()).isEqualTo("{\"intent\":\"STATUS\"}");
+        assertThat(r.model()).isEqualTo("gemma4:26b-a4b");
+        assertThat(r.usage()).isEqualTo(new LlmClient.Usage(120, 30, null, null));
+        assertThat(requestBody.get()).contains("json_object").contains("\"model\":\"gemma4:26b-a4b\"").doesNotContain("reasoning_effort");
+    }
+
+    @Test
     void apiErrorsBecomeAiProcessingException() throws Exception {
         String base = serve(500, "{\"error\":{\"message\":\"boom\"}}");
         var anthropic = new AnthropicLlmClient(AnthropicOkHttpClient.builder().baseUrl(base).apiKey("k").maxRetries(0).build(), "m");

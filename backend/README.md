@@ -113,7 +113,7 @@ PUT  /api/v1/deployments/{id}/incident
 DELETE /api/v1/deployments/{id}/incident
 ```
 
-근거 기반 진단(#100, 실험): FAILED·UNKNOWN 배포의 상세·로그 응답(비밀값 패턴 가림)을 진단 모델에 보내 `category`·`root_cause`·`abstain`·`observed_facts`·`hypotheses`·`next_checks`·`cited`(입력 JSON Pointer와 서버가 자른 원문)를 돌려줍니다. 라벨 목록 밖·없는 근거는 서버가 버리고 `warnings`에 남깁니다. 인프라를 바꾸지 않습니다. 결과는 이력으로 저장하고, 같은 배포를 다시 진단하면 최근 결과(`reused`, `diagnosed_at`)를 돌려줍니다. `?refresh=true`면 새로 진단합니다. Pod·이벤트·설정 변경이 없고 실패 종류가 원인을 가리키지 않으면 모델을 부르지 않고 판단 보류(`model=rule`)로 답합니다(#117). read-only 토큰부터 호출할 수 있습니다. 모델은 `DIAGNOSIS_LLM_PROVIDER`·`DIAGNOSIS_LLM_MODEL`(기본 openai / gpt-6-luna)로 바꿉니다.
+근거 기반 진단(#100, 실험): FAILED·UNKNOWN 배포의 상세·로그 응답(비밀값 패턴 가림)을 진단 모델에 보내 `category`·`root_cause`·`abstain`·`observed_facts`·`hypotheses`·`next_checks`·`cited`(입력 JSON Pointer와 서버가 자른 원문)를 돌려줍니다. 라벨 목록 밖·없는 근거는 서버가 버리고 `warnings`에 남깁니다. 인프라를 바꾸지 않습니다. 결과는 이력으로 저장하고, 같은 배포를 다시 진단하면 최근 결과(`reused`, `diagnosed_at`)를 돌려줍니다. `?refresh=true`면 새로 진단합니다. Pod·이벤트·설정 변경이 없고 실패 종류가 원인을 가리키지 않으면 모델을 부르지 않고 판단 보류(`model=rule`)로 답합니다(#117). read-only 토큰부터 호출할 수 있습니다. 모델은 `DIAGNOSIS_LLM_PROVIDER`·`DIAGNOSIS_LLM_MODEL`(기본 openai / gpt-6-luna)로 바꿉니다. `openai-compatible`과 `DIAGNOSIS_LLM_BASE_URL`이면 OpenAI 호환 서버(로컬 모델)를 부릅니다(#150).
 
 이전 성공 배포로 복구(#101): `recovery-plan`이 배포할 이미지(관측 digest가 있으면 digest 고정), 되돌릴 설정(env 제외), env 차이, 실행 가능 여부와 `plan_fingerprint`를 돌려주고, `recover`는 같은 지문일 때만 env 외 설정을 복원하고 대상 이미지로 새 배포를 만듭니다. 계획이 바뀌면 409 `DEPLOY_004`, 설정 기록 없음·KANIKO·env 차이로 실행할 수 없으면 409 `DEPLOY_005`입니다. 복구 배포의 `recovered_from_deployment_id`에 대상이 남습니다.
 
@@ -240,6 +240,8 @@ SLACK_WEBHOOK_URL=
 # 자연어 명령 해석 모델 (#136). 기본 openai / gpt-6-luna. 선택한 공급사 키만 필요
 NLP_LLM_PROVIDER=openai
 NLP_LLM_MODEL=gpt-6-luna
+# openai-compatible이면 OpenAI 호환 서버 주소 필수 (#150, 예: 로컬 Ollama http://localhost:11434/v1)
+NLP_LLM_BASE_URL=
 GEMINI_API_KEY=
 ```
 
