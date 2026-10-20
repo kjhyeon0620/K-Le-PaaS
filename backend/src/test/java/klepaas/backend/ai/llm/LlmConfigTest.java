@@ -18,8 +18,8 @@ class LlmConfigTest {
     @Test
     @DisplayName("자연어 명령 빈은 nlp.llm 공급사·모델로 만들어지고 진단 빈과 따로 고른다")
     void nlpAndDiagnosisAreChosenSeparately() {
-        LlmClient nlp = config.nlpLlm("openai", "gpt-6-luna", "", "openai-key", gemini);
-        LlmClient diagnosis = config.diagnosisLlm("gemini", "gemini-3.8-flash", "", "", "", gemini);
+        LlmClient nlp = config.nlpLlm("openai", "gpt-6-luna", "", "", "openai-key", gemini);
+        LlmClient diagnosis = config.diagnosisLlm("gemini", "gemini-3.8-flash", "", "", "", "", gemini);
 
         assertThat(nlp).isInstanceOf(OpenAiLlmClient.class);
         assertThat(nlp.model()).isEqualTo("gpt-6-luna");
@@ -30,7 +30,7 @@ class LlmConfigTest {
     @Test
     @DisplayName("gemini로 되돌리면 nlp.llm.model을 쓴다 (gemini.api.model 아님)")
     void geminiUsesNlpModel() {
-        LlmClient nlp = config.nlpLlm("gemini", "gemini-3.8-flash", "", "", gemini);
+        LlmClient nlp = config.nlpLlm("gemini", "gemini-3.8-flash", "", "", "", gemini);
 
         assertThat(nlp).isInstanceOf(GeminiLlmClient.class);
         assertThat(nlp.model()).isEqualTo("gemini-3.8-flash");
@@ -39,7 +39,7 @@ class LlmConfigTest {
     @Test
     @DisplayName("키가 없으면 빈은 만들어지고 호출만 AI_001로 실패한다")
     void missingKeyFailsOnlyOnCall() {
-        LlmClient nlp = config.nlpLlm("openai", "gpt-6-luna", "", "", gemini);
+        LlmClient nlp = config.nlpLlm("openai", "gpt-6-luna", "", "", "", gemini);
 
         assertThat(nlp.provider()).isEqualTo("openai");
         assertThatThrownBy(() -> nlp.completeJson("x"))
@@ -50,8 +50,28 @@ class LlmConfigTest {
     @Test
     @DisplayName("알 수 없는 공급사는 어느 설정인지 밝히고 기동 시 실패한다")
     void unknownProviderFailsAtStartup() {
-        assertThatThrownBy(() -> config.nlpLlm("mistral", "m", "", "", gemini))
+        assertThatThrownBy(() -> config.nlpLlm("mistral", "m", "", "", "", gemini))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("nlp.llm.provider");
+    }
+
+    @Test
+    @DisplayName("openai-compatible은 키 없이 만들어지고 공급사 이름을 밝힌다 (#150)")
+    void compatibleNeedsNoKey() {
+        LlmClient nlp = config.nlpLlm("openai-compatible", "gemma4:26b-a4b", "http://localhost:11434/v1", "", "", gemini);
+        LlmClient diagnosis = config.diagnosisLlm("openai-compatible", "qwen3.5:4b", "", "http://localhost:11434/v1", "", "", gemini);
+
+        assertThat(nlp).isInstanceOf(OpenAiLlmClient.class);
+        assertThat(nlp.provider()).isEqualTo("openai-compatible");
+        assertThat(nlp.model()).isEqualTo("gemma4:26b-a4b");
+        assertThat(diagnosis.provider()).isEqualTo("openai-compatible");
+    }
+
+    @Test
+    @DisplayName("openai-compatible인데 base-url이 없으면 어느 설정인지 밝히고 기동 시 실패한다 (#150)")
+    void compatibleWithoutBaseUrlFailsAtStartup() {
+        assertThatThrownBy(() -> config.diagnosisLlm("openai-compatible", "m", "", " ", "", "", gemini))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diagnosis.llm.base-url");
     }
 }

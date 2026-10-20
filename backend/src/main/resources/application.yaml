@@ -91,19 +91,22 @@ gemini:
     key: ${GEMINI_API_KEY}
     model: ${GEMINI_MODEL:gemini-2.5-flash}
 
-# 자연어 명령 해석 모델 (#136). provider: gemini · anthropic · openai. 기본값은 #58 비교로 정했다 (스펙 0058·0136).
+# 자연어 명령 해석 모델 (#136). provider: gemini · anthropic · openai · openai-compatible(#150, base-url의 OpenAI 호환 서버, 키 없음). 기본값은 #58 비교로 정했다 (스펙 0058·0136).
 # gemini.api.model(GEMINI_MODEL)은 자연어 명령에서 쓰지 않는다. gemini로 되돌릴 때는 NLP_LLM_MODEL에 모델을 준다
 nlp:
   llm:
     provider: ${NLP_LLM_PROVIDER:openai}
     model: ${NLP_LLM_MODEL:gpt-6-luna}
+    base-url: ${NLP_LLM_BASE_URL:}
 
-# AI 진단 모델 (#100). provider: gemini · anthropic · openai. 키는 GEMINI_API_KEY · ANTHROPIC_API_KEY · OPENAI_API_KEY(선택한 공급사만).
+# AI 진단 모델 (#100). provider: gemini · anthropic · openai · openai-compatible(#150). 키는 GEMINI_API_KEY · ANTHROPIC_API_KEY · OPENAI_API_KEY(선택한 공급사만).
 # 기본값은 #99 사례 비교 결과로 정했다 (스펙 0100). 자연어 명령은 nlp.llm을 쓴다
 diagnosis:
   llm:
     provider: ${DIAGNOSIS_LLM_PROVIDER:openai}
     model: ${DIAGNOSIS_LLM_MODEL:gpt-6-luna}
+    # openai-compatible일 때 필수. /v1까지 포함 (예: Ollama http://localhost:11434/v1)
+    base-url: ${DIAGNOSIS_LLM_BASE_URL:}
     # OpenAI reasoning_effort (#115). 비우면 모델 기본값. none·low는 #99 품질 기준을 넘지 못해 기본값을 둔다 (스펙 0115)
     reasoning-effort: ${DIAGNOSIS_LLM_REASONING_EFFORT:}
   # 운영문서·확정 사건 검색 (#104). 임베딩은 OPENAI_API_KEY를 쓰고, 키가 없으면 지식 없이 진단한다 (스펙 0104)

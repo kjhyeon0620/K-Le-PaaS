@@ -33,7 +33,7 @@ K-Le-PaaS는 사람과 AI 에이전트가 함께 쓰는 **agent-safe Kubernetes 
 
 **근거 기반 AI 진단 (실험)**
 - 배포 상세·로그를 비밀값을 가린 채 모델에 보내고, 라벨 목록 안의 범주·구체 원인과 입력 안의 근거 위치를 받는다. 목록 밖 라벨·없는 근거는 서버가 버린다. 원인을 확정할 수 없으면 판단 보류(#100)
-- 공급사 교체 구조(OpenAI·Claude·Gemini, 공식 SDK). 사례 12개로 품질·비용·지연을 비교해 기본 모델 선택(#100)
+- 공급사 교체 구조(OpenAI·Claude·Gemini, 공식 SDK, OpenAI 호환 로컬 모델 서버 #150). 사례 12개로 품질·비용·지연을 비교해 기본 모델 선택(#100)
 - 결과 이력 저장·재사용, 관측 근거가 없으면 모델 호출 생략(#117)
 - 운영문서·확정 장애 이력 RAG(#104). 독립 평가에서 개선이 없어 기본으로 끔(#123, #129)
 
@@ -238,10 +238,13 @@ KANIKO_IMAGE=gcr.io/kaniko-project/executor:latest
 # 자연어 명령 해석 모델 (#136). 기본 openai / gpt-6-luna. 선택한 공급사 키만 필요
 NLP_LLM_PROVIDER=openai
 NLP_LLM_MODEL=gpt-6-luna
+# openai-compatible이면 OpenAI 호환 서버 주소 필수 (#150, 예: 로컬 Ollama http://localhost:11434/v1)
+NLP_LLM_BASE_URL=
 GEMINI_API_KEY=
 # AI 진단 모델 (#100). 기본 openai / gpt-6-luna. 선택한 공급사 키만 필요
 DIAGNOSIS_LLM_PROVIDER=openai
 DIAGNOSIS_LLM_MODEL=gpt-6-luna
+DIAGNOSIS_LLM_BASE_URL=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 # 진단에 운영문서·확정 사건을 넣을지 (#129, 기본 false)

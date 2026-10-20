@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현, `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만든다) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만든다) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
@@ -296,10 +296,11 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `kaniko.image` | `gcr.io/kaniko-project/executor:latest` | Kaniko 이미지 |
 | `deployment.domain.suffix` | `${DEPLOYMENT_DOMAIN_SUFFIX:klepaas.io}` | 기본 배포 도메인 |
 | `deployment.pipeline.poll-initial-interval` / `poll-max-interval` / `build-timeout` | 10s / 60s / 30m | 빌드 상태 polling |
-| `nlp.llm.provider` / `model` | `${NLP_LLM_PROVIDER:openai}` / `${NLP_LLM_MODEL:gpt-6-luna}` | 자연어 명령 해석 모델 (gemini·anthropic·openai). #58 비교로 정했다. 키가 없거나 호출이 실패하면 `AI_001`이고 자동 대체는 없다 (스펙 0136) |
+| `nlp.llm.provider` / `model` | `${NLP_LLM_PROVIDER:openai}` / `${NLP_LLM_MODEL:gpt-6-luna}` | 자연어 명령 해석 모델 (gemini·anthropic·openai·openai-compatible). #58 비교로 정했다. 키가 없거나 호출이 실패하면 `AI_001`이고 자동 대체는 없다 (스펙 0136) |
 | `gemini.api.model` | `${GEMINI_MODEL:gemini-2.5-flash}` | `GeminiClient` 기본 모델. 자연어 명령·진단은 각자 `*.llm.model`을 넘기므로 쓰지 않는다 |
-| `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai). 선택한 공급사 키가 없으면 진단만 실패 |
-| `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115) |
+| `diagnosis.llm.provider` / `model` | `${DIAGNOSIS_LLM_PROVIDER:openai}` / `${DIAGNOSIS_LLM_MODEL:gpt-6-luna}` | AI 진단 모델 (gemini·anthropic·openai·openai-compatible). 선택한 공급사 키가 없으면 진단만 실패 |
+| `nlp.llm.base-url` / `diagnosis.llm.base-url` | `${NLP_LLM_BASE_URL:}` / `${DIAGNOSIS_LLM_BASE_URL:}` | `openai-compatible`일 때 필수인 OpenAI 호환 서버 주소(`/v1` 포함, 예: 로컬 Ollama). 비어 있으면 기동 실패. 키는 보내지 않는다 (스펙 0150) |
+| `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI·OpenAI 호환 서버 reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115·0150) |
 | `diagnosis.rag.enabled` | `${DIAGNOSIS_RAG_ENABLED:false}` | 진단에 지식을 넣을지. #123 독립 평가에서 개선이 없어 기본 꺼짐. 꺼져도 문서·사건 저장과 API는 동작 (#129) |
 | `diagnosis.rag.embedding-model` / `top-k` / `min-similarity` | `text-embedding-3-small` / `4` / `0.45` | 지식 검색 임베딩 모델, 상위 개수, 유사도 기준 (스펙 0104) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |

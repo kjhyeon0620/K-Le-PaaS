@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * #99 사례로 공급사·모델·절감 변형별 진단 품질·사용량·비용·지연을 비교한다 (#100, #115).
  * DIAGNOSIS_EVAL_MODELS=provider:model[@옵션+옵션],... 와 해당 공급사 키가 있을 때만 실행한다. CI에서는 건너뛴다.
+ * openai-compatible은 OPENAI_COMPATIBLE_BASE_URL의 로컬 모델을 키 없이 부르고, 가격표가 없어 금액은 "-"로 남는다 (#150).
  * 옵션: effort=<reasoning_effort>(OpenAI), prompt=compact(출력 분량 제한), input=trim(null·중복 로그 제거),
  * knowledge=on(플랫폼 runbook과 사례 지식을 실제 임베딩으로 검색해 입력에 넣음, #104).
  * DIAGNOSIS_EVAL_CASES=rag면 RAG 사례(rag-cases)를 쓰고 검색 적중·지식 근거 일치를 함께 채점한다.
@@ -274,14 +275,15 @@ class DiagnosisModelComparisonTest {
         }
 
         LlmClient client() {
-            if (effort != null && !provider.equals("openai")) throw new IllegalArgumentException("effort는 openai만: " + provider);
+            if (effort != null && !provider.startsWith("openai")) throw new IllegalArgumentException("effort는 openai·openai-compatible만: " + provider);
             return switch (provider) {
                 case "gemini" -> new GeminiLlmClient(new GeminiClient(
                         RestClient.builder().baseUrl("https://generativelanguage.googleapis.com").build(),
                         require("GEMINI_API_KEY"), model), model);
                 case "anthropic" -> new AnthropicLlmClient(require("ANTHROPIC_API_KEY"), model);
                 case "openai" -> new OpenAiLlmClient(require("OPENAI_API_KEY"), model, effort);
-                default -> throw new IllegalArgumentException("provider는 gemini·anthropic·openai: " + provider);
+                case OpenAiLlmClient.COMPATIBLE -> OpenAiLlmClient.compatible(require("OPENAI_COMPATIBLE_BASE_URL"), model, effort);
+                default -> throw new IllegalArgumentException("provider는 gemini·anthropic·openai·openai-compatible: " + provider);
             };
         }
     }
