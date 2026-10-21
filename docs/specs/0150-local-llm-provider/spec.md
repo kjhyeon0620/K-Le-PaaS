@@ -47,7 +47,7 @@ branch: feat/#150-local-llm-provider
 | 서버가 꺼져 있거나 모델이 없음 | `AI_001` | SDK 예외를 `AiProcessingException`으로 바꾼다 (기존 경로) |
 | 서버가 JSON 모드를 무시하고 문장을 돌려줌 | 자연어: `AI_002`, 진단: 판단 보류·실패 | 기존 파서 검증. 평가에서는 파싱 실패 수로 드러난다 |
 | 생각(thinking) 토큰이 출력 상한 2,048을 다 씀 | 빈 응답 → 파싱 실패 | #58 Gemini `MAX_TOKENS`와 같은 현상. 측정 때 원인과 함께 기록한다 |
-| 응답이 느림 (로컬 CPU·열 제한) | 요청이 오래 걸림 | SDK 기본 타임아웃을 그대로 쓴다. 측정 때 지연으로 기록한다 |
+| 응답이 느림 | 요청이 오래 걸림 | SDK 기본 타임아웃을 그대로 쓴다. 측정 때 지연으로 기록한다 |
 
 ## 미결 질문 (Open)
 - 없음
@@ -71,6 +71,7 @@ branch: feat/#150-local-llm-provider
 
 ## 운영 반영
 - 운영 설정을 바꾸지 않는다. 머지 후 배포 workflow 결과만 다음 이슈 PR에서 기록한다.
+- 2026-10-21 머지(#151) 후 `main` 배포 workflow 성공. 운영 설정 변경 없음.
 
 ## 회고
 - 어긋난 점: 같은 Ollama 버전(0.40.6)이라도 Homebrew formula 빌드는 MLX 엔진의 JSON 모드를 처리하지 못했다(`501 structured output is unavailable`). "OpenAI 호환 서버면 같은 요청을 받는다"는 전제가 서버 빌드에 따라 틀릴 수 있다.
