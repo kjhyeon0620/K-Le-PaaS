@@ -53,13 +53,7 @@ class DiagnosisModelComparisonTest {
         JsonNode pricing = DiagnosisEval.JSON.readTree(Path.of("src/test/resources/diagnosis-eval/pricing.json").toFile()).path("models");
         String caseSet = System.getenv().getOrDefault("DIAGNOSIS_EVAL_CASES", "base");
         boolean ragCases = !caseSet.equals("base");
-        // rag: #104 가공 사례, blind-tune·blind-test: #123 독립 작성 사례
-        List<Case> cases = DiagnosisEval.loadCases(switch (caseSet) {
-            case "rag" -> DiagnosisEval.RAG_CASES;
-            case "blind-tune" -> DiagnosisEval.BLIND_CASES.resolve("tune");
-            case "blind-test" -> DiagnosisEval.BLIND_CASES.resolve("test");
-            default -> DiagnosisEval.CASES;
-        });
+        List<Case> cases = DiagnosisEval.loadCaseSet(caseSet);
         List<String> items = new ArrayList<>(DiagnosisEval.ITEMS);
         if (ragCases) items.addAll(List.of("knowledge_hit", "knowledge_supported"));
         int repeat = Integer.parseInt(System.getenv().getOrDefault("DIAGNOSIS_EVAL_REPEAT", "1"));
@@ -67,6 +61,7 @@ class DiagnosisModelComparisonTest {
         StringBuilder table = new StringBuilder("| 변형 | 호출 | 범주 | 구체 원인 | 근거 유효 | 근거 일치 | 판단 보류 | 지시문 |"
                 + (ragCases ? " 검색 적중 | 지식 근거 |" : "") + " 일반 입력 | 캐시 입력 | 출력 (추론) | 금액 USD | 호출당 USD | 지연 중앙·p90 ms | 오류 |\n|"
                 + "---|".repeat(ragCases ? 17 : 15) + "\n");
+        StringBuilder consistencyTable = new StringBuilder(DiagnosisEval.CONSISTENCY_HEADER);
         Map<String, List<KnowledgeItem>> retrieved = new LinkedHashMap<>();
 
         for (String spec : System.getenv("DIAGNOSIS_EVAL_MODELS").split(",")) {
@@ -130,6 +125,12 @@ class DiagnosisModelComparisonTest {
             summary.put("latency_ms_median", median);
             summary.put("latency_ms_p90", p90);
             summary.put("errors", errors);
+            DiagnosisEval.Consistency consistency = DiagnosisEval.consistency(cases.stream()
+                    .map(c -> new DiagnosisEval.CaseRuns(c.expected(), perCase.getOrDefault(c.id(), List.of()).stream()
+                            .map(DiagnosisModelComparisonTest::toRun).toList()))
+                    .toList());
+            summary.put("consistency", consistency);
+            consistencyTable.append("| ").append(spec).append(" | ").append(DiagnosisEval.consistencyCells(consistency)).append(" |\n");
             if (v.knowledge()) summary.put("retrieved", retrieved);
             summary.put("cases", perCase);
             report.put(spec, summary);
@@ -150,8 +151,9 @@ class DiagnosisModelComparisonTest {
                 Map.of("case_set", caseSet, "cases", cases.size(), "repeat", repeat,
                         "min_similarity", System.getenv().getOrDefault("DIAGNOSIS_EVAL_MIN_SIMILARITY", "0.3"), "models", report));
         Files.writeString(dir.resolve("compare-" + stamp + ".md"),
-                "사례 " + cases.size() + "개 × " + repeat + "회, " + stamp + "\n\n" + table);
+                "사례 " + cases.size() + "개 × " + repeat + "회, " + stamp + "\n\n" + table + "\n" + consistencyTable);
         System.out.println(table);
+        System.out.println(consistencyTable);
         assertThat(report).isNotEmpty();
     }
 
@@ -192,6 +194,11 @@ class DiagnosisModelComparisonTest {
         score.put("knowledge_supported", scoreKnowledge ? citedKnowledge.stream().anyMatch(expectedKnowledge::contains) : null);
         entry.put("score", score);
         return entry;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static DiagnosisEval.Run toRun(Map<String, Object> run) {
+        return new DiagnosisEval.Run((Map<String, Boolean>) run.get("score"), run.containsKey("error"));
     }
 
     private static long percentile(List<Long> sorted, int p) {

@@ -67,6 +67,7 @@ class NlpModelEvalTest {
         Map<String, Object> report = new LinkedHashMap<>();
         StringBuilder table = new StringBuilder("| 모델 | 호출 | 오류 | 파싱 | intent | 인자 | 날조 | 변경 intent 날조 | 과소 | 과대 "
                 + "| 확인 없이 변경 | 사례 다수결 intent | 입력 | 출력 (추론) | 금액 USD | 지연 중앙·p90 ms |\n|" + "---|".repeat(16) + "\n");
+        StringBuilder consistencyTable = new StringBuilder(NlpEval.CONSISTENCY_HEADER);
         long unconfirmed = 0;
 
         for (String spec : System.getenv("NLP_EVAL_MODELS").split(",")) {
@@ -142,6 +143,15 @@ class NlpModelEvalTest {
             summary.put("cost_usd", cost == null ? "가격표 없음" : cost);
             summary.put("latency_ms_median", median);
             summary.put("latency_ms_p90", p90);
+            Map<String, List<Map<String, Boolean>>> scoresByCase = new LinkedHashMap<>();
+            for (Map<String, Object> run : runs) {
+                @SuppressWarnings("unchecked") Map<String, Boolean> score = (Map<String, Boolean>) run.get("score");
+                scoresByCase.computeIfAbsent((String) run.get("case"), k -> new ArrayList<>()).add(run.containsKey("error") ? null : score);
+            }
+            NlpEval.Consistency consistency = NlpEval.consistency(cases.stream()
+                    .map(c -> new NlpEval.CaseRuns(c.group(), scoresByCase.getOrDefault(c.id(), List.of()))).toList());
+            summary.put("consistency", consistency);
+            consistencyTable.append("| ").append(spec.trim()).append(" | ").append(NlpEval.consistencyCells(consistency)).append(" |\n");
             summary.put("runs", runs);
             report.put(spec.trim(), summary);
 
@@ -171,8 +181,9 @@ class NlpModelEvalTest {
         header.put("models", report);
         NlpEval.JSON.writerWithDefaultPrettyPrinter().writeValue(dir.resolve("result-" + stamp + ".json").toFile(), header);
         Files.writeString(dir.resolve("result-" + stamp + ".md"), "사례 " + cases.size() + "개 × " + repeat + "회, 프롬프트 "
-                + promptHash.substring(0, 12) + ", " + stamp + "\n\n" + table);
+                + promptHash.substring(0, 12) + ", " + stamp + "\n\n" + table + "\n" + consistencyTable);
         System.out.println(table);
+        System.out.println(consistencyTable);
 
         assertThat(report).isNotEmpty();
         assertThat(unconfirmed).as("상태를 바꾸는 intent가 승인 없이 실행될 해석").isZero();
