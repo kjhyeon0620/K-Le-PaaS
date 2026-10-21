@@ -31,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * #58 자연어 명령 해석을 실제 모델로 평가한다. NLP_EVAL_MODELS=provider:model,...(gemini·openai·openai-compatible)와 해당 키가 있을 때만 실행한다.
  * openai-compatible은 OPENAI_COMPATIBLE_BASE_URL(예: Ollama http://localhost:11434/v1)의 로컬 모델을 키 없이 부른다 (#150).
+ * 모델 뒤 @effort=<값>이면 reasoning_effort를 보낸다(openai·openai-compatible, 예: Ollama 생각 끄기 @effort=none, #152).
+ * 로컬 서버는 EVAL_PARALLEL=1로 측정한다(요청을 하나씩 처리해 동시 호출의 지연에 대기 시간이 섞인다).
  * 운영 자연어 명령과 같은 경로로 부른다(#136): NlpPrompt.build 문자열을 공급사별 LlmClient 구현
  * (GeminiLlmClient: JSON 응답·출력 8,192 / OpenAiLlmClient: JSON 모드·출력 2,048)의 completeJson에 보낸다.
  * 정확도로는 실패시키지 않고, 상태를 바꾸는 intent가 승인 없이 실행될 해석이 나오면 실패한다.
@@ -40,7 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @EnabledIfEnvironmentVariable(named = "NLP_EVAL_MODELS", matches = ".+")
 class NlpModelEvalTest {
 
-    private static final int PARALLEL = 4;
+    /** 로컬 서버는 요청을 하나씩 처리해 병렬 호출의 지연에 대기 시간이 섞인다. 로컬 측정은 1로 둔다 (#150) */
+    private static final int PARALLEL = Integer.parseInt(System.getenv().getOrDefault("EVAL_PARALLEL", "4"));
 
     private record Reply(String text, String model, long input, long output, long reasoning, long latencyMs) {
     }
@@ -67,9 +70,11 @@ class NlpModelEvalTest {
         long unconfirmed = 0;
 
         for (String spec : System.getenv("NLP_EVAL_MODELS").split(",")) {
-            String[] pm = spec.trim().split(":", 2);
-            String provider = pm[0], model = pm[1];
-            Caller caller = replay != null ? replayer(replay.path("models").path(spec.trim())) : caller(provider, model);
+            // provider:model[@effort=<reasoning_effort>] (openai·openai-compatible만, 예: Ollama 생각 끄기 effort=none)
+            String[] variant = spec.trim().split("@effort=", 2);
+            String[] pm = variant[0].split(":", 2);
+            String provider = pm[0], model = pm[1], effort = variant.length > 1 ? variant[1] : null;
+            Caller caller = replay != null ? replayer(replay.path("models").path(spec.trim())) : caller(provider, model, effort);
 
             List<Callable<Map<String, Object>>> calls = new ArrayList<>();
             for (Case c : cases) {
@@ -204,12 +209,12 @@ class NlpModelEvalTest {
         return entry;
     }
 
-    private static Caller caller(String provider, String model) {
+    private static Caller caller(String provider, String model, String effort) {
         LlmClient client = switch (provider) {
             case "gemini" -> new GeminiLlmClient(new GeminiClient(
                     RestClient.builder().baseUrl("https://generativelanguage.googleapis.com").build(), require("GEMINI_API_KEY"), model), model);
-            case "openai" -> new OpenAiLlmClient(require("OPENAI_API_KEY"), model, null);
-            case OpenAiLlmClient.COMPATIBLE -> OpenAiLlmClient.compatible(require("OPENAI_COMPATIBLE_BASE_URL"), model, null);
+            case "openai" -> new OpenAiLlmClient(require("OPENAI_API_KEY"), model, effort);
+            case OpenAiLlmClient.COMPATIBLE -> OpenAiLlmClient.compatible(require("OPENAI_COMPATIBLE_BASE_URL"), model, effort);
             default -> throw new IllegalArgumentException("provider는 gemini·openai·openai-compatible: " + provider);
         };
         return (c, rep, system) -> {

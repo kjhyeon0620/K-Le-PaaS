@@ -156,7 +156,7 @@ public final class NlpEval {
 
     private static boolean mentionsNumber(String text, String value) {
         if (Pattern.compile("(?<![0-9a-z])" + Pattern.quote(value) + "(?![0-9a-z])").matcher(text).find()) return true;
-        if (!value.matches("\\d+") || Integer.parseInt(value) >= NUMBER_WORDS.size()) return false;
+        if (!value.matches("\\d{1,2}") || Integer.parseInt(value) >= NUMBER_WORDS.size()) return false; // 모델이 만든 아주 긴 숫자도 날조로 센다 (#152)
         return Pattern.compile("\\b" + NUMBER_WORDS.get(Integer.parseInt(value)) + "\\b").matcher(text).find();
     }
 
