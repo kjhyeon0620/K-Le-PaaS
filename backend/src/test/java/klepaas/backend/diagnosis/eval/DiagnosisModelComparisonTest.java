@@ -45,7 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @EnabledIfEnvironmentVariable(named = "DIAGNOSIS_EVAL_MODELS", matches = ".+")
 class DiagnosisModelComparisonTest {
 
-    private static final int PARALLEL = 4;
+    /** 로컬 서버는 요청을 하나씩 처리해 병렬 호출의 지연에 대기 시간이 섞인다. 로컬 측정은 1로 둔다 (#150) */
+    private static final int PARALLEL = Integer.parseInt(System.getenv().getOrDefault("EVAL_PARALLEL", "4"));
 
     @Test
     void compareModelsOnCases() throws Exception {

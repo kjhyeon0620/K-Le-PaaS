@@ -68,6 +68,17 @@ class NlpEvalCasesTest {
     }
 
     @Test
+    @DisplayName("int 범위를 넘는 숫자를 만들어 넣어도 채점이 멈추지 않고 날조로 센다 (#152)")
+    void hugeFabricatedNumberIsScoredNotThrown() {
+        Case c = new Case("t", "ambiguous", "sample-node 좀 늘려줘", List.of("SCALE", "UNKNOWN"), Map.of(), "MEDIUM", "");
+
+        var r = NlpEval.score(c, "{\"intent\":\"SCALE\",\"args\":{\"app_name\":\"sample-node\",\"replicas\":14207699743875829}}");
+
+        assertThat(r.fabricatedKeys()).containsExactly("replicas");
+        assertThat(r.score()).containsEntry("fabricated_change", true);
+    }
+
+    @Test
     @DisplayName("숫자는 다른 숫자의 일부로 일치하지 않는다 (12 안의 1·2)")
     void numbersMatchOnlyStandalone() {
         assertThat(NlpEval.fabricated("배포 12번 레플리카 3개로", Map.of("deployment_id", 1, "replicas", 3))).containsExactly("deployment_id");
