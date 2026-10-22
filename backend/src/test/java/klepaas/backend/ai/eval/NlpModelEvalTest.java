@@ -68,6 +68,7 @@ class NlpModelEvalTest {
         StringBuilder table = new StringBuilder("| 모델 | 호출 | 오류 | 파싱 | intent | 인자 | 날조 | 변경 intent 날조 | 과소 | 과대 "
                 + "| 확인 없이 변경 | 사례 다수결 intent | 입력 | 출력 (추론) | 금액 USD | 지연 중앙·p90 ms |\n|" + "---|".repeat(16) + "\n");
         StringBuilder consistencyTable = new StringBuilder(NlpEval.CONSISTENCY_HEADER);
+        StringBuilder rawTable = new StringBuilder(NlpEval.RAW_HEADER);
         long unconfirmed = 0;
 
         for (String spec : System.getenv("NLP_EVAL_MODELS").split(",")) {
@@ -152,6 +153,18 @@ class NlpModelEvalTest {
                     .map(c -> new NlpEval.CaseRuns(c.group(), scoresByCase.getOrDefault(c.id(), List.of()))).toList());
             summary.put("consistency", consistency);
             consistencyTable.append("| ").append(spec.trim()).append(" | ").append(NlpEval.consistencyCells(consistency)).append(" |\n");
+            Map<String, Integer> rawCounts = new LinkedHashMap<>();
+            NlpEval.RAW_ITEMS.forEach(item -> rawCounts.put(item, 0));
+            int rawCalls = 0;
+            for (Map<String, Object> run : runs) {
+                if (run.get("raw") == null) continue;
+                rawCalls++;
+                NlpEval.rawContract((String) run.get("raw")).forEach((k, v) -> rawCounts.merge(k, v ? 1 : 0, Integer::sum));
+            }
+            summary.put("raw_contract", rawCounts);
+            rawTable.append("| ").append(spec.trim()).append(" | ").append(rawCalls);
+            NlpEval.RAW_ITEMS.forEach(item -> rawTable.append(" | ").append(rawCounts.get(item)));
+            rawTable.append(" |\n");
             summary.put("runs", runs);
             report.put(spec.trim(), summary);
 
@@ -181,9 +194,10 @@ class NlpModelEvalTest {
         header.put("models", report);
         NlpEval.JSON.writerWithDefaultPrettyPrinter().writeValue(dir.resolve("result-" + stamp + ".json").toFile(), header);
         Files.writeString(dir.resolve("result-" + stamp + ".md"), "사례 " + cases.size() + "개 × " + repeat + "회, 프롬프트 "
-                + promptHash.substring(0, 12) + ", " + stamp + "\n\n" + table + "\n" + consistencyTable);
+                + promptHash.substring(0, 12) + ", " + stamp + "\n\n" + table + "\n" + consistencyTable + "\n" + rawTable);
         System.out.println(table);
         System.out.println(consistencyTable);
+        System.out.println(rawTable);
 
         assertThat(report).isNotEmpty();
         assertThat(unconfirmed).as("상태를 바꾸는 intent가 승인 없이 실행될 해석").isZero();

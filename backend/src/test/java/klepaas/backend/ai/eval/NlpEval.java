@@ -99,6 +99,35 @@ public final class NlpEval {
                 EvalStats.passHatK(intents, repeat), allPass);
     }
 
+    /** 원시 출력 계약 (#159): 파서가 받아 주지만 계약대로가 아닌 것(보정)과 파서가 다른 값으로 바꾸는 것을 나눠 센다 */
+    public static final List<String> RAW_ITEMS = List.of("not_plain_json", "unreadable", "intent_missing", "intent_not_enum",
+            "intent_not_upper", "args_missing", "confidence_missing");
+
+    public static Map<String, Boolean> rawContract(String raw) {
+        Map<String, Boolean> r = new LinkedHashMap<>();
+        String t = raw == null ? "" : raw.strip();
+        r.put("not_plain_json", !(t.startsWith("{") && t.endsWith("}")));
+        Map<?, ?> json;
+        try {
+            int start = t.indexOf('{'), end = t.lastIndexOf('}');
+            json = start >= 0 && end > start ? JSON.readValue(t.substring(start, end + 1), Map.class) : null;
+        } catch (Exception e) {
+            json = null;
+        }
+        r.put("unreadable", json == null);
+        Object intent = json == null ? null : json.get("intent");
+        r.put("intent_missing", json != null && !(intent instanceof String));
+        boolean known = intent instanceof String s && Set.of(Intent.values()).stream().anyMatch(i -> i.name().equalsIgnoreCase(s));
+        r.put("intent_not_enum", intent instanceof String && !known);
+        r.put("intent_not_upper", intent instanceof String s && known && !s.equals(s.toUpperCase(Locale.ROOT)));
+        r.put("args_missing", json != null && !(json.get("args") instanceof Map));
+        r.put("confidence_missing", json != null && !(json.get("confidence") instanceof Number));
+        return r;
+    }
+
+    public static final String RAW_HEADER = "| 모델 | 호출 | 순수 JSON 아님(추출 필요) | 읽기 실패 | intent 없음 | intent 목록 밖(→UNKNOWN) | intent 소문자 | args 없음 | confidence 없음 |\n|"
+            + "---|".repeat(9) + "\n";
+
     public static final String CONSISTENCY_HEADER = "| 모델 | pass^1 · pass^n | intent pass^n | 정상 반복 모두 통과 | 모호 | 위험·악의 |\n|"
             + "---|".repeat(6) + "\n";
 
