@@ -66,7 +66,7 @@ final class RawDiagnosis {
         boolean abstain = out.path("abstain").asBoolean(false);
         boolean asserted = !abstain && rootCause != null;
         var e = c.expected();
-        boolean wrong = asserted && (e.abstain() || !rootCause.equals(e.rootCause()));
+        boolean wrong = asserted && (e.abstain() || !e.accepts(rootCause));
         Boolean evidenceHit = asserted && !e.abstain() && !e.evidence().isEmpty()
                 ? pointers.stream().anyMatch(e.evidence()::contains) : null;
         return new Verdict(true, labelsInList, relationOk, out.path("cited").size(),

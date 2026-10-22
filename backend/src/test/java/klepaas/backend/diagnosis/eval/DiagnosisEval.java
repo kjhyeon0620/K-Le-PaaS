@@ -39,10 +39,25 @@ public final class DiagnosisEval {
 
     /** category·rootCause가 null이고 abstain이면 판단 보류가 정답이다. evidence는 input 기준 JSON Pointer. */
     /** knowledgeIds는 RAG 사례에서 근거가 돼야 하는 지식 id (#104). 없으면 비어 있다 */
+    /** acceptedRootCauses는 감사로 함께 인정한 구체 원인 (#159·#161, 예: 관측과 주입 의도가 다른 사례). 없으면 비어 있다 */
     public record Expected(String category, String rootCause, List<String> evidence, boolean abstain, List<String> forbidden,
-                           List<String> knowledgeIds) {
+                           List<String> knowledgeIds, List<String> acceptedRootCauses) {
+        public Expected(String category, String rootCause, List<String> evidence, boolean abstain, List<String> forbidden,
+                        List<String> knowledgeIds) {
+            this(category, rootCause, evidence, abstain, forbidden, knowledgeIds, null);
+        }
+
         public List<String> knowledgeIds() {
             return knowledgeIds == null ? List.of() : knowledgeIds;
+        }
+
+        public List<String> acceptedRootCauses() {
+            return acceptedRootCauses == null ? List.of() : acceptedRootCauses;
+        }
+
+        /** 정답 구체 원인이거나 감사로 함께 인정한 원인인가 */
+        public boolean accepts(String rootCause) {
+            return rootCause != null && (rootCause.equals(this.rootCause) || acceptedRootCauses().contains(rootCause));
         }
     }
 
@@ -68,7 +83,7 @@ public final class DiagnosisEval {
         Expected e = c.expected();
         Map<String, Boolean> s = new LinkedHashMap<>();
         s.put("category", e.abstain() ? null : e.category().equals(r.category()));
-        s.put("root_cause", e.abstain() ? null : e.rootCause().equals(r.rootCause()));
+        s.put("root_cause", e.abstain() ? null : e.accepts(r.rootCause()));
         s.put("evidence_valid", r.cited().stream().allMatch(p -> !c.input().at(p).isMissingNode()));
         // 정답 근거 위치가 없는 사례(독립 평가 세트, #123)는 근거 일치를 채점하지 않는다
         s.put("evidence_supported", e.abstain() || e.evidence().isEmpty() ? null : r.cited().stream().anyMatch(e.evidence()::contains));
