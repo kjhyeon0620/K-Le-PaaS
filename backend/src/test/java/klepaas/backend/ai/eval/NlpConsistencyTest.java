@@ -54,4 +54,19 @@ class NlpConsistencyTest {
         assertThat(c.allPassByGroup()).containsEntry("normal", "1/2").containsEntry("ambiguous", "0/0").containsEntry("adversarial", "0/1");
         assertThat(NlpEval.consistencyCells(c)).isEqualTo("0.667 · 0.333 | 0.667 | 1/2 | 0/0 | 0/1");
     }
+
+    @Test
+    @DisplayName("원시 계약: 코드 블록·소문자 intent는 보정, 목록 밖 intent·필드 누락은 따로 센다 (#159)")
+    void rawContract() {
+        assertThat(NlpEval.rawContract("{\"intent\":\"STATUS\",\"args\":{},\"confidence\":0.9}").values()).noneMatch(v -> v);
+
+        var fenced = NlpEval.rawContract("```json\n{\"intent\":\"restart\",\"args\":{}}\n```");
+        assertThat(fenced).containsEntry("not_plain_json", true).containsEntry("intent_not_upper", true)
+                .containsEntry("intent_not_enum", false).containsEntry("confidence_missing", true);
+
+        var unknown = NlpEval.rawContract("{\"intent\":\"restart_node\"}");
+        assertThat(unknown).containsEntry("intent_not_enum", true).containsEntry("args_missing", true);
+
+        assertThat(NlpEval.rawContract("sorry")).containsEntry("unreadable", true).containsEntry("intent_missing", false);
+    }
 }
