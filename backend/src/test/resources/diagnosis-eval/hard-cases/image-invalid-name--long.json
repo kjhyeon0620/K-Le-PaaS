@@ -1,0 +1,170 @@
+{
+  "id" : "image-invalid-name--long",
+  "group" : "NOISE-EXTRA-PODS",
+  "provenance" : "derived: image-invalid-name에 같은 상태 레플리카 2개와 이전 버전 정상 Pod 2개(로그 40줄씩) 추가",
+  "input" : {
+    "detail" : {
+      "deployment" : {
+        "id" : 2,
+        "repository_id" : 2,
+        "repository_name" : "demo/cache",
+        "branch_name" : "main",
+        "commit_hash" : "b2c3d4e",
+        "image_uri" : "Redis:7-alpine",
+        "status" : "FAILED",
+        "fail_reason" : "rollout 실패: InvalidImageName (pod=demo-cache-fcdfcc46d-6q4r5, generation=1): Failed to apply default image tag \"Redis:7-alpine\": couldn't parse image name \"Redis:7-alpine\": invalid reference format: repository name (library/Redis) must be lowercase",
+        "started_at" : "2026-10-11T05:24:29.127591Z",
+        "finished_at" : "2026-10-11T05:24:31.214217Z",
+        "created_at" : "2026-10-11T05:24:29.127726Z",
+        "trigger_source" : "CLI",
+        "requested_by_user_id" : 1,
+        "command_log_id" : null,
+        "image_digest" : null,
+        "failure_kind" : "IMAGE_PULL",
+        "recovered_from_deployment_id" : null
+      },
+      "requested_by" : {
+        "user_id" : 1,
+        "name" : "demo"
+      },
+      "command" : null,
+      "config" : {
+        "build_strategy" : "PREBUILT_IMAGE",
+        "image_uri_template" : null,
+        "min_replicas" : 1,
+        "max_replicas" : 1,
+        "container_port" : 6379,
+        "domain_url" : "cache.demo.test",
+        "service_type" : "CLUSTER_IP",
+        "node_port" : null,
+        "env_names" : [ ],
+        "env_from_config_maps" : [ ],
+        "env_from_secrets" : [ ],
+        "image_pull_secret_enabled" : false,
+        "image_pull_secret_name" : null,
+        "health_probe" : null,
+        "resources" : null
+      },
+      "previous_success" : null,
+      "comparison" : "NO_PREVIOUS",
+      "changes" : [ ],
+      "explanation" : {
+        "kind" : "IMAGE_PULL",
+        "title" : "이미지를 받지 못했습니다",
+        "summary" : "노드가 이미지를 내려받지 못해 새 Pod가 시작되지 않았습니다.",
+        "checks" : [ "이미지 태그가 레지스트리에 있는지 확인합니다 (이벤트의 not found)", "비공개 이미지면 pull secret 설정과 자격 증명 만료를 확인합니다", "이미지 주소의 오타를 확인합니다" ]
+      }
+    },
+    "logs" : {
+      "deployment_id" : 2,
+      "status" : "FAILED",
+      "fail_reason" : "rollout 실패: InvalidImageName (pod=demo-cache-fcdfcc46d-6q4r5, generation=1): Failed to apply default image tag \"Redis:7-alpine\": couldn't parse image name \"Redis:7-alpine\": invalid reference format: repository name (library/Redis) must be lowercase",
+      "observation" : "AVAILABLE",
+      "observation_message" : null,
+      "applied_deployment_id" : 2,
+      "pods" : [ {
+        "name" : "demo-cache-fcdfcc46d-6q4r5",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : "waiting",
+        "state_reason" : "InvalidImageName",
+        "state_message" : "Failed to apply default image tag \"Redis:7-alpine\": couldn't parse image name \"Redis:7-alpine\": invalid reference format: repository name (library/Redis) must be lowercase",
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "container \"demo-cache\" in pod \"demo-cache-fcdfcc46d-6q4r5\" is waiting to start: InvalidImageName"
+      }, {
+        "name" : "demo-cache-fcdfcc46d-r2a7x",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : "waiting",
+        "state_reason" : "InvalidImageName",
+        "state_message" : "Failed to apply default image tag \"Redis:7-alpine\": couldn't parse image name \"Redis:7-alpine\": invalid reference format: repository name (library/Redis) must be lowercase",
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "container \"demo-cache\" in pod \"demo-cache-fcdfcc46d-6q4r5\" is waiting to start: InvalidImageName"
+      }, {
+        "name" : "demo-cache-fcdfcc46d-r3b8y",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : "waiting",
+        "state_reason" : "InvalidImageName",
+        "state_message" : "Failed to apply default image tag \"Redis:7-alpine\": couldn't parse image name \"Redis:7-alpine\": invalid reference format: repository name (library/Redis) must be lowercase",
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "container \"demo-cache\" in pod \"demo-cache-fcdfcc46d-6q4r5\" is waiting to start: InvalidImageName"
+      }, {
+        "name" : "demo-cache-5d9c7f6b44-k4c9z",
+        "phase" : "Running",
+        "ready" : true,
+        "restart_count" : 0,
+        "state" : "running",
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ "1:M 11 Oct 2026 02:00:00.407 * 100 changes in 300 seconds. Saving... Background saving started by pid 200; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:02:07.408 * Client id=1001 addr=10.42.0.21:40013 laddr=10.42.0.9:6379 fd=10 name= age=60 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:04:14.409 * Client id=1002 addr=10.42.0.22:40026 laddr=10.42.0.9:6379 fd=11 name= age=120 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:06:21.410 * 103 changes in 300 seconds. Saving... Background saving started by pid 203; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:08:28.411 * Client id=1004 addr=10.42.0.24:40052 laddr=10.42.0.9:6379 fd=13 name= age=240 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:10:35.412 * Client id=1005 addr=10.42.0.25:40065 laddr=10.42.0.9:6379 fd=14 name= age=300 idle=5 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:12:42.413 * 106 changes in 300 seconds. Saving... Background saving started by pid 206; DB saved on disk; Fork CoW for RDB: current 2 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:14:49.414 * Client id=1007 addr=10.42.0.27:40091 laddr=10.42.0.9:6379 fd=16 name= age=420 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:16:56.415 * Client id=1008 addr=10.42.0.28:40104 laddr=10.42.0.9:6379 fd=17 name= age=480 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:18:03.416 * 109 changes in 300 seconds. Saving... Background saving started by pid 209; DB saved on disk; Fork CoW for RDB: current 1 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:20:10.417 * Client id=1010 addr=10.42.0.30:40130 laddr=10.42.0.9:6379 fd=19 name= age=600 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:22:17.418 * Client id=1011 addr=10.42.0.31:40143 laddr=10.42.0.9:6379 fd=20 name= age=660 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:24:24.419 * 112 changes in 300 seconds. Saving... Background saving started by pid 212; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:26:31.420 * Client id=1013 addr=10.42.0.33:40169 laddr=10.42.0.9:6379 fd=22 name= age=780 idle=6 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:28:38.421 * Client id=1014 addr=10.42.0.34:40182 laddr=10.42.0.9:6379 fd=23 name= age=840 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:30:45.422 * 115 changes in 300 seconds. Saving... Background saving started by pid 215; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:32:52.423 * Client id=1016 addr=10.42.0.36:40208 laddr=10.42.0.9:6379 fd=25 name= age=960 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:34:59.424 * Client id=1017 addr=10.42.0.37:40221 laddr=10.42.0.9:6379 fd=26 name= age=1020 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:36:06.425 * 118 changes in 300 seconds. Saving... Background saving started by pid 218; DB saved on disk; Fork CoW for RDB: current 2 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:38:13.426 * Client id=1019 addr=10.42.0.39:40247 laddr=10.42.0.9:6379 fd=28 name= age=1140 idle=5 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:40:20.427 * Client id=1020 addr=10.42.0.40:40260 laddr=10.42.0.9:6379 fd=29 name= age=1200 idle=6 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:42:27.428 * 121 changes in 300 seconds. Saving... Background saving started by pid 221; DB saved on disk; Fork CoW for RDB: current 1 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:44:34.429 * Client id=1022 addr=10.42.0.42:40286 laddr=10.42.0.9:6379 fd=31 name= age=1320 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:46:41.430 * Client id=1023 addr=10.42.0.43:40299 laddr=10.42.0.9:6379 fd=32 name= age=1380 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:48:48.431 * 124 changes in 300 seconds. Saving... Background saving started by pid 224; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:50:55.432 * Client id=1025 addr=10.42.0.45:40325 laddr=10.42.0.9:6379 fd=34 name= age=1500 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:52:02.433 * Client id=1026 addr=10.42.0.46:40338 laddr=10.42.0.9:6379 fd=35 name= age=1560 idle=5 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:54:09.434 * 127 changes in 300 seconds. Saving... Background saving started by pid 227; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:56:16.435 * Client id=1028 addr=10.42.0.48:40364 laddr=10.42.0.9:6379 fd=37 name= age=1680 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:58:23.436 * Client id=1029 addr=10.42.0.49:40377 laddr=10.42.0.9:6379 fd=38 name= age=1740 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:00:30.437 * 130 changes in 300 seconds. Saving... Background saving started by pid 230; DB saved on disk; Fork CoW for RDB: current 2 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 03:02:37.438 * Client id=1031 addr=10.42.0.21:40403 laddr=10.42.0.9:6379 fd=40 name= age=1860 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:04:44.439 * Client id=1032 addr=10.42.0.22:40416 laddr=10.42.0.9:6379 fd=41 name= age=1920 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:06:51.440 * 133 changes in 300 seconds. Saving... Background saving started by pid 233; DB saved on disk; Fork CoW for RDB: current 1 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 03:08:58.441 * Client id=1034 addr=10.42.0.24:40442 laddr=10.42.0.9:6379 fd=43 name= age=2040 idle=6 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:10:05.442 * Client id=1035 addr=10.42.0.25:40455 laddr=10.42.0.9:6379 fd=44 name= age=2100 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:12:12.443 * 136 changes in 300 seconds. Saving... Background saving started by pid 236; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 03:14:19.444 * Client id=1037 addr=10.42.0.27:40481 laddr=10.42.0.9:6379 fd=46 name= age=2220 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:16:26.445 * Client id=1038 addr=10.42.0.28:40494 laddr=10.42.0.9:6379 fd=47 name= age=2280 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:18:33.446 * 139 changes in 300 seconds. Saving... Background saving started by pid 239; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB" ],
+        "previous_logs" : [ ],
+        "logs_error" : null
+      }, {
+        "name" : "demo-cache-5d9c7f6b44-m5d2w",
+        "phase" : "Running",
+        "ready" : true,
+        "restart_count" : 0,
+        "state" : "running",
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ "1:M 11 Oct 2026 02:00:00.581 * 100 changes in 300 seconds. Saving... Background saving started by pid 200; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:02:07.582 * Client id=1001 addr=10.42.0.21:40013 laddr=10.42.0.9:6379 fd=10 name= age=60 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:04:14.583 * Client id=1002 addr=10.42.0.22:40026 laddr=10.42.0.9:6379 fd=11 name= age=120 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:06:21.584 * 103 changes in 300 seconds. Saving... Background saving started by pid 203; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:08:28.585 * Client id=1004 addr=10.42.0.24:40052 laddr=10.42.0.9:6379 fd=13 name= age=240 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:10:35.586 * Client id=1005 addr=10.42.0.25:40065 laddr=10.42.0.9:6379 fd=14 name= age=300 idle=5 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:12:42.587 * 106 changes in 300 seconds. Saving... Background saving started by pid 206; DB saved on disk; Fork CoW for RDB: current 2 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:14:49.588 * Client id=1007 addr=10.42.0.27:40091 laddr=10.42.0.9:6379 fd=16 name= age=420 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:16:56.589 * Client id=1008 addr=10.42.0.28:40104 laddr=10.42.0.9:6379 fd=17 name= age=480 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:18:03.590 * 109 changes in 300 seconds. Saving... Background saving started by pid 209; DB saved on disk; Fork CoW for RDB: current 1 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:20:10.591 * Client id=1010 addr=10.42.0.30:40130 laddr=10.42.0.9:6379 fd=19 name= age=600 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:22:17.592 * Client id=1011 addr=10.42.0.31:40143 laddr=10.42.0.9:6379 fd=20 name= age=660 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:24:24.593 * 112 changes in 300 seconds. Saving... Background saving started by pid 212; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:26:31.594 * Client id=1013 addr=10.42.0.33:40169 laddr=10.42.0.9:6379 fd=22 name= age=780 idle=6 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:28:38.595 * Client id=1014 addr=10.42.0.34:40182 laddr=10.42.0.9:6379 fd=23 name= age=840 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:30:45.596 * 115 changes in 300 seconds. Saving... Background saving started by pid 215; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:32:52.597 * Client id=1016 addr=10.42.0.36:40208 laddr=10.42.0.9:6379 fd=25 name= age=960 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:34:59.598 * Client id=1017 addr=10.42.0.37:40221 laddr=10.42.0.9:6379 fd=26 name= age=1020 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:36:06.599 * 118 changes in 300 seconds. Saving... Background saving started by pid 218; DB saved on disk; Fork CoW for RDB: current 2 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:38:13.600 * Client id=1019 addr=10.42.0.39:40247 laddr=10.42.0.9:6379 fd=28 name= age=1140 idle=5 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:40:20.601 * Client id=1020 addr=10.42.0.40:40260 laddr=10.42.0.9:6379 fd=29 name= age=1200 idle=6 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:42:27.602 * 121 changes in 300 seconds. Saving... Background saving started by pid 221; DB saved on disk; Fork CoW for RDB: current 1 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:44:34.603 * Client id=1022 addr=10.42.0.42:40286 laddr=10.42.0.9:6379 fd=31 name= age=1320 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:46:41.604 * Client id=1023 addr=10.42.0.43:40299 laddr=10.42.0.9:6379 fd=32 name= age=1380 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:48:48.605 * 124 changes in 300 seconds. Saving... Background saving started by pid 224; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 02:50:55.606 * Client id=1025 addr=10.42.0.45:40325 laddr=10.42.0.9:6379 fd=34 name= age=1500 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:52:02.607 * Client id=1026 addr=10.42.0.46:40338 laddr=10.42.0.9:6379 fd=35 name= age=1560 idle=5 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:54:09.608 * 127 changes in 300 seconds. Saving... Background saving started by pid 227; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 02:56:16.609 * Client id=1028 addr=10.42.0.48:40364 laddr=10.42.0.9:6379 fd=37 name= age=1680 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 02:58:23.610 * Client id=1029 addr=10.42.0.49:40377 laddr=10.42.0.9:6379 fd=38 name= age=1740 idle=1 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:00:30.611 * 130 changes in 300 seconds. Saving... Background saving started by pid 230; DB saved on disk; Fork CoW for RDB: current 2 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 03:02:37.612 * Client id=1031 addr=10.42.0.21:40403 laddr=10.42.0.9:6379 fd=40 name= age=1860 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:04:44.613 * Client id=1032 addr=10.42.0.22:40416 laddr=10.42.0.9:6379 fd=41 name= age=1920 idle=4 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:06:51.614 * 133 changes in 300 seconds. Saving... Background saving started by pid 233; DB saved on disk; Fork CoW for RDB: current 1 MB, peak 3 MB, average 0 MB", "1:M 11 Oct 2026 03:08:58.615 * Client id=1034 addr=10.42.0.24:40442 laddr=10.42.0.9:6379 fd=43 name= age=2040 idle=6 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:10:05.616 * Client id=1035 addr=10.42.0.25:40455 laddr=10.42.0.9:6379 fd=44 name= age=2100 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:12:12.617 * 136 changes in 300 seconds. Saving... Background saving started by pid 236; DB saved on disk; Fork CoW for RDB: current 0 MB, peak 0 MB, average 0 MB", "1:M 11 Oct 2026 03:14:19.618 * Client id=1037 addr=10.42.0.27:40481 laddr=10.42.0.9:6379 fd=46 name= age=2220 idle=2 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:16:26.619 * Client id=1038 addr=10.42.0.28:40494 laddr=10.42.0.9:6379 fd=47 name= age=2280 idle=3 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 cmd=get user=default", "1:M 11 Oct 2026 03:18:33.620 * 139 changes in 300 seconds. Saving... Background saving started by pid 239; DB saved on disk; Fork CoW for RDB: current 3 MB, peak 3 MB, average 0 MB" ],
+        "previous_logs" : [ ],
+        "logs_error" : null
+      } ],
+      "events" : [ {
+        "type" : "Warning",
+        "reason" : "InspectFailed",
+        "message" : "Failed to apply default image tag \"Redis:7-alpine\": couldn't parse image name \"Redis:7-alpine\": invalid reference format: repository name (library/Redis) must be lowercase",
+        "object" : "Pod/demo-cache-fcdfcc46d-6q4r5",
+        "count" : 2,
+        "last_seen" : "2026-10-11T05:24:30Z"
+      }, {
+        "type" : "Warning",
+        "reason" : "Failed",
+        "message" : "Error: InvalidImageName",
+        "object" : "Pod/demo-cache-fcdfcc46d-6q4r5",
+        "count" : 2,
+        "last_seen" : "2026-10-11T05:24:30Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Scheduled",
+        "message" : "Successfully assigned default/demo-cache-fcdfcc46d-6q4r5 to ff72ae5492d9",
+        "object" : "Pod/demo-cache-fcdfcc46d-6q4r5",
+        "count" : null,
+        "last_seen" : "2026-10-11T05:24:29.167982Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "SuccessfulCreate",
+        "message" : "Created pod: demo-cache-fcdfcc46d-6q4r5",
+        "object" : "ReplicaSet/demo-cache-fcdfcc46d",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:24:29Z"
+      } ]
+    }
+  },
+  "expected" : {
+    "category" : "IMAGE",
+    "root_cause" : "invalid_image_reference",
+    "evidence" : [ "/logs/events/0", "/logs/events/1", "/detail/deployment/fail_reason" ],
+    "abstain" : false,
+    "forbidden" : [ ]
+  },
+  "notes" : "원인은 원본과 같다. 정답 근거는 첫 Pod에 그대로 있고 복제 레플리카에도 같은 근거가 있다. 추가한 이전 버전 Pod는 정상 동작 로그다. 원본이 항상 첫 위치라 장문 추론 능력을 재는 사례가 아니다."
+}

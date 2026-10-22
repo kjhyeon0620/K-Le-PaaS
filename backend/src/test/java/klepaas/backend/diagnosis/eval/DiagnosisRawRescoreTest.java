@@ -41,7 +41,7 @@ class DiagnosisRawRescoreTest {
         var perCase = summary.path("cases").properties();
         for (var entry : (Iterable<Map.Entry<String, JsonNode>>) perCase::iterator) {
             Case c = cases.get(entry.getKey());
-            if (c == null) throw new IllegalStateException("사례 파일에 없는 사례: " + entry.getKey());
+            if (c == null) continue; // 자동 채점에서 뺀 사례(예: #158 감사용)
             int knowledge = summary.path("retrieved").path(c.id()).size();
             for (JsonNode run : entry.getValue()) {
                 calls++;

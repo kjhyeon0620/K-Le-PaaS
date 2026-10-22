@@ -125,12 +125,11 @@ class DiagnosisModelComparisonTest {
             summary.put("latency_ms_median", median);
             summary.put("latency_ms_p90", p90);
             summary.put("errors", errors);
-            DiagnosisEval.Consistency consistency = DiagnosisEval.consistency(cases.stream()
-                    .map(c -> new DiagnosisEval.CaseRuns(c.expected(), perCase.getOrDefault(c.id(), List.of()).stream()
-                            .map(DiagnosisModelComparisonTest::toRun).toList()))
-                    .toList());
-            summary.put("consistency", consistency);
-            consistencyTable.append("| ").append(spec).append(" | ").append(DiagnosisEval.consistencyCells(consistency)).append(" |\n");
+            Map<String, List<DiagnosisEval.Run>> runsById = new LinkedHashMap<>();
+            perCase.forEach((id, list) -> runsById.put(id, list.stream().map(DiagnosisModelComparisonTest::toRun).toList()));
+            summary.put("consistency", DiagnosisEval.consistency(cases.stream()
+                    .map(c -> new DiagnosisEval.CaseRuns(c.expected(), runsById.getOrDefault(c.id(), List.of()))).toList()));
+            consistencyTable.append(DiagnosisEval.consistencyRows(spec, cases, runsById, caseSet.equals("hard")));
             if (v.knowledge()) summary.put("retrieved", retrieved);
             summary.put("cases", perCase);
             report.put(spec, summary);

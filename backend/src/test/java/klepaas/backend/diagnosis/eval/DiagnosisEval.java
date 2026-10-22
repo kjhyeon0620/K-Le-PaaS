@@ -29,6 +29,8 @@ public final class DiagnosisEval {
     public static final Path RAG_CASES = Path.of("src/test/resources/diagnosis-eval/rag-cases");
     /** 다른 계열 모델이 독립 작성한 시나리오를 k3s에서 재현한 사례 (#123). history는 과거 사건 원천, tune·test는 평가 */
     public static final Path BLIND_CASES = Path.of("src/test/resources/diagnosis-eval/blind-cases");
+    /** #99 사례를 기계적으로 바꾼 회귀·보류 검사 (#158) */
+    public static final Path HARD_CASES = Path.of("src/test/resources/diagnosis-eval/hard-cases");
     public static final ObjectMapper JSON = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -136,6 +138,23 @@ public final class DiagnosisEval {
     public static final String CONSISTENCY_HEADER = "| 변형 | pass^1 · pass^n | 구체 원인 pass^n | 보류 정밀도 | 보류 재현율 | 잘못 보류 | 잘못된 단정 |\n|"
             + "---|".repeat(7) + "\n";
 
+    /**
+     * 변형 하나의 표 행. byGroup이면 사례 갈래별 행을 뒤에 붙인다(#158 어려운 갈래).
+     * runsById에 없는 사례는 뺀다.
+     */
+    public static String consistencyRows(String variant, List<Case> cases, Map<String, List<Run>> runsById, boolean byGroup) {
+        StringBuilder rows = new StringBuilder();
+        List<Case> present = cases.stream().filter(c -> !runsById.getOrDefault(c.id(), List.of()).isEmpty()).toList();
+        java.util.function.Function<List<Case>, Consistency> of = list -> consistency(
+                list.stream().map(c -> new CaseRuns(c.expected(), runsById.get(c.id()))).toList());
+        rows.append("| ").append(variant).append(" | ").append(consistencyCells(of.apply(present))).append(" |\n");
+        if (byGroup) {
+            present.stream().map(Case::group).distinct().forEach(g -> rows.append("| ").append(variant).append(" [").append(g).append("] | ")
+                    .append(consistencyCells(of.apply(present.stream().filter(c -> c.group().equals(g)).toList()))).append(" |\n"));
+        }
+        return rows.toString();
+    }
+
     /** 표 칸 순서: pass^1 · pass^n | 구체 원인 pass^n | 보류 정밀도 | 보류 재현율 | 잘못 보류 | 잘못된 단정 */
     public static String consistencyCells(Consistency c) {
         return EvalStats.fmt(c.passHat1()) + " · " + EvalStats.fmt(c.passHatN()) + " | " + EvalStats.fmt(c.rootPassHatN())
@@ -144,8 +163,14 @@ public final class DiagnosisEval {
                 + " | " + c.wrongAbstain() + " | " + c.wrongAssert();
     }
 
-    /** base: #99 사례, rag: #104 가공 사례, blind-tune·blind-test: #123 독립 작성 사례 */
+    /**
+     * base: #99 사례, rag: #104 가공 사례, blind-tune·blind-test: #123 독립 작성 사례,
+     * hard: #158 기계 변형 회귀·보류 검사(감사용 사례는 자동 채점에서 뺀다)
+     */
     public static List<Case> loadCaseSet(String caseSet) throws IOException {
+        if (caseSet.equals("hard")) {
+            return loadCases(HARD_CASES).stream().filter(c -> !c.group().equals("AUDIT-ONLY")).toList();
+        }
         return loadCases(switch (caseSet) {
             case "rag" -> RAG_CASES;
             case "blind-tune" -> BLIND_CASES.resolve("tune");

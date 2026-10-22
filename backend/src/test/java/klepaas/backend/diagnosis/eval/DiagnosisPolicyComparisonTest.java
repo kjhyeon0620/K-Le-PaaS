@@ -45,7 +45,11 @@ class DiagnosisPolicyComparisonTest {
             for (String policy : new String[]{"규칙 단독", "LLM 단독", "규칙 우선"}) totals.put(policy, new int[7]);
             v.getValue().path("cases").properties().forEach(entry -> {
                 Case c = cases.get(entry.getKey());
-                if (c == null) throw new IllegalStateException("사례 파일에 없는 사례: " + entry.getKey());
+                if (c == null) {
+                    // 자동 채점에서 뺀 사례(예: #158 감사용)는 건너뛴다. 건너뛴 사례는 표 아래에 적는다
+                    unresolved.append("| ").append(v.getKey()).append(" | ").append(entry.getKey()).append(" | 채점 묶음 밖 | - | - | - |\n");
+                    return;
+                }
                 var rule = SignatureRuleBaseline.diagnose(c.input());
                 String ruleAnswer = rule.state() == State.MATCH ? rule.rootCause() : null;
                 int[] llmOnCase = new int[3];
