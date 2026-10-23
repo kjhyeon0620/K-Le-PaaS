@@ -1,0 +1,191 @@
+{
+  "id" : "image-registry-unreachable--long",
+  "group" : "NOISE-EXTRA-PODS",
+  "provenance" : "derived: image-registry-unreachable에 같은 상태 레플리카 2개와 이전 버전 정상 Pod 2개(로그 40줄씩) 추가",
+  "input" : {
+    "detail" : {
+      "deployment" : {
+        "id" : 1,
+        "repository_id" : 1,
+        "repository_name" : "demo/billing-api",
+        "branch_name" : "main",
+        "commit_hash" : "a1b2c3d",
+        "image_uri" : "klepaas.invalid/team/billing-api:1.4.2",
+        "status" : "FAILED",
+        "fail_reason" : "rollout 실패: ImagePullBackOff (pod=demo-billing-api-cbd5d586-8l6qg, generation=1): Back-off pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+        "started_at" : "2026-10-11T05:24:15.962750Z",
+        "finished_at" : "2026-10-11T05:24:28.510449Z",
+        "created_at" : "2026-10-11T05:24:15.964217Z",
+        "trigger_source" : "CLI",
+        "requested_by_user_id" : 1,
+        "command_log_id" : null,
+        "image_digest" : null,
+        "failure_kind" : "IMAGE_PULL",
+        "recovered_from_deployment_id" : null
+      },
+      "requested_by" : {
+        "user_id" : 1,
+        "name" : "demo"
+      },
+      "command" : null,
+      "config" : {
+        "build_strategy" : "PREBUILT_IMAGE",
+        "image_uri_template" : null,
+        "min_replicas" : 1,
+        "max_replicas" : 1,
+        "container_port" : 8080,
+        "domain_url" : "billing-api.demo.test",
+        "service_type" : "CLUSTER_IP",
+        "node_port" : null,
+        "env_names" : [ ],
+        "env_from_config_maps" : [ ],
+        "env_from_secrets" : [ ],
+        "image_pull_secret_enabled" : false,
+        "image_pull_secret_name" : null,
+        "health_probe" : null,
+        "resources" : null
+      },
+      "previous_success" : null,
+      "comparison" : "NO_PREVIOUS",
+      "changes" : [ ],
+      "explanation" : {
+        "kind" : "IMAGE_PULL",
+        "title" : "이미지를 받지 못했습니다",
+        "summary" : "노드가 이미지를 내려받지 못해 새 Pod가 시작되지 않았습니다.",
+        "checks" : [ "이미지 태그가 레지스트리에 있는지 확인합니다 (이벤트의 not found)", "비공개 이미지면 pull secret 설정과 자격 증명 만료를 확인합니다", "이미지 주소의 오타를 확인합니다" ]
+      }
+    },
+    "logs" : {
+      "deployment_id" : 1,
+      "status" : "FAILED",
+      "fail_reason" : "rollout 실패: ImagePullBackOff (pod=demo-billing-api-cbd5d586-8l6qg, generation=1): Back-off pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+      "observation" : "AVAILABLE",
+      "observation_message" : null,
+      "applied_deployment_id" : 1,
+      "pods" : [ {
+        "name" : "demo-billing-api-cbd5d586-8l6qg",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : "waiting",
+        "state_reason" : "ImagePullBackOff",
+        "state_message" : "Back-off pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "container \"demo-billing-api\" in pod \"demo-billing-api-cbd5d586-8l6qg\" is waiting to start: trying and failing to pull image"
+      }, {
+        "name" : "demo-billing-api-cbd5d586-r2a7x",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : "waiting",
+        "state_reason" : "ImagePullBackOff",
+        "state_message" : "Back-off pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "container \"demo-billing-api\" in pod \"demo-billing-api-cbd5d586-8l6qg\" is waiting to start: trying and failing to pull image"
+      }, {
+        "name" : "demo-billing-api-cbd5d586-r3b8y",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : "waiting",
+        "state_reason" : "ImagePullBackOff",
+        "state_message" : "Back-off pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "container \"demo-billing-api\" in pod \"demo-billing-api-cbd5d586-8l6qg\" is waiting to start: trying and failing to pull image"
+      }, {
+        "name" : "demo-billing-api-5d9c7f6b44-k4c9z",
+        "phase" : "Running",
+        "ready" : true,
+        "restart_count" : 0,
+        "state" : "running",
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ "{\"ts\":\"2026-10-11T02:00:00.407Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30000\",\"status\":200,\"duration_ms\":8,\"trace_id\":\"5f3a412f\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:02:07.408Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30017\",\"status\":200,\"duration_ms\":9,\"trace_id\":\"5f3a4500\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:04:14.409Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30034\",\"status\":200,\"duration_ms\":10,\"trace_id\":\"5f3a48d1\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:06:21.410Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30051\",\"status\":200,\"duration_ms\":11,\"trace_id\":\"5f3a4ca2\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:08:28.411Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30068\",\"status\":200,\"duration_ms\":12,\"trace_id\":\"5f3a5073\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:10:35.412Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30085\",\"status\":200,\"duration_ms\":13,\"trace_id\":\"5f3a5444\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:12:42.413Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30102\",\"status\":200,\"duration_ms\":14,\"trace_id\":\"5f3a5815\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:14:49.414Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30119\",\"status\":200,\"duration_ms\":15,\"trace_id\":\"5f3a5be6\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:16:56.415Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30136\",\"status\":200,\"duration_ms\":16,\"trace_id\":\"5f3a5fb7\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:18:03.416Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30153\",\"status\":200,\"duration_ms\":17,\"trace_id\":\"5f3a6388\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:20:10.417Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30170\",\"status\":200,\"duration_ms\":18,\"trace_id\":\"5f3a6759\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:22:17.418Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30187\",\"status\":200,\"duration_ms\":19,\"trace_id\":\"5f3a6b2a\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:24:24.419Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30204\",\"status\":200,\"duration_ms\":20,\"trace_id\":\"5f3a6efb\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:26:31.420Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30221\",\"status\":200,\"duration_ms\":21,\"trace_id\":\"5f3a72cc\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:28:38.421Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30238\",\"status\":200,\"duration_ms\":22,\"trace_id\":\"5f3a769d\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:30:45.422Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30255\",\"status\":200,\"duration_ms\":23,\"trace_id\":\"5f3a7a6e\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:32:52.423Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30272\",\"status\":200,\"duration_ms\":24,\"trace_id\":\"5f3a7e3f\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:34:59.424Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30289\",\"status\":200,\"duration_ms\":25,\"trace_id\":\"5f3a8210\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:36:06.425Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30306\",\"status\":200,\"duration_ms\":26,\"trace_id\":\"5f3a85e1\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:38:13.426Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30323\",\"status\":200,\"duration_ms\":27,\"trace_id\":\"5f3a89b2\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:40:20.427Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30340\",\"status\":200,\"duration_ms\":28,\"trace_id\":\"5f3a8d83\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:42:27.428Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30357\",\"status\":200,\"duration_ms\":29,\"trace_id\":\"5f3a9154\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:44:34.429Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30374\",\"status\":200,\"duration_ms\":30,\"trace_id\":\"5f3a9525\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:46:41.430Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30391\",\"status\":200,\"duration_ms\":31,\"trace_id\":\"5f3a98f6\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:48:48.431Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30408\",\"status\":200,\"duration_ms\":32,\"trace_id\":\"5f3a9cc7\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:50:55.432Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30425\",\"status\":200,\"duration_ms\":33,\"trace_id\":\"5f3aa098\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:52:02.433Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30442\",\"status\":200,\"duration_ms\":34,\"trace_id\":\"5f3aa469\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:54:09.434Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30459\",\"status\":200,\"duration_ms\":35,\"trace_id\":\"5f3aa83a\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:56:16.435Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30476\",\"status\":200,\"duration_ms\":36,\"trace_id\":\"5f3aac0b\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:58:23.436Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30493\",\"status\":200,\"duration_ms\":37,\"trace_id\":\"5f3aafdc\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:00:30.437Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30510\",\"status\":200,\"duration_ms\":38,\"trace_id\":\"5f3ab3ad\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:02:37.438Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30527\",\"status\":200,\"duration_ms\":39,\"trace_id\":\"5f3ab77e\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:04:44.439Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30544\",\"status\":200,\"duration_ms\":40,\"trace_id\":\"5f3abb4f\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:06:51.440Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30561\",\"status\":200,\"duration_ms\":41,\"trace_id\":\"5f3abf20\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:08:58.441Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30578\",\"status\":200,\"duration_ms\":42,\"trace_id\":\"5f3ac2f1\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:10:05.442Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30595\",\"status\":200,\"duration_ms\":43,\"trace_id\":\"5f3ac6c2\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:12:12.443Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30612\",\"status\":200,\"duration_ms\":44,\"trace_id\":\"5f3aca93\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:14:19.444Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30629\",\"status\":200,\"duration_ms\":45,\"trace_id\":\"5f3ace64\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:16:26.445Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30646\",\"status\":200,\"duration_ms\":46,\"trace_id\":\"5f3ad235\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:18:33.446Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30663\",\"status\":200,\"duration_ms\":47,\"trace_id\":\"5f3ad606\",\"user_agent\":\"billing-worker/1.4.1\"}" ],
+        "previous_logs" : [ ],
+        "logs_error" : null
+      }, {
+        "name" : "demo-billing-api-5d9c7f6b44-m5d2w",
+        "phase" : "Running",
+        "ready" : true,
+        "restart_count" : 0,
+        "state" : "running",
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ "{\"ts\":\"2026-10-11T02:00:00.581Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30000\",\"status\":200,\"duration_ms\":8,\"trace_id\":\"5f3a5d0d\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:02:07.582Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30017\",\"status\":200,\"duration_ms\":9,\"trace_id\":\"5f3a60de\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:04:14.583Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30034\",\"status\":200,\"duration_ms\":10,\"trace_id\":\"5f3a64af\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:06:21.584Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30051\",\"status\":200,\"duration_ms\":11,\"trace_id\":\"5f3a6880\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:08:28.585Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30068\",\"status\":200,\"duration_ms\":12,\"trace_id\":\"5f3a6c51\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:10:35.586Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30085\",\"status\":200,\"duration_ms\":13,\"trace_id\":\"5f3a7022\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:12:42.587Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30102\",\"status\":200,\"duration_ms\":14,\"trace_id\":\"5f3a73f3\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:14:49.588Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30119\",\"status\":200,\"duration_ms\":15,\"trace_id\":\"5f3a77c4\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:16:56.589Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30136\",\"status\":200,\"duration_ms\":16,\"trace_id\":\"5f3a7b95\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:18:03.590Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30153\",\"status\":200,\"duration_ms\":17,\"trace_id\":\"5f3a7f66\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:20:10.591Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30170\",\"status\":200,\"duration_ms\":18,\"trace_id\":\"5f3a8337\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:22:17.592Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30187\",\"status\":200,\"duration_ms\":19,\"trace_id\":\"5f3a8708\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:24:24.593Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30204\",\"status\":200,\"duration_ms\":20,\"trace_id\":\"5f3a8ad9\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:26:31.594Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30221\",\"status\":200,\"duration_ms\":21,\"trace_id\":\"5f3a8eaa\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:28:38.595Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30238\",\"status\":200,\"duration_ms\":22,\"trace_id\":\"5f3a927b\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:30:45.596Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30255\",\"status\":200,\"duration_ms\":23,\"trace_id\":\"5f3a964c\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:32:52.597Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30272\",\"status\":200,\"duration_ms\":24,\"trace_id\":\"5f3a9a1d\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:34:59.598Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30289\",\"status\":200,\"duration_ms\":25,\"trace_id\":\"5f3a9dee\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:36:06.599Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30306\",\"status\":200,\"duration_ms\":26,\"trace_id\":\"5f3aa1bf\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:38:13.600Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30323\",\"status\":200,\"duration_ms\":27,\"trace_id\":\"5f3aa590\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:40:20.601Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30340\",\"status\":200,\"duration_ms\":28,\"trace_id\":\"5f3aa961\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:42:27.602Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30357\",\"status\":200,\"duration_ms\":29,\"trace_id\":\"5f3aad32\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:44:34.603Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30374\",\"status\":200,\"duration_ms\":30,\"trace_id\":\"5f3ab103\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:46:41.604Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30391\",\"status\":200,\"duration_ms\":31,\"trace_id\":\"5f3ab4d4\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:48:48.605Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30408\",\"status\":200,\"duration_ms\":32,\"trace_id\":\"5f3ab8a5\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:50:55.606Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30425\",\"status\":200,\"duration_ms\":33,\"trace_id\":\"5f3abc76\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:52:02.607Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30442\",\"status\":200,\"duration_ms\":34,\"trace_id\":\"5f3ac047\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:54:09.608Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30459\",\"status\":200,\"duration_ms\":35,\"trace_id\":\"5f3ac418\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:56:16.609Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30476\",\"status\":200,\"duration_ms\":36,\"trace_id\":\"5f3ac7e9\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T02:58:23.610Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30493\",\"status\":200,\"duration_ms\":37,\"trace_id\":\"5f3acbba\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:00:30.611Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30510\",\"status\":200,\"duration_ms\":38,\"trace_id\":\"5f3acf8b\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:02:37.612Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30527\",\"status\":200,\"duration_ms\":39,\"trace_id\":\"5f3ad35c\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:04:44.613Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30544\",\"status\":200,\"duration_ms\":40,\"trace_id\":\"5f3ad72d\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:06:51.614Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30561\",\"status\":200,\"duration_ms\":41,\"trace_id\":\"5f3adafe\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:08:58.615Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30578\",\"status\":200,\"duration_ms\":42,\"trace_id\":\"5f3adecf\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:10:05.616Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30595\",\"status\":200,\"duration_ms\":43,\"trace_id\":\"5f3ae2a0\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:12:12.617Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30612\",\"status\":200,\"duration_ms\":44,\"trace_id\":\"5f3ae671\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:14:19.618Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30629\",\"status\":200,\"duration_ms\":45,\"trace_id\":\"5f3aea42\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:16:26.619Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"GET\",\"path\":\"/api/v1/invoices/30646\",\"status\":200,\"duration_ms\":46,\"trace_id\":\"5f3aee13\",\"user_agent\":\"billing-worker/1.4.1\"}", "{\"ts\":\"2026-10-11T03:18:33.620Z\",\"level\":\"INFO\",\"logger\":\"http.access\",\"method\":\"POST\",\"path\":\"/api/v1/invoices/30663\",\"status\":200,\"duration_ms\":47,\"trace_id\":\"5f3af1e4\",\"user_agent\":\"billing-worker/1.4.1\"}" ],
+        "previous_logs" : [ ],
+        "logs_error" : null
+      } ],
+      "events" : [ {
+        "type" : "Normal",
+        "reason" : "Pulling",
+        "message" : "Pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+        "object" : "Pod/demo-billing-api-cbd5d586-8l6qg",
+        "count" : 2,
+        "last_seen" : "2026-10-11T05:24:28Z"
+      }, {
+        "type" : "Warning",
+        "reason" : "Failed",
+        "message" : "Failed to pull image \"klepaas.invalid/team/billing-api:1.4.2\": failed to pull and unpack image \"klepaas.invalid/team/billing-api:1.4.2\": failed to resolve reference \"klepaas.invalid/team/billing-api:1.4.2\": failed to do request: Head \"https://klepaas.invalid/v2/team/billing-api/manifests/1.4.2\": dia…",
+        "object" : "Pod/demo-billing-api-cbd5d586-8l6qg",
+        "count" : 2,
+        "last_seen" : "2026-10-11T05:24:28Z"
+      }, {
+        "type" : "Warning",
+        "reason" : "Failed",
+        "message" : "Error: ErrImagePull",
+        "object" : "Pod/demo-billing-api-cbd5d586-8l6qg",
+        "count" : 2,
+        "last_seen" : "2026-10-11T05:24:28Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "BackOff",
+        "message" : "Back-off pulling image \"klepaas.invalid/team/billing-api:1.4.2\"",
+        "object" : "Pod/demo-billing-api-cbd5d586-8l6qg",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:24:17Z"
+      }, {
+        "type" : "Warning",
+        "reason" : "Failed",
+        "message" : "Error: ImagePullBackOff",
+        "object" : "Pod/demo-billing-api-cbd5d586-8l6qg",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:24:17Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Scheduled",
+        "message" : "Successfully assigned default/demo-billing-api-cbd5d586-8l6qg to ff72ae5492d9",
+        "object" : "Pod/demo-billing-api-cbd5d586-8l6qg",
+        "count" : null,
+        "last_seen" : "2026-10-11T05:24:16.226844Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "SuccessfulCreate",
+        "message" : "Created pod: demo-billing-api-cbd5d586-8l6qg",
+        "object" : "ReplicaSet/demo-billing-api-cbd5d586",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:24:16Z"
+      } ]
+    }
+  },
+  "expected" : {
+    "category" : "IMAGE",
+    "root_cause" : "image_not_pullable",
+    "evidence" : [ "/logs/events/1", "/logs/pods/0/state_reason", "/detail/deployment/fail_reason" ],
+    "abstain" : false,
+    "forbidden" : [ ]
+  },
+  "notes" : "원인은 원본과 같다. 정답 근거는 첫 Pod에 그대로 있고 복제 레플리카에도 같은 근거가 있다. 추가한 이전 버전 Pod는 정상 동작 로그다. 원본이 항상 첫 위치라 장문 추론 능력을 재는 사례가 아니다."
+}

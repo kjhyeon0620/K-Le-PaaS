@@ -27,7 +27,7 @@ class DiagnosisConsistencyRestatTest {
         StringBuilder table = new StringBuilder(DiagnosisEval.CONSISTENCY_HEADER);
         saved.path("models").properties().forEach(variant -> {
             JsonNode perCase = variant.getValue().path("cases");
-            List<DiagnosisEval.CaseRuns> runs = new ArrayList<>();
+            Map<String, List<DiagnosisEval.Run>> runsById = new LinkedHashMap<>();
             for (Case c : cases) {
                 List<DiagnosisEval.Run> list = new ArrayList<>();
                 perCase.path(c.id()).forEach(run -> {
@@ -35,10 +35,9 @@ class DiagnosisConsistencyRestatTest {
                     run.path("score").properties().forEach(s -> score.put(s.getKey(), s.getValue().isNull() ? null : s.getValue().asBoolean()));
                     list.add(new DiagnosisEval.Run(score, run.has("error")));
                 });
-                if (!list.isEmpty()) runs.add(new DiagnosisEval.CaseRuns(c.expected(), list));
+                runsById.put(c.id(), list);
             }
-            table.append("| ").append(variant.getKey()).append(" | ")
-                    .append(DiagnosisEval.consistencyCells(DiagnosisEval.consistency(runs))).append(" |\n");
+            table.append(DiagnosisEval.consistencyRows(variant.getKey(), cases, runsById, "hard".equals(saved.path("case_set").asText())));
         });
         System.out.println(table);
         assertThat(table.toString().lines().count()).isGreaterThan(2);

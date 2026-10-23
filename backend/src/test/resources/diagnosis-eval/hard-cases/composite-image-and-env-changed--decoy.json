@@ -1,0 +1,160 @@
+{
+  "id" : "composite-image-and-env-changed--decoy",
+  "group" : "NOISE-DECOY",
+  "provenance" : "derived: composite-image-and-env-changed에 미끼 추가 (3시간 전 이전 Pod demo-reports-db-5d9c7f6b44-old01의 이미지 pull 실패 이벤트, 무관한 env:LOG_LEVEL 추가 변경)",
+  "input" : {
+    "detail" : {
+      "deployment" : {
+        "id" : 9,
+        "repository_id" : 7,
+        "repository_name" : "demo/reports-db",
+        "branch_name" : "main",
+        "commit_hash" : "c9d0e1f",
+        "image_uri" : "postgres:16",
+        "status" : "FAILED",
+        "fail_reason" : "rollout 실패: CrashLoopBackOff (pod=demo-reports-db-86999b5f48-dddgm, generation=2, 마지막 종료=Error, exit=1): back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "started_at" : "2026-10-11T05:28:26.649921Z",
+        "finished_at" : "2026-10-11T05:28:55.077541Z",
+        "created_at" : "2026-10-11T05:28:26.650080Z",
+        "trigger_source" : "CLI",
+        "requested_by_user_id" : 1,
+        "command_log_id" : null,
+        "image_digest" : null,
+        "failure_kind" : "CRASH_LOOP",
+        "recovered_from_deployment_id" : null
+      },
+      "requested_by" : {
+        "user_id" : 1,
+        "name" : "demo"
+      },
+      "command" : null,
+      "config" : {
+        "build_strategy" : "PREBUILT_IMAGE",
+        "image_uri_template" : null,
+        "min_replicas" : 1,
+        "max_replicas" : 1,
+        "container_port" : 5432,
+        "domain_url" : "reports-db.demo.test",
+        "service_type" : "CLUSTER_IP",
+        "node_port" : null,
+        "env_names" : [ ],
+        "env_from_config_maps" : [ ],
+        "env_from_secrets" : [ ],
+        "image_pull_secret_enabled" : false,
+        "image_pull_secret_name" : null,
+        "health_probe" : null,
+        "resources" : null
+      },
+      "previous_success" : {
+        "id" : 8,
+        "commit_hash" : "b8c9d0e",
+        "image_uri" : "postgres:16-alpine",
+        "image_digest" : "sha256:ef738a34a8651d11b2bace81c55c7e2187f786b484add6c83070884340074368",
+        "finished_at" : "2026-10-11T05:28:26.525977Z"
+      },
+      "comparison" : "AVAILABLE",
+      "changes" : [ {
+        "field" : "image_uri",
+        "before" : "postgres:16-alpine",
+        "after" : "postgres:16",
+        "kind" : "CHANGED"
+      }, {
+        "field" : "env:POSTGRES_PASSWORD",
+        "before" : null,
+        "after" : null,
+        "kind" : "REMOVED"
+      }, {
+        "field" : "env:LOG_LEVEL",
+        "before" : null,
+        "after" : null,
+        "kind" : "ADDED"
+      } ],
+      "explanation" : {
+        "kind" : "CRASH_LOOP",
+        "title" : "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary" : "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks" : [ "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다", "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)", "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다" ]
+      }
+    },
+    "logs" : {
+      "deployment_id" : 9,
+      "status" : "FAILED",
+      "fail_reason" : "rollout 실패: CrashLoopBackOff (pod=demo-reports-db-86999b5f48-dddgm, generation=2, 마지막 종료=Error, exit=1): back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+      "observation" : "AVAILABLE",
+      "observation_message" : null,
+      "applied_deployment_id" : 9,
+      "pods" : [ {
+        "name" : "demo-reports-db-86999b5f48-dddgm",
+        "phase" : "Running",
+        "ready" : false,
+        "restart_count" : 2,
+        "state" : "waiting",
+        "state_reason" : "CrashLoopBackOff",
+        "state_message" : "back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "last_termination_reason" : "Error",
+        "last_exit_code" : 1,
+        "logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "previous_logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "logs_error" : null
+      } ],
+      "events" : [ {
+        "type" : "Warning",
+        "reason" : "BackOff",
+        "message" : "Back-off restarting failed container demo-reports-db in pod demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:54Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Pulled",
+        "message" : "Container image \"postgres:16\" already present on machine",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:40Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Created",
+        "message" : "Created container demo-reports-db",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:40Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Started",
+        "message" : "Started container demo-reports-db",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:40Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Scheduled",
+        "message" : "Successfully assigned default/demo-reports-db-86999b5f48-dddgm to ff72ae5492d9",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : null,
+        "last_seen" : "2026-10-11T05:28:26.697986Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "SuccessfulCreate",
+        "message" : "Created pod: demo-reports-db-86999b5f48-dddgm",
+        "object" : "ReplicaSet/demo-reports-db-86999b5f48",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:28:26Z"
+      }, {
+        "type" : "Warning",
+        "reason" : "Failed",
+        "message" : "Failed to pull image \"postgres:previous\": rpc error: code = NotFound desc = failed to pull and unpack image: not found",
+        "object" : "Pod/demo-reports-db-5d9c7f6b44-old01",
+        "count" : 3,
+        "last_seen" : "2026-10-11T02:28:26Z"
+      } ]
+    }
+  },
+  "expected" : {
+    "category" : "ENV_CONFIG",
+    "root_cause" : "required_env_missing",
+    "evidence" : [ "/logs/pods/0/previous_logs/0", "/logs/pods/0/previous_logs/1", "/detail/changes/1" ],
+    "abstain" : false,
+    "forbidden" : [ ]
+  },
+  "notes" : "원인은 원본과 같다. 미끼 이벤트는 다른 Pod·3시간 전 기록이고 LOG_LEVEL 추가는 실패와 무관하다."
+}

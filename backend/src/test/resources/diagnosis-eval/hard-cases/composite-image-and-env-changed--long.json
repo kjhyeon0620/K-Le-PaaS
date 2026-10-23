@@ -1,0 +1,200 @@
+{
+  "id" : "composite-image-and-env-changed--long",
+  "group" : "NOISE-EXTRA-PODS",
+  "provenance" : "derived: composite-image-and-env-changed에 같은 상태 레플리카 2개와 이전 버전 정상 Pod 2개(로그 40줄씩) 추가",
+  "input" : {
+    "detail" : {
+      "deployment" : {
+        "id" : 9,
+        "repository_id" : 7,
+        "repository_name" : "demo/reports-db",
+        "branch_name" : "main",
+        "commit_hash" : "c9d0e1f",
+        "image_uri" : "postgres:16",
+        "status" : "FAILED",
+        "fail_reason" : "rollout 실패: CrashLoopBackOff (pod=demo-reports-db-86999b5f48-dddgm, generation=2, 마지막 종료=Error, exit=1): back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "started_at" : "2026-10-11T05:28:26.649921Z",
+        "finished_at" : "2026-10-11T05:28:55.077541Z",
+        "created_at" : "2026-10-11T05:28:26.650080Z",
+        "trigger_source" : "CLI",
+        "requested_by_user_id" : 1,
+        "command_log_id" : null,
+        "image_digest" : null,
+        "failure_kind" : "CRASH_LOOP",
+        "recovered_from_deployment_id" : null
+      },
+      "requested_by" : {
+        "user_id" : 1,
+        "name" : "demo"
+      },
+      "command" : null,
+      "config" : {
+        "build_strategy" : "PREBUILT_IMAGE",
+        "image_uri_template" : null,
+        "min_replicas" : 1,
+        "max_replicas" : 1,
+        "container_port" : 5432,
+        "domain_url" : "reports-db.demo.test",
+        "service_type" : "CLUSTER_IP",
+        "node_port" : null,
+        "env_names" : [ ],
+        "env_from_config_maps" : [ ],
+        "env_from_secrets" : [ ],
+        "image_pull_secret_enabled" : false,
+        "image_pull_secret_name" : null,
+        "health_probe" : null,
+        "resources" : null
+      },
+      "previous_success" : {
+        "id" : 8,
+        "commit_hash" : "b8c9d0e",
+        "image_uri" : "postgres:16-alpine",
+        "image_digest" : "sha256:ef738a34a8651d11b2bace81c55c7e2187f786b484add6c83070884340074368",
+        "finished_at" : "2026-10-11T05:28:26.525977Z"
+      },
+      "comparison" : "AVAILABLE",
+      "changes" : [ {
+        "field" : "image_uri",
+        "before" : "postgres:16-alpine",
+        "after" : "postgres:16",
+        "kind" : "CHANGED"
+      }, {
+        "field" : "env:POSTGRES_PASSWORD",
+        "before" : null,
+        "after" : null,
+        "kind" : "REMOVED"
+      } ],
+      "explanation" : {
+        "kind" : "CRASH_LOOP",
+        "title" : "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary" : "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks" : [ "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다", "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)", "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다" ]
+      }
+    },
+    "logs" : {
+      "deployment_id" : 9,
+      "status" : "FAILED",
+      "fail_reason" : "rollout 실패: CrashLoopBackOff (pod=demo-reports-db-86999b5f48-dddgm, generation=2, 마지막 종료=Error, exit=1): back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+      "observation" : "AVAILABLE",
+      "observation_message" : null,
+      "applied_deployment_id" : 9,
+      "pods" : [ {
+        "name" : "demo-reports-db-86999b5f48-dddgm",
+        "phase" : "Running",
+        "ready" : false,
+        "restart_count" : 2,
+        "state" : "waiting",
+        "state_reason" : "CrashLoopBackOff",
+        "state_message" : "back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "last_termination_reason" : "Error",
+        "last_exit_code" : 1,
+        "logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "previous_logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "logs_error" : null
+      }, {
+        "name" : "demo-reports-db-86999b5f48-r2a7x",
+        "phase" : "Running",
+        "ready" : false,
+        "restart_count" : 2,
+        "state" : "waiting",
+        "state_reason" : "CrashLoopBackOff",
+        "state_message" : "back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "last_termination_reason" : "Error",
+        "last_exit_code" : 1,
+        "logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "previous_logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "logs_error" : null
+      }, {
+        "name" : "demo-reports-db-86999b5f48-r3b8y",
+        "phase" : "Running",
+        "ready" : false,
+        "restart_count" : 2,
+        "state" : "waiting",
+        "state_reason" : "CrashLoopBackOff",
+        "state_message" : "back-off 20s restarting failed container=demo-reports-db pod=demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "last_termination_reason" : "Error",
+        "last_exit_code" : 1,
+        "logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "previous_logs" : [ "Error: Database is uninitialized and superuser password is not specified.", "       You must specify POSTGRES_PASSWORD to a non-empty value for the", "       superuser. For example, \"-e POSTGRES_PASSWORD=password\" on \"docker run\".", "", "       You may also use \"POSTGRES_HOST_AUTH_METHOD=trust\" to allow all", "       connections without a password. This is *not* recommended.", "", "       See PostgreSQL documentation about \"trust\":", "       https://www.postgresql.org/docs/current/auth-trust.html" ],
+        "logs_error" : null
+      }, {
+        "name" : "demo-reports-db-5d9c7f6b44-k4c9z",
+        "phase" : "Running",
+        "ready" : true,
+        "restart_count" : 0,
+        "state" : "running",
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ "2026-10-11 02:00:00.407 UTC [60] LOG:  checkpoint complete: wrote 100 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=30, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:02:07.444 UTC [61] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 813 remain, tuples: 121 removed, 48011 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 02:04:14.481 UTC [62] LOG:  checkpoint complete: wrote 106 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=32, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:06:21.518 UTC [63] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 815 remain, tuples: 123 removed, 48033 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 02:08:28.555 UTC [64] LOG:  checkpoint complete: wrote 112 buffers (0.4%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=34, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:10:35.592 UTC [65] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 817 remain, tuples: 125 removed, 48055 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 02:12:42.629 UTC [66] LOG:  checkpoint complete: wrote 118 buffers (0.6%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=36, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:14:49.666 UTC [67] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 819 remain, tuples: 127 removed, 48077 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 02:16:56.703 UTC [68] LOG:  checkpoint complete: wrote 124 buffers (0.8%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=38, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:18:03.740 UTC [69] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 821 remain, tuples: 129 removed, 48099 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s", "2026-10-11 02:20:10.777 UTC [70] LOG:  checkpoint complete: wrote 130 buffers (0.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=40, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:22:17.814 UTC [71] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 823 remain, tuples: 131 removed, 48121 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 02:24:24.851 UTC [72] LOG:  checkpoint complete: wrote 136 buffers (0.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=42, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:26:31.888 UTC [73] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 825 remain, tuples: 133 removed, 48143 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 02:28:38.925 UTC [74] LOG:  checkpoint complete: wrote 142 buffers (0.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=44, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:30:45.962 UTC [75] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 827 remain, tuples: 135 removed, 48165 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 02:32:52.999 UTC [76] LOG:  checkpoint complete: wrote 148 buffers (0.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=46, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:34:59.036 UTC [77] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 829 remain, tuples: 137 removed, 48187 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 02:36:06.073 UTC [78] LOG:  checkpoint complete: wrote 154 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=48, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:38:13.110 UTC [79] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 831 remain, tuples: 139 removed, 48209 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s", "2026-10-11 02:40:20.147 UTC [80] LOG:  checkpoint complete: wrote 160 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=50, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:42:27.184 UTC [81] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 833 remain, tuples: 141 removed, 48231 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 02:44:34.221 UTC [82] LOG:  checkpoint complete: wrote 166 buffers (0.4%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=52, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:46:41.258 UTC [83] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 835 remain, tuples: 143 removed, 48253 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 02:48:48.295 UTC [84] LOG:  checkpoint complete: wrote 172 buffers (0.6%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=54, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:50:55.332 UTC [85] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 837 remain, tuples: 145 removed, 48275 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 02:52:02.369 UTC [86] LOG:  checkpoint complete: wrote 178 buffers (0.8%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=56, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:54:09.406 UTC [87] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 839 remain, tuples: 147 removed, 48297 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 02:56:16.443 UTC [88] LOG:  checkpoint complete: wrote 184 buffers (0.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=58, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:58:23.480 UTC [89] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 841 remain, tuples: 149 removed, 48319 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s", "2026-10-11 03:00:30.517 UTC [90] LOG:  checkpoint complete: wrote 190 buffers (0.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=60, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:02:37.554 UTC [91] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 843 remain, tuples: 151 removed, 48341 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 03:04:44.591 UTC [92] LOG:  checkpoint complete: wrote 196 buffers (0.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=62, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:06:51.628 UTC [93] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 845 remain, tuples: 153 removed, 48363 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 03:08:58.665 UTC [94] LOG:  checkpoint complete: wrote 202 buffers (0.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=64, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:10:05.702 UTC [95] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 847 remain, tuples: 155 removed, 48385 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 03:12:12.739 UTC [96] LOG:  checkpoint complete: wrote 208 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=66, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:14:19.776 UTC [97] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 849 remain, tuples: 157 removed, 48407 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 03:16:26.813 UTC [98] LOG:  checkpoint complete: wrote 214 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=68, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:18:33.850 UTC [99] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 851 remain, tuples: 159 removed, 48429 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s" ],
+        "previous_logs" : [ ],
+        "logs_error" : null
+      }, {
+        "name" : "demo-reports-db-5d9c7f6b44-m5d2w",
+        "phase" : "Running",
+        "ready" : true,
+        "restart_count" : 0,
+        "state" : "running",
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ "2026-10-11 02:00:00.581 UTC [60] LOG:  checkpoint complete: wrote 100 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=30, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:02:07.618 UTC [61] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 813 remain, tuples: 121 removed, 48011 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 02:04:14.655 UTC [62] LOG:  checkpoint complete: wrote 106 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=32, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:06:21.692 UTC [63] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 815 remain, tuples: 123 removed, 48033 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 02:08:28.729 UTC [64] LOG:  checkpoint complete: wrote 112 buffers (0.4%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=34, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:10:35.766 UTC [65] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 817 remain, tuples: 125 removed, 48055 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 02:12:42.803 UTC [66] LOG:  checkpoint complete: wrote 118 buffers (0.6%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=36, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:14:49.840 UTC [67] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 819 remain, tuples: 127 removed, 48077 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 02:16:56.877 UTC [68] LOG:  checkpoint complete: wrote 124 buffers (0.8%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=38, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:18:03.914 UTC [69] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 821 remain, tuples: 129 removed, 48099 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s", "2026-10-11 02:20:10.951 UTC [70] LOG:  checkpoint complete: wrote 130 buffers (0.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=40, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:22:17.988 UTC [71] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 823 remain, tuples: 131 removed, 48121 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 02:24:24.025 UTC [72] LOG:  checkpoint complete: wrote 136 buffers (0.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=42, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:26:31.062 UTC [73] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 825 remain, tuples: 133 removed, 48143 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 02:28:38.099 UTC [74] LOG:  checkpoint complete: wrote 142 buffers (0.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=44, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:30:45.136 UTC [75] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 827 remain, tuples: 135 removed, 48165 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 02:32:52.173 UTC [76] LOG:  checkpoint complete: wrote 148 buffers (0.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=46, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:34:59.210 UTC [77] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 829 remain, tuples: 137 removed, 48187 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 02:36:06.247 UTC [78] LOG:  checkpoint complete: wrote 154 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=48, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:38:13.284 UTC [79] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 831 remain, tuples: 139 removed, 48209 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s", "2026-10-11 02:40:20.321 UTC [80] LOG:  checkpoint complete: wrote 160 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=50, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:42:27.358 UTC [81] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 833 remain, tuples: 141 removed, 48231 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 02:44:34.395 UTC [82] LOG:  checkpoint complete: wrote 166 buffers (0.4%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=52, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:46:41.432 UTC [83] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 835 remain, tuples: 143 removed, 48253 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 02:48:48.469 UTC [84] LOG:  checkpoint complete: wrote 172 buffers (0.6%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=54, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:50:55.506 UTC [85] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 837 remain, tuples: 145 removed, 48275 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 02:52:02.543 UTC [86] LOG:  checkpoint complete: wrote 178 buffers (0.8%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=56, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:54:09.580 UTC [87] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 839 remain, tuples: 147 removed, 48297 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 02:56:16.617 UTC [88] LOG:  checkpoint complete: wrote 184 buffers (0.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=58, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 02:58:23.654 UTC [89] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 841 remain, tuples: 149 removed, 48319 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s", "2026-10-11 03:00:30.691 UTC [90] LOG:  checkpoint complete: wrote 190 buffers (0.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.20 s, sync=0.004 s, total=13.219 s; sync files=60, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:02:37.728 UTC [91] LOG:  automatic vacuum of table \"app.public.orders_1\": index scans: 1, pages: 0 removed, 843 remain, tuples: 151 removed, 48341 remain, system usage: CPU: user: 0.01 s, system: 0.00 s, elapsed: 0.11 s", "2026-10-11 03:04:44.765 UTC [92] LOG:  checkpoint complete: wrote 196 buffers (0.5%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.22 s, sync=0.004 s, total=13.219 s; sync files=62, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:06:51.802 UTC [93] LOG:  automatic vacuum of table \"app.public.orders_3\": index scans: 1, pages: 0 removed, 845 remain, tuples: 153 removed, 48363 remain, system usage: CPU: user: 0.03 s, system: 0.00 s, elapsed: 0.13 s", "2026-10-11 03:08:58.839 UTC [94] LOG:  checkpoint complete: wrote 202 buffers (0.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.24 s, sync=0.004 s, total=13.219 s; sync files=64, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:10:05.876 UTC [95] LOG:  automatic vacuum of table \"app.public.orders_0\": index scans: 1, pages: 0 removed, 847 remain, tuples: 155 removed, 48385 remain, system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.15 s", "2026-10-11 03:12:12.913 UTC [96] LOG:  checkpoint complete: wrote 208 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.26 s, sync=0.004 s, total=13.219 s; sync files=66, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:14:19.950 UTC [97] LOG:  automatic vacuum of table \"app.public.orders_2\": index scans: 1, pages: 0 removed, 849 remain, tuples: 157 removed, 48407 remain, system usage: CPU: user: 0.07 s, system: 0.00 s, elapsed: 0.17 s", "2026-10-11 03:16:26.987 UTC [98] LOG:  checkpoint complete: wrote 214 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=13.28 s, sync=0.004 s, total=13.219 s; sync files=68, longest=0.002 s, average=0.001 s; distance=1092 kB, estimate=1311 kB", "2026-10-11 03:18:33.024 UTC [99] LOG:  automatic vacuum of table \"app.public.orders_4\": index scans: 1, pages: 0 removed, 851 remain, tuples: 159 removed, 48429 remain, system usage: CPU: user: 0.09 s, system: 0.00 s, elapsed: 0.19 s" ],
+        "previous_logs" : [ ],
+        "logs_error" : null
+      } ],
+      "events" : [ {
+        "type" : "Warning",
+        "reason" : "BackOff",
+        "message" : "Back-off restarting failed container demo-reports-db in pod demo-reports-db-86999b5f48-dddgm_default(42e24999-f4be-42b4-a931-7392dfc9b305)",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:54Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Pulled",
+        "message" : "Container image \"postgres:16\" already present on machine",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:40Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Created",
+        "message" : "Created container demo-reports-db",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:40Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Started",
+        "message" : "Started container demo-reports-db",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : 3,
+        "last_seen" : "2026-10-11T05:28:40Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "Scheduled",
+        "message" : "Successfully assigned default/demo-reports-db-86999b5f48-dddgm to ff72ae5492d9",
+        "object" : "Pod/demo-reports-db-86999b5f48-dddgm",
+        "count" : null,
+        "last_seen" : "2026-10-11T05:28:26.697986Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "SuccessfulCreate",
+        "message" : "Created pod: demo-reports-db-86999b5f48-dddgm",
+        "object" : "ReplicaSet/demo-reports-db-86999b5f48",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:28:26Z"
+      } ]
+    }
+  },
+  "expected" : {
+    "category" : "ENV_CONFIG",
+    "root_cause" : "required_env_missing",
+    "evidence" : [ "/logs/pods/0/previous_logs/0", "/logs/pods/0/previous_logs/1", "/detail/changes/1" ],
+    "abstain" : false,
+    "forbidden" : [ ]
+  },
+  "notes" : "원인은 원본과 같다. 정답 근거는 첫 Pod에 그대로 있고 복제 레플리카에도 같은 근거가 있다. 추가한 이전 버전 Pod는 정상 동작 로그다. 원본이 항상 첫 위치라 장문 추론 능력을 재는 사례가 아니다."
+}

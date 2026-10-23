@@ -1,0 +1,144 @@
+{
+  "id" : "composite-probe-and-resources-changed--decoy",
+  "group" : "NOISE-DECOY",
+  "provenance" : "derived: composite-probe-and-resources-changed에 미끼 추가 (3시간 전 이전 Pod demo-search-cache-5d9c7f6b44-old01의 이미지 pull 실패 이벤트, 무관한 env:LOG_LEVEL 추가 변경)",
+  "input" : {
+    "detail" : {
+      "deployment" : {
+        "id" : 11,
+        "repository_id" : 8,
+        "repository_name" : "demo/search-cache",
+        "branch_name" : "main",
+        "commit_hash" : "e1f2a3b",
+        "image_uri" : "redis:7-alpine",
+        "status" : "FAILED",
+        "fail_reason" : "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=demo-search-cache-55b8ff7b76-gs54v 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+        "started_at" : "2026-10-11T05:28:58.085945Z",
+        "finished_at" : "2026-10-11T05:30:29.281445Z",
+        "created_at" : "2026-10-11T05:28:58.086153Z",
+        "trigger_source" : "CLI",
+        "requested_by_user_id" : 1,
+        "command_log_id" : null,
+        "image_digest" : null,
+        "failure_kind" : "UNSCHEDULABLE",
+        "recovered_from_deployment_id" : null
+      },
+      "requested_by" : {
+        "user_id" : 1,
+        "name" : "demo"
+      },
+      "command" : null,
+      "config" : {
+        "build_strategy" : "PREBUILT_IMAGE",
+        "image_uri_template" : null,
+        "min_replicas" : 1,
+        "max_replicas" : 1,
+        "container_port" : 6379,
+        "domain_url" : "search-cache.demo.test",
+        "service_type" : "CLUSTER_IP",
+        "node_port" : null,
+        "env_names" : [ ],
+        "env_from_config_maps" : [ ],
+        "env_from_secrets" : [ ],
+        "image_pull_secret_enabled" : false,
+        "image_pull_secret_name" : null,
+        "health_probe" : {
+          "path" : "/ready",
+          "port" : null,
+          "initial_delay_seconds" : 0,
+          "period_seconds" : 2,
+          "failure_threshold" : 2,
+          "startup_failure_threshold" : null
+        },
+        "resources" : {
+          "cpu_request" : "64",
+          "cpu_limit" : "64",
+          "memory_request" : null,
+          "memory_limit" : null
+        }
+      },
+      "previous_success" : {
+        "id" : 10,
+        "commit_hash" : "d0e1f2a",
+        "image_uri" : "redis:7-alpine",
+        "image_digest" : "sha256:ec4f171e9ff071bb2a1c936057d3be00206069b028b6c0d61df2477e1dd02c42",
+        "finished_at" : "2026-10-11T05:28:57.971564Z"
+      },
+      "comparison" : "AVAILABLE",
+      "changes" : [ {
+        "field" : "health_probe",
+        "before" : null,
+        "after" : "HealthProbe[path=/ready, port=null, initialDelaySeconds=0, periodSeconds=2, failureThreshold=2, startupFailureThreshold=null]",
+        "kind" : "CHANGED"
+      }, {
+        "field" : "resources",
+        "before" : null,
+        "after" : "ContainerResources[cpuRequest=64, cpuLimit=64, memoryRequest=null, memoryLimit=null]",
+        "kind" : "CHANGED"
+      }, {
+        "field" : "env:LOG_LEVEL",
+        "before" : null,
+        "after" : null,
+        "kind" : "ADDED"
+      } ],
+      "explanation" : {
+        "kind" : "UNSCHEDULABLE",
+        "title" : "Pod를 배치할 노드가 없습니다",
+        "summary" : "스케줄러가 새 Pod를 둘 노드를 찾지 못했습니다.",
+        "checks" : [ "이벤트의 FailedScheduling 메시지를 확인합니다", "CPU·메모리 requests가 노드 여유보다 큰지 확인합니다" ]
+      }
+    },
+    "logs" : {
+      "deployment_id" : 11,
+      "status" : "FAILED",
+      "fail_reason" : "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=demo-search-cache-55b8ff7b76-gs54v 스케줄 불가: 0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+      "observation" : "AVAILABLE",
+      "observation_message" : null,
+      "applied_deployment_id" : 11,
+      "pods" : [ {
+        "name" : "demo-search-cache-55b8ff7b76-gs54v",
+        "phase" : "Pending",
+        "ready" : false,
+        "restart_count" : 0,
+        "state" : null,
+        "state_reason" : null,
+        "state_message" : null,
+        "last_termination_reason" : null,
+        "last_exit_code" : null,
+        "logs" : [ ],
+        "previous_logs" : null,
+        "logs_error" : "컨테이너 상태가 아직 없습니다"
+      } ],
+      "events" : [ {
+        "type" : "Warning",
+        "reason" : "FailedScheduling",
+        "message" : "0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.",
+        "object" : "Pod/demo-search-cache-55b8ff7b76-gs54v",
+        "count" : null,
+        "last_seen" : "2026-10-11T05:28:58.133911Z"
+      }, {
+        "type" : "Normal",
+        "reason" : "SuccessfulCreate",
+        "message" : "Created pod: demo-search-cache-55b8ff7b76-gs54v",
+        "object" : "ReplicaSet/demo-search-cache-55b8ff7b76",
+        "count" : 1,
+        "last_seen" : "2026-10-11T05:28:58Z"
+      }, {
+        "type" : "Warning",
+        "reason" : "Failed",
+        "message" : "Failed to pull image \"redis:previous\": rpc error: code = NotFound desc = failed to pull and unpack image: not found",
+        "object" : "Pod/demo-search-cache-5d9c7f6b44-old01",
+        "count" : 3,
+        "last_seen" : "2026-10-11T02:28:58Z"
+      } ]
+    }
+  },
+  "expected" : {
+    "category" : "SCHEDULING",
+    "root_cause" : "insufficient_cpu",
+    "evidence" : [ "/logs/events/0", "/detail/changes/1" ],
+    "abstain" : false,
+    "forbidden" : [ ]
+  },
+  "notes" : "원인은 원본과 같다. 미끼 이벤트는 다른 Pod·3시간 전 기록이고 LOG_LEVEL 추가는 실패와 무관하다."
+}

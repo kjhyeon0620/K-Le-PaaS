@@ -51,6 +51,17 @@ class SignatureRuleBaselineTest {
     }
 
     @Test
+    @DisplayName("반례(v1.2): 지금 관측하지 않은 이전 Pod의 이벤트는 원인 판정에 쓰지 않는다")
+    void otherPodEventIsIgnored() throws Exception {
+        ObjectNode input = byId("env-postgres-password-missing").input().deepCopy();
+        ((ArrayNode) input.at("/logs/events")).addObject().put("type", "Warning").put("reason", "Failed")
+                .put("message", "Failed to pull image \"postgres:previous\": not found").put("object", "Pod/demo-orders-db-5d9c7f6b44-old01");
+        var r = SignatureRuleBaseline.diagnose(input);
+        assertThat(r.state()).isEqualTo(State.MATCH);
+        assertThat(r.matched()).containsExactly("R-ENV");
+    }
+
+    @Test
     @DisplayName("관측이 없으면 INSUFFICIENT, 서로 다른 원인이 함께 맞으면 CONFLICT")
     void insufficientAndConflict() throws Exception {
         assertThat(SignatureRuleBaseline.diagnose(byId("insufficient-observation-unavailable").input()).state())
@@ -79,6 +90,17 @@ class SignatureRuleBaselineTest {
     void developmentSetResult() throws Exception {
         List<Case> cases = new ArrayList<>(DiagnosisEval.loadCases());
         cases.addAll(DiagnosisEval.loadCaseSet("blind-test"));
+        assertThat(report(cases, "signature-rule-dev.json")).doesNotContainKeys("match_wrong", "match_on_abstain_case");
+    }
+
+    /** #158 회귀·보류 검사 23사례: 잡음과 추가 입력에 규칙이 흔들리지 않는지 (#158) */
+    @Test
+    void noiseSetResult() throws Exception {
+        assertThat(report(DiagnosisEval.loadCaseSet("hard"), "signature-rule-noise.json"))
+                .doesNotContainKeys("match_wrong", "match_on_abstain_case");
+    }
+
+    private static Map<String, Integer> report(List<Case> cases, String file) throws Exception {
         Map<String, Integer> summary = new LinkedHashMap<>();
         Map<String, Object> perCase = new LinkedHashMap<>();
         for (Case c : cases) {
@@ -93,11 +115,11 @@ class SignatureRuleBaselineTest {
             perCase.put(c.id(), Map.of("state", r.state(), "rule", String.valueOf(r.rule()), "root_cause", String.valueOf(r.rootCause()),
                     "matched", r.matched(), "verdict", verdict));
         }
-        Path report = Path.of("build/diagnosis-eval/signature-rule-dev.json");
+        Path report = Path.of("build/diagnosis-eval/" + file);
         Files.createDirectories(report.getParent());
         DiagnosisEval.JSON.writerWithDefaultPrettyPrinter().writeValue(report.toFile(),
                 Map.of("rule_version", SignatureRuleBaseline.RULE_VERSION, "summary", summary, "cases", perCase));
-        System.out.println("signature rule dev: " + summary);
-        assertThat(summary).doesNotContainKeys("match_wrong", "match_on_abstain_case");
+        System.out.println(file + ": " + summary);
+        return summary;
     }
 }

@@ -22,7 +22,7 @@ final class SignatureRuleBaseline {
     record Result(State state, String rule, String category, String rootCause, List<String> evidence, List<String> matched) {
     }
 
-    static final String RULE_VERSION = "signature-v1.1";
+    static final String RULE_VERSION = "signature-v1.2";
 
     private static final Pattern ENV_MISSING = Pattern.compile(
             "(?i)(missing required environment variable|environment variable is missing|\\b[A-Z][A-Z0-9_]{2,}\\b is missing"
@@ -40,6 +40,7 @@ final class SignatureRuleBaseline {
         if (!"AVAILABLE".equals(logs.path("observation").asText()) || (pods.isEmpty() && events.isEmpty())) {
             return new Result(State.INSUFFICIENT, null, null, null, List.of(), List.of());
         }
+        events = currentTargetEvents(events, pods);
         Map<String, Hit> hits = new LinkedHashMap<>();
         imageReference(pods, events).ifPresentPut(hits);
         if (!hits.containsKey("R-IMG-REF")) imagePull(pods, events).ifPresentPut(hits);
@@ -150,6 +151,21 @@ final class SignatureRuleBaseline {
             }
         }
         return new Hit("R-PROBE-PROTO", "probe_protocol_mismatch", ev);
+    }
+
+    /**
+     * Pod 대상 이벤트 중 지금 관측한 Pod의 것만 남긴다(v1.2). 이전 버전 Pod의 오래된 이벤트가 다른 원인을 가리키는 것을 막는다.
+     * Pod가 아닌 대상(ReplicaSet 등) 이벤트는 그대로 둔다. 근거 위치를 바꾸지 않도록 걸러낸 자리는 빈 이벤트로 둔다.
+     */
+    private static JsonNode currentTargetEvents(JsonNode events, JsonNode pods) {
+        java.util.Set<String> current = new java.util.HashSet<>();
+        pods.forEach(p -> current.add("Pod/" + p.path("name").asText()));
+        com.fasterxml.jackson.databind.node.ArrayNode kept = DiagnosisEval.JSON.createArrayNode();
+        for (JsonNode e : events) {
+            String object = e.path("object").asText("");
+            kept.add(object.startsWith("Pod/") && !current.contains(object) ? DiagnosisEval.JSON.createObjectNode() : e);
+        }
+        return kept;
     }
 
     /** probe 포트가 비어 있으면 플랫폼은 컨테이너 포트를 쓴다(`KubernetesManifestGenerator`). probe가 없으면 -1 (v1.1) */
