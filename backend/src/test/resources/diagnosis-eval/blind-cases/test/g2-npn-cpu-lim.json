@@ -2,6 +2,14 @@
   "id": "g2-npn-cpu-lim",
   "group": "BLIND-INTERNAL",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-npn-cpu-lim (nuri-push-node, 흔함 하), 로컬 k3s 재현",
+  "episode_id": "g2-npn-cpu-lim",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "insufficient_cpu",
+    "observed": "insufficient_cpu",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -169,11 +177,29 @@
     "category": "SCHEDULING",
     "root_cause": "insufficient_cpu",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/logs/events/1",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:nuri-push-node"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"cpu_request\": \"20000m\"} / 고치는 방법: 노드 전체 CPU 스펙(10 코어)의 2배에 달하는 CPU를 요구하고 있습니다. 적절한 수준으로 낮추세요."
 }

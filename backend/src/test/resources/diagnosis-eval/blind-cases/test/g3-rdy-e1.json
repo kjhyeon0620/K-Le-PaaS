@@ -2,6 +2,14 @@
   "id": "g3-rdy-e1",
   "group": "BLIND-INTERNAL",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-rdy-e1 (nexus-stock-aligner, 흔함 상), 로컬 k3s 재현",
+  "episode_id": "g3-rdy-e1",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "probe_port_closed",
+    "observed": "probe_port_closed",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -200,12 +208,27 @@
     "category": "READINESS",
     "root_cause": "probe_port_closed",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/detail/config/container_port"
+      ],
+      [
+        "/logs/events/0",
+        "/logs/pods/0/logs/5"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:nexus-stock-aligner",
       "incident:g1-nsa-prb-port"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"readiness_probe\": {\"path\": \"/alive/pulse\", \"port\": 9045}} / 고치는 방법: probe가 가리키는 포트를 앱이 실제 수신 중인 9044로 맞추세요."
 }

@@ -2,6 +2,9 @@
   "id" : "image-invalid-name--long",
   "group" : "NOISE-EXTRA-PODS",
   "provenance" : "derived: image-invalid-name에 같은 상태 레플리카 2개와 이전 버전 정상 Pod 2개(로그 40줄씩) 추가",
+  "episode_id" : "image-invalid-name",
+  "split" : "robustness",
+  "slice" : "ROBUSTNESS",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -163,8 +166,14 @@
     "category" : "IMAGE",
     "root_cause" : "invalid_image_reference",
     "evidence" : [ "/logs/events/0", "/logs/events/1", "/detail/deployment/fail_reason" ],
+    "evidence_sets" : [ [ "/logs/pods/0/state_reason" ], [ "/logs/events/0" ], [ "/detail/deployment/fail_reason" ] ],
     "abstain" : false,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "원인은 원본과 같다. 정답 근거는 첫 Pod에 그대로 있고 복제 레플리카에도 같은 근거가 있다. 추가한 이전 버전 Pod는 정상 동작 로그다. 원본이 항상 첫 위치라 장문 추론 능력을 재는 사례가 아니다."
 }

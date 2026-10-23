@@ -2,6 +2,9 @@
   "id" : "image-registry-unreachable--decoy",
   "group" : "NOISE-DECOY",
   "provenance" : "derived: image-registry-unreachable에 미끼 추가 (3시간 전 이전 Pod demo-billing-api-5d9c7f6b44-old01의 readiness 실패 이벤트, 무관한 env:LOG_LEVEL 추가 변경)",
+  "episode_id" : "image-registry-unreachable",
+  "split" : "robustness",
+  "slice" : "ROBUSTNESS",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -144,8 +147,14 @@
     "category" : "IMAGE",
     "root_cause" : "image_not_pullable",
     "evidence" : [ "/logs/events/1", "/logs/pods/0/state_reason", "/detail/deployment/fail_reason" ],
+    "evidence_sets" : [ [ "/logs/pods/0/state_reason" ], [ "/logs/events/1" ], [ "/detail/deployment/fail_reason" ] ],
     "abstain" : false,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "원인은 원본과 같다. 미끼 이벤트는 다른 Pod·3시간 전 기록이고 LOG_LEVEL 추가는 실패와 무관하다."
 }

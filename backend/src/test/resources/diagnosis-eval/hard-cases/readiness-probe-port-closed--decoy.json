@@ -2,6 +2,9 @@
   "id" : "readiness-probe-port-closed--decoy",
   "group" : "NOISE-DECOY",
   "provenance" : "derived: readiness-probe-port-closed에 미끼 추가 (3시간 전 이전 Pod demo-mqtt-broker-5d9c7f6b44-old01의 이미지 pull 실패 이벤트, 무관한 env:LOG_LEVEL 추가 변경)",
+  "episode_id" : "readiness-probe-port-closed",
+  "split" : "robustness",
+  "slice" : "ROBUSTNESS",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -144,8 +147,14 @@
     "category" : "READINESS",
     "root_cause" : "probe_port_closed",
     "evidence" : [ "/logs/events/0", "/logs/pods/0/logs/5", "/detail/config/health_probe" ],
+    "evidence_sets" : [ [ "/logs/events/0", "/detail/config/container_port" ], [ "/logs/events/0", "/logs/pods/0/logs/5" ], [ "/logs/events/0", "/logs/pods/0/logs/6" ] ],
     "abstain" : false,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "원인은 원본과 같다. 미끼 이벤트는 다른 Pod·3시간 전 기록이고 LOG_LEVEL 추가는 실패와 무관하다."
 }

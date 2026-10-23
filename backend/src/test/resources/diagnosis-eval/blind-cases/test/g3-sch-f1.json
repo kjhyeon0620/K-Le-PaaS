@@ -2,6 +2,14 @@
   "id": "g3-sch-f1",
   "group": "BLIND-INTERNAL",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-sch-f1 (nexus-stock-aligner, 흔함 하), 로컬 k3s 재현",
+  "episode_id": "g3-sch-f1",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "insufficient_cpu",
+    "observed": "insufficient_cpu",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -168,11 +176,29 @@
     "category": "SCHEDULING",
     "root_cause": "insufficient_cpu",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/logs/events/1",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:nexus-stock-aligner"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"cpu_request\": \"11\"} / 고치는 방법: 요청 CPU를 현재 노드 최대치(10) 이하로 낮추어 스케줄링되게 하세요."
 }

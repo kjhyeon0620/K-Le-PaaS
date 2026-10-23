@@ -75,6 +75,7 @@ final class HardCases {
         boolean composite = c.id().startsWith("composite-");
         if (composite) ((ArrayNode) n.at("/input/logs/events")).removeAll();
         abstain(n);
+        allowHypothesis(n);
         return note(n, "derived: " + c.id() + "에서 Pod 로그를 조회 실패로 바꿈" + (composite ? ", 만료된 이벤트 삭제" : ""),
                 (composite
                         ? "이미지와 env 하나가 함께 바뀌었고, 둘 중 무엇이 원인인지 가릴 로그·이벤트가 없다."
@@ -98,6 +99,7 @@ final class HardCases {
                 pod.set("logs", ready);
                 pod.set("previous_logs", ready.deepCopy());
                 abstain(n);
+                allowHypothesis(n);
                 return note(n, "derived: " + c.id() + "의 컨테이너 로그를 정상 기동 완료 로그로 바꿈 (이미지도 사내 앱으로)",
                         "Pod는 exit 1로 CrashLoopBackOff이고 로그는 정상 기동 완료만 보인다. 정상 기동 뒤 종료하는 것도 가능해 모순은 아니다. "
                                 + "입력으로 종료 원인을 알 수 없어 판단 보류가 정답이다. env 문제 등을 가설로 제시하는 것은 허용한다.");
@@ -203,13 +205,29 @@ final class HardCases {
         return n;
     }
 
+    /** 변형은 원본과 같은 에피소드이고 robustness 분할이다 (#166). 주입 기록은 원본에만 둔다 */
     private static ObjectNode copy(Case c, String suffix, String group) {
         ObjectNode n = DiagnosisEval.JSON.valueToTree(c);
         n.set("input", c.input().deepCopy());
         n.put("id", c.id() + "--" + suffix);
         n.put("group", group);
-        n.remove("knowledge");
-        ((ObjectNode) n.get("expected")).remove(List.of("knowledge_ids", "accepted_root_causes")); // 기본 사례에는 없다
+        n.put("episode_id", c.episodeId());
+        n.put("split", "robustness");
+        n.put("slice", switch (group) {
+            case MISSING -> "INSUFFICIENT";
+            case AUDIT -> "CONFLICT";
+            default -> "ROBUSTNESS";
+        });
+        n.remove(List.of("knowledge", "injection"));
+        ObjectNode expected = (ObjectNode) n.get("expected");
+        expected.remove(List.of("knowledge_ids", "accepted_root_causes")); // 기본 사례에는 없다
+        if (expected.path("allowed_hypotheses").isEmpty()) expected.remove("allowed_hypotheses");
+        if (expected.path("forbidden_assertions").isEmpty()) expected.remove("forbidden_assertions");
+        ObjectNode audit = n.putObject("audit");
+        audit.put("status", group.equals(AUDIT) ? "undecidable" : "kept");
+        audit.put("reason", group.equals(AUDIT) ? "#158: 정답을 하나로 정하지 않는다(감사용, 자동 채점 제외)" : "#158 변형 규칙의 기대 답");
+        audit.put("at", "2026-10-23");
+        n.set("notes", n.remove("notes")); // notes를 끝에 둔다
         return n;
     }
 
@@ -218,8 +236,14 @@ final class HardCases {
         e.putNull("category");
         e.putNull("root_cause");
         e.putArray("evidence");
+        e.putArray("evidence_sets");
         e.put("abstain", true);
         e.putArray("forbidden");
+    }
+
+    /** 증거 부족 변형에서 원래 원인을 가설로 제시하는 것은 허용한다 (스펙 0158 결정) */
+    private static void allowHypothesis(ObjectNode n) {
+        ((ObjectNode) n.get("expected")).putArray("allowed_hypotheses").add("필수 환경 변수 누락 등 설정 문제 가능성(가설로서)");
     }
 
     private static ObjectNode note(ObjectNode n, String provenance, String notes) {

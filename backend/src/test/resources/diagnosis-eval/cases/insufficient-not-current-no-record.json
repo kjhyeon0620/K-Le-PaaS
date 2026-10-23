@@ -2,6 +2,9 @@
   "id": "insufficient-not-current-no-record",
   "group": "INSUFFICIENT",
   "provenance": "derived: composite-probe-and-resources-changed 캡처에서 Pod·이벤트·실패 사유의 Pod 설명(상세·로그 응답 모두)을 지우고 관측을 NOT_CURRENT, 실패 종류를 ROLLOUT_TIMEOUT으로 바꿈. 설정 기록은 없는 배포로 만듦(#95 이전 배포와 같음)",
+  "episode_id": "insufficient-not-current-no-record",
+  "split": "dev",
+  "slice": "INSUFFICIENT",
   "input": {
     "detail": {
       "deployment": {
@@ -49,8 +52,14 @@
     "category": null,
     "root_cause": null,
     "evidence": [],
+    "evidence_sets": [],
     "abstain": true,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "다른 요청이 Deployment를 적용해 이 요청의 Pod를 관측할 수 없고 설정 기록도 없다. 타임아웃과 replica 수만으로 원인을 단정하면 안 된다."
 }

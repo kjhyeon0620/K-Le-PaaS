@@ -94,6 +94,7 @@
 | 13-9 | #161 | 시그니처 규칙과 LLM의 추가 진단 가치 비교 | 완료 (M), 규칙 v1.1 개발 세트 48/49·잘못된 MATCH 0, 규칙 우선이 모든 모델에서 확신 오답·LLM 호출 감소. 제품 반영은 동결 평가 세트 확인 후 | [0161](specs/0161-signature-rule-baseline/spec.md) |
 | 13-10 | #158 | 기계 변형 입력의 회귀·보류 검사 | 완료 (M), 23사례(+감사용 1), `gpt-6-luna` 저장 응답 전부 통과, 시그니처 규칙 v1.2(이전 Pod 이벤트 제외) | [0158](specs/0158-hard-diagnosis-cases/spec.md) |
 | 13-11 | #164 | 진단 평가 정정 결과와 채택 판단 기록 | 완료 (S), 근거 유효는 서버 보정 후 값, 규칙 0/10 비교와 RAG 악화 해석 철회, 규칙 우선 제품 반영 보류 | [정정 기록](eval/diagnosis-eval-corrections.md) |
+| 13-12 | #166 | 진단 평가 명세·판정 가이드와 데이터셋 manifest | 완료 (M), 평가 명세·라벨별 판정 가이드, dev 51·robustness 24 분할과 최소 충분 근거 묶음, manifest 해시 검사. 원시 근거 충분율 `luna` 67~83%·`gemma4` 74~77%(판별 증거 누락이 대부분) | [0166](specs/0166-eval-spec-dataset-manifest/spec.md) |
 | - | #138 | CRLF로 커밋된 파일의 줄바꿈을 LF로 정규화 | 완료 (S), 225개 | - |
 | 14 | #99 | 배포 실패 진단 평가 사례와 판정 기준 | 완료 (PR #114) (M) | [0099](specs/0099-diagnosis-eval-cases/spec.md) |
 | 15 | #100 | 배포 요청 상세의 근거 기반 읽기 전용 진단 | 완료 (PR #116) (L), 공급사 교체·비용 비교 포함 | [0100](specs/0100-evidence-based-diagnosis/spec.md) |

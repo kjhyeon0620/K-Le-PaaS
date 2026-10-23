@@ -2,6 +2,14 @@
   "id": "g2-ifx-img-inv",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-ifx-img-inv (influxdb, 흔함 하), 로컬 k3s 재현",
+  "episode_id": "g2-ifx-img-inv",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "invalid_image_reference",
+    "observed": "invalid_image_reference",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -173,6 +181,17 @@
     "category": "IMAGE",
     "root_cause": "invalid_image_reference",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/events/0"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
@@ -180,6 +199,11 @@
       "incident:g1-inf-img-ref",
       "incident:g3-img-b4"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"image\": \"influxdb:2.7@@\"} / 고치는 방법: 이미지 태그에 허용되지 않는 특수문자가 포함되어 있습니다. 올바른 형식의 이미지 이름과 태그로 수정하세요."
 }

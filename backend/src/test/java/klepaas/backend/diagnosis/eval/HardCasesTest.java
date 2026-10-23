@@ -62,10 +62,14 @@ class HardCasesTest {
                 // 원인을 유지하는 갈래: 정답과 근거 위치가 원본과 같고, 근거가 바뀐 입력에서도 같은 값을 가리킨다
                 assertThat(e).as(c.id()).isEqualTo(origin.expected());
                 e.evidence().forEach(p -> assertThat(c.input().at(p)).as(c.id() + " " + p).isEqualTo(origin.input().at(p)));
+                e.evidenceSets().stream().flatMap(List::stream)
+                        .forEach(p -> assertThat(c.input().at(p)).as(c.id() + " " + p).isEqualTo(origin.input().at(p)));
+                assertThat(c.episodeId()).as(c.id()).isEqualTo(origin.episodeId());
             } else {
                 assertThat(e.abstain()).as(c.id()).isTrue();
                 assertThat(e.category()).as(c.id()).isNull();
                 assertThat(e.evidence()).as(c.id()).isEmpty();
+                assertThat(e.evidenceSets()).as(c.id()).isEmpty();
             }
         }
         // 증거 부족 사례에는 원래 원인을 직접 말하는 로그가 남지 않는다

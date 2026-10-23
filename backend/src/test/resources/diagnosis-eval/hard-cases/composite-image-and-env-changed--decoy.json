@@ -2,6 +2,9 @@
   "id" : "composite-image-and-env-changed--decoy",
   "group" : "NOISE-DECOY",
   "provenance" : "derived: composite-image-and-env-changed에 미끼 추가 (3시간 전 이전 Pod demo-reports-db-5d9c7f6b44-old01의 이미지 pull 실패 이벤트, 무관한 env:LOG_LEVEL 추가 변경)",
+  "episode_id" : "composite-image-and-env-changed",
+  "split" : "robustness",
+  "slice" : "ROBUSTNESS",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -153,8 +156,14 @@
     "category" : "ENV_CONFIG",
     "root_cause" : "required_env_missing",
     "evidence" : [ "/logs/pods/0/previous_logs/0", "/logs/pods/0/previous_logs/1", "/detail/changes/1" ],
+    "evidence_sets" : [ [ "/logs/pods/0/previous_logs/0", "/logs/pods/0/state_reason" ], [ "/logs/pods/0/previous_logs/0", "/logs/pods/0/last_termination_reason" ], [ "/logs/pods/0/previous_logs/0", "/detail/deployment/fail_reason" ], [ "/logs/pods/0/previous_logs/1", "/logs/pods/0/state_reason" ], [ "/logs/pods/0/previous_logs/1", "/logs/pods/0/last_termination_reason" ], [ "/logs/pods/0/previous_logs/1", "/detail/deployment/fail_reason" ], [ "/logs/pods/0/logs/0", "/logs/pods/0/state_reason" ], [ "/logs/pods/0/logs/0", "/logs/pods/0/last_termination_reason" ], [ "/logs/pods/0/logs/0", "/detail/deployment/fail_reason" ], [ "/logs/pods/0/logs/1", "/logs/pods/0/state_reason" ], [ "/logs/pods/0/logs/1", "/logs/pods/0/last_termination_reason" ], [ "/logs/pods/0/logs/1", "/detail/deployment/fail_reason" ] ],
     "abstain" : false,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "원인은 원본과 같다. 미끼 이벤트는 다른 Pod·3시간 전 기록이고 LOG_LEVEL 추가는 실패와 무관하다."
 }

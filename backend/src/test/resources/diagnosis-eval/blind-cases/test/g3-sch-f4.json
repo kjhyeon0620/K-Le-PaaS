@@ -2,6 +2,14 @@
   "id": "g3-sch-f4",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-sch-f4 (mysql, 흔함 중), 로컬 k3s 재현",
+  "episode_id": "g3-sch-f4",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "insufficient_cpu",
+    "observed": "insufficient_cpu",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -159,11 +167,29 @@
     "category": "SCHEDULING",
     "root_cause": "insufficient_cpu",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/logs/events/1",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:mysql"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"cpu_request\": \"10.5\"} / 고치는 방법: 단일 노드 환경의 CPU 제한(10개)을 살짝 초과했습니다. cpu_request를 낮춰 파드를 배치시키세요."
 }

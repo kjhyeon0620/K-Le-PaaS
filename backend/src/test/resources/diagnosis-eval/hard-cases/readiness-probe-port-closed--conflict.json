@@ -2,6 +2,9 @@
   "id" : "readiness-probe-port-closed--conflict",
   "group" : "AUDIT-ONLY",
   "provenance" : "derived: readiness-probe-port-closed의 로그를 8080 대기로 바꿈 (감사용, 자동 채점 제외)",
+  "episode_id" : "readiness-probe-port-closed",
+  "split" : "robustness",
+  "slice" : "CONFLICT",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -132,8 +135,14 @@
     "category" : null,
     "root_cause" : null,
     "evidence" : [ ],
+    "evidence_sets" : [ ],
     "abstain" : true,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "undecidable",
+    "reason" : "#158: 정답을 하나로 정하지 않는다(감사용, 자동 채점 제외)",
+    "at" : "2026-10-23"
   },
   "notes" : "로그는 8080에서 대기한다는데 probe는 Pod IP의 8080에서 연결 거부다. 바인딩 주소·시점 차이로 양립할 수 있고 현 라벨(probe_port_closed)의 경계도 모호해 정답을 하나로 정하지 않는다. 관측 설명과 추가 확인의 적절성만 사람이 검토한다."
 }

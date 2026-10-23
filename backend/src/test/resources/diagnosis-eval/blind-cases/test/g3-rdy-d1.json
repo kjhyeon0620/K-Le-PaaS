@@ -2,6 +2,14 @@
   "id": "g3-rdy-d1",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-rdy-d1 (redis, 흔함 중), 로컬 k3s 재현",
+  "episode_id": "g3-rdy-d1",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "probe_protocol_mismatch",
+    "observed": "probe_protocol_mismatch",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -199,11 +207,26 @@
     "category": "READINESS",
     "root_cause": "probe_protocol_mismatch",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/detail/config/container_port"
+      ],
+      [
+        "/logs/events/0",
+        "/detail/config/health_probe"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:redis"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"readiness_probe\": {\"path\": \"/\", \"port\": 6379}} / 고치는 방법: Redis는 HTTP를 지원하지 않으므로 HTTP GET probe 대신 tcpSocket이나 exec(redis-cli ping)를 사용하세요."
 }

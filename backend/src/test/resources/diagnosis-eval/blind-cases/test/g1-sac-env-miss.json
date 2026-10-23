@@ -2,6 +2,14 @@
   "id": "g1-sac-env-miss",
   "group": "BLIND-INTERNAL",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g1-sac-env-miss (settlement-amount-calculator, 흔함 상), 로컬 k3s 재현",
+  "episode_id": "g1-sac-env-miss",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "required_env_missing",
+    "observed": "required_env_missing",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -207,12 +215,43 @@
     "category": "ENV_CONFIG",
     "root_cause": "required_env_missing",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/previous_logs/0",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/0",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/0",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/logs/0",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/logs/0",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/logs/0",
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:settlement-amount-calculator",
       "incident:g2-sac-env-mis"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"env_remove\": [\"BASE_FEE_RATE\"]} / 고치는 방법: 앱 구동에 필요한 필수 환경 변수 BASE_FEE_RATE를 추가하세요."
 }

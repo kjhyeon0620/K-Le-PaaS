@@ -2,6 +2,14 @@
   "id": "g3-img-a2",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-img-a2 (redis, 흔함 상), 로컬 k3s 재현",
+  "episode_id": "g3-img-a2",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "image_not_pullable",
+    "observed": "image_not_pullable",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -190,12 +198,28 @@
     "category": "IMAGE",
     "root_cause": "image_not_pullable",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/events/0"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:redis",
       "incident:g1-rd-img-pull"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"image\": \"redis:7-alpine-notfound\"} / 고치는 방법: 도커 허브에 존재하는 올바른 Redis 이미지 태그를 지정하세요."
 }
