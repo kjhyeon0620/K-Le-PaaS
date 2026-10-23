@@ -2,6 +2,14 @@
   "id": "image-registry-unreachable",
   "group": "IMAGE",
   "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에서 실제로 실패시킨 배포의 detail·logs API 응답",
+  "episode_id": "image-registry-unreachable",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "image_not_pullable",
+    "observed": "image_not_pullable",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -150,8 +158,24 @@
       "/logs/pods/0/state_reason",
       "/detail/deployment/fail_reason"
     ],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/events/1"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "존재하지 않는 레지스트리 주소의 이미지를 받지 못해 ImagePullBackOff. 이벤트에 pull 실패 이유가 있다."
 }

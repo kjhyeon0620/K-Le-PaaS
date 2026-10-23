@@ -2,6 +2,9 @@
   "id" : "composite-probe-and-resources-changed--decoy",
   "group" : "NOISE-DECOY",
   "provenance" : "derived: composite-probe-and-resources-changed에 미끼 추가 (3시간 전 이전 Pod demo-search-cache-5d9c7f6b44-old01의 이미지 pull 실패 이벤트, 무관한 env:LOG_LEVEL 추가 변경)",
+  "episode_id" : "composite-probe-and-resources-changed",
+  "split" : "robustness",
+  "slice" : "ROBUSTNESS",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -137,8 +140,14 @@
     "category" : "SCHEDULING",
     "root_cause" : "insufficient_cpu",
     "evidence" : [ "/logs/events/0", "/detail/changes/1" ],
+    "evidence_sets" : [ [ "/logs/events/0", "/logs/pods/0/phase" ], [ "/detail/deployment/fail_reason" ] ],
     "abstain" : false,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "원인은 원본과 같다. 미끼 이벤트는 다른 Pod·3시간 전 기록이고 LOG_LEVEL 추가는 실패와 무관하다."
 }

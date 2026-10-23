@@ -2,6 +2,14 @@
   "id": "g1-inf-cpu-schd",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g1-inf-cpu-schd (influxdb, 흔함 하), 로컬 k3s 재현",
+  "episode_id": "g1-inf-cpu-schd",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "insufficient_cpu",
+    "observed": "insufficient_cpu",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -164,11 +172,29 @@
     "category": "SCHEDULING",
     "root_cause": "insufficient_cpu",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/logs/events/1",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:influxdb"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"cpu_request\": \"11000m\"} / 고치는 방법: 노드 CPU 용량인 10000m을 넘는 값을 요청했습니다. cpu_request를 10000m 이하로 조정하세요."
 }

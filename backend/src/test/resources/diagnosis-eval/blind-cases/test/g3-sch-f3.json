@@ -2,6 +2,14 @@
   "id": "g3-sch-f3",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-sch-f3 (redis, 흔함 하), 로컬 k3s 재현",
+  "episode_id": "g3-sch-f3",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "insufficient_cpu",
+    "observed": "insufficient_cpu",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -157,12 +165,30 @@
     "category": "SCHEDULING",
     "root_cause": "insufficient_cpu",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/logs/events/1",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:redis",
       "incident:g1-rd-cpu-schd"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"cpu_request\": \"20\"} / 고치는 방법: CPU 요구량이 가용 노드 리소스를 2배 초과합니다. 10 이하로 설정하세요."
 }

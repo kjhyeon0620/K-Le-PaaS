@@ -35,18 +35,36 @@ public final class DiagnosisEval {
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    /** knowledge는 RAG 사례의 지식 원천({id, source, title, text, version, updated_at}). 기본 사례는 null이다 */
-    public record Case(String id, String group, String provenance, JsonNode input, JsonNode knowledge, Expected expected, String notes) {
+    /**
+     * knowledge는 RAG 사례의 지식 원천({id, source, title, text, version, updated_at}). 기본 사례는 null이다.
+     * episodeId·split·slice·injection·audit는 데이터셋 메타데이터다 (#166, 정의는 docs/eval/diagnosis-eval-spec.md). 없는 사례 묶음(RAG 등)은 null이다
+     */
+    public record Case(String id, String group, String provenance, String episodeId, String split, String slice, JsonNode injection,
+                       JsonNode input, JsonNode knowledge, Expected expected, JsonNode audit, String notes) {
     }
 
     /** category·rootCause가 null이고 abstain이면 판단 보류가 정답이다. evidence는 input 기준 JSON Pointer. */
     /** knowledgeIds는 RAG 사례에서 근거가 돼야 하는 지식 id (#104). 없으면 비어 있다 */
     /** acceptedRootCauses는 감사로 함께 인정한 구체 원인 (#159·#161, 예: 관측과 주입 의도가 다른 사례). 없으면 비어 있다 */
-    public record Expected(String category, String rootCause, List<String> evidence, boolean abstain, List<String> forbidden,
-                           List<String> knowledgeIds, List<String> acceptedRootCauses) {
+    /** evidenceSets는 대안적인 최소 충분 근거 묶음, allowedHypotheses·forbiddenAssertions는 설명 채점용 기록이다 (#166). 없으면 비어 있다 */
+    public record Expected(String category, String rootCause, List<String> evidence, List<List<String>> evidenceSets, boolean abstain,
+                           List<String> forbidden, List<String> knowledgeIds, List<String> acceptedRootCauses,
+                           List<String> allowedHypotheses, List<String> forbiddenAssertions) {
         public Expected(String category, String rootCause, List<String> evidence, boolean abstain, List<String> forbidden,
                         List<String> knowledgeIds) {
-            this(category, rootCause, evidence, abstain, forbidden, knowledgeIds, null);
+            this(category, rootCause, evidence, null, abstain, forbidden, knowledgeIds, null, null, null);
+        }
+
+        public List<List<String>> evidenceSets() {
+            return evidenceSets == null ? List.of() : evidenceSets;
+        }
+
+        public List<String> allowedHypotheses() {
+            return allowedHypotheses == null ? List.of() : allowedHypotheses;
+        }
+
+        public List<String> forbiddenAssertions() {
+            return forbiddenAssertions == null ? List.of() : forbiddenAssertions;
         }
 
         public List<String> knowledgeIds() {
@@ -61,6 +79,26 @@ public final class DiagnosisEval {
         public boolean accepts(String rootCause) {
             return rootCause != null && (rootCause.equals(this.rootCause) || acceptedRootCauses().contains(rootCause));
         }
+    }
+
+    /**
+     * 최소 충분 근거 묶음 중 하나를 빠짐없이 인용했는가 (#166). 인용이 묶음의 위치와 같거나 그 아래 위치면 그 위치를 덮는다.
+     * 묶음이 없는 사례(보류 정답·묶음 미정)는 null
+     */
+    public static Boolean evidenceSufficient(Expected e, List<String> cited) {
+        if (e.evidenceSets().isEmpty()) return null;
+        return e.evidenceSets().stream().anyMatch(set -> set.stream().allMatch(req -> cited.stream().anyMatch(c -> covers(c, req))));
+    }
+
+    /** 근거 묶음 밖 인용 수: 어느 묶음 위치와도 같거나 위·아래 관계가 아닌 인용 (#166). 변경 이력 등 맥락 인용도 여기 들어가므로 오류 수가 아니다. 묶음이 없으면 0 */
+    public static int unrelatedCitations(Expected e, List<String> cited) {
+        if (e.evidenceSets().isEmpty()) return 0;
+        List<String> all = e.evidenceSets().stream().flatMap(List::stream).toList();
+        return (int) cited.stream().filter(c -> all.stream().noneMatch(req -> covers(c, req) || covers(req, c))).count();
+    }
+
+    private static boolean covers(String cited, String required) {
+        return cited.equals(required) || cited.startsWith(required + "/");
     }
 
     /** 진단 결과. abstain은 구체 원인을 정하지 않고 보류했다는 뜻이다. cited는 input 기준 JSON Pointer. */

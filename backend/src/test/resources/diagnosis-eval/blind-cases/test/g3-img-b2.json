@@ -2,6 +2,14 @@
   "id": "g3-img-b2",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-img-b2 (postgres, 흔함 하), 로컬 k3s 재현",
+  "episode_id": "g3-img-b2",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "invalid_image_reference",
+    "observed": "invalid_image_reference",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -168,11 +176,27 @@
     "category": "IMAGE",
     "root_cause": "invalid_image_reference",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/events/0"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:postgres"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"image\": \"postgres::::16\"} / 고치는 방법: 콜론(:) 중복 등 잘못된 이미지 참조 형식을 수정하세요."
 }

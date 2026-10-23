@@ -2,6 +2,14 @@
   "id": "image-invalid-name",
   "group": "IMAGE",
   "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에서 실제로 실패시킨 배포의 detail·logs API 응답",
+  "episode_id": "image-invalid-name",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "invalid_image_reference",
+    "observed": "invalid_image_reference",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -126,8 +134,24 @@
       "/logs/events/1",
       "/detail/deployment/fail_reason"
     ],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/events/0"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "이미지 이름에 대문자가 있어 참조 형식이 잘못됨(InvalidImageName). 레지스트리 문제가 아니다."
 }

@@ -2,6 +2,14 @@
   "id": "readiness-http-probe-on-tcp-service",
   "group": "READINESS",
   "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에서 실제로 실패시킨 배포의 detail·logs API 응답",
+  "episode_id": "readiness-http-probe-on-tcp-service",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "probe_protocol_mismatch",
+    "observed": "probe_protocol_mismatch",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -158,8 +166,23 @@
       "/logs/events/0",
       "/detail/config/health_probe"
     ],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/detail/config/container_port"
+      ],
+      [
+        "/logs/events/0",
+        "/detail/config/health_probe"
+      ]
+    ],
     "abstain": false,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "Redis(TCP 프로토콜)에 HTTP readiness probe를 걸어 응답이 EOF. 앱은 실행 중이고 재시작이 없다."
 }

@@ -2,6 +2,14 @@
   "id": "g3-env-c1",
   "group": "BLIND-INTERNAL",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-env-c1 (nexus-stock-aligner, 흔함 상), 로컬 k3s 재현",
+  "episode_id": "g3-env-c1",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "required_env_missing",
+    "observed": "required_env_missing",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -198,12 +206,43 @@
     "category": "ENV_CONFIG",
     "root_cause": "required_env_missing",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/previous_logs/1",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/1",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/1",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/logs/1",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/logs/1",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/logs/1",
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:nexus-stock-aligner",
       "incident:g2-nsa-env-mis"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"env_remove\": [\"NSA_AUTH_KEY\"]} / 고치는 방법: 시작 필수인 NSA_AUTH_KEY 환경변수에 20자리 인증 키를 설정하세요."
 }

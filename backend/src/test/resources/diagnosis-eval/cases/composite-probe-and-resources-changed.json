@@ -2,6 +2,14 @@
   "id": "composite-probe-and-resources-changed",
   "group": "COMPOSITE",
   "provenance": "captured: 위와 같음 (probe 추가와 CPU 요청을 함께 바꿈)",
+  "episode_id": "composite-probe-and-resources-changed",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "insufficient_cpu",
+    "observed": "insufficient_cpu",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -139,8 +147,22 @@
       "/logs/events/0",
       "/detail/changes/1"
     ],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/logs/pods/0/phase"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "새 Pod가 스케줄되지 못해(Insufficient cpu) probe는 실행된 적이 없다. probe 변경은 방해 요소다. 기존 Pod는 계속 서비스 중이다."
 }

@@ -6,4 +6,6 @@
 - `expected`: 정답 범주(`category`)와 구체 원인(`root_cause`), 근거 위치(`evidence`, input 기준 JSON Pointer), 판단 보류 여부(`abstain`), 결과에 나오면 안 되는 문구(`forbidden`). 정답 감사로 함께 인정한 구체 원인은 `accepted_root_causes`에 둔다(#161, 예: #123 `g1-mq-prb-proto`). 감사 내용은 사례의 `audit`에 적는다.
 - `provenance`: `captured`는 로컬 임시 k3s에서 실제로 실패시킨 응답, `derived`는 캡처를 가공한 사례(가공 내용 기재).
 
-12개는 작은 표본이다. 새 실패 유형을 만나면 같은 형식으로 추가하고 `DiagnosisEvalTest`의 기준선 수치와 스펙을 함께 갱신한다.
+- 데이터셋 메타데이터(`episode_id`·`split`·`slice`·`injection`·`expected.evidence_sets`·구조화된 `audit`)와 정답 판정 기준은 [평가 명세](../../../../../../docs/eval/diagnosis-eval-spec.md)에 있다(#166). 이 디렉터리의 12개는 `dev` 분할이다.
+
+12개는 작은 표본이다. 사례를 추가·수정하면 평가 명세를 따르고, `manifest.json`(`MANIFEST_WRITE=1`)과 `CHANGELOG.md`, `DiagnosisEvalTest`의 기준선 수치를 함께 갱신한다.

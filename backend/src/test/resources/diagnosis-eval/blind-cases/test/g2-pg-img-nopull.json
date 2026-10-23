@@ -2,6 +2,14 @@
   "id": "g2-pg-img-nopull",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g2-pg-img-nopull (postgres, 흔함 중), 로컬 k3s 재현",
+  "episode_id": "g2-pg-img-nopull",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "image_not_pullable",
+    "observed": "image_not_pullable",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -192,11 +200,27 @@
     "category": "IMAGE",
     "root_cause": "image_not_pullable",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/events/0"
+      ],
+      [
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:postgres"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"image\": \"postgres:16-alpine-missing\"} / 고치는 방법: Docker Hub에 존재하지 않는 PostgreSQL 이미지 태그입니다. 올바른 버전 태그로 수정하세요."
 }

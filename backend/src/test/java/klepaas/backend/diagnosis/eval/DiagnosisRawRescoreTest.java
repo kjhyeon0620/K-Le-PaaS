@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -20,8 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DiagnosisRawRescoreTest {
 
     static final String HEADER = "| 변형 | 호출 | 오류 | JSON 실패 | 라벨 목록 밖 | 범주-원인 불일치 | 무효 근거 (호출·위치) | 보류인데 라벨 "
-            + "| 원시 단정 | 원시 확신 오답 | 원시 구체 원인 정답 | 서버가 보류로 바꾼 단정 (맞음·틀림) | 보정 후 구체 원인 정답 |\n|"
-            + "---|".repeat(13) + "\n";
+            + "| 원시 단정 | 원시 확신 오답 | 원시 구체 원인 정답 | 서버가 보류로 바꾼 단정 (맞음·틀림) | 보정 후 구체 원인 정답 "
+            + "| 원시 근거 충분 | 보정 후 근거 충분 | 원시 묶음 밖 인용 |\n|"
+            + "---|".repeat(16) + "\n";
 
     @Test
     void rescoreRawOutputs() throws Exception {
@@ -37,7 +40,8 @@ class DiagnosisRawRescoreTest {
     static String row(String variant, JsonNode summary, Map<String, Case> cases) {
         boolean checkPointers = !variant.contains("input=trim");
         int calls = 0, errors = 0, jsonFail = 0, outOfList = 0, relation = 0, invalidCalls = 0, invalidPointers = 0,
-                abstainWithLabel = 0, asserted = 0, wrong = 0, rawCorrect = 0, flippedRight = 0, flippedWrong = 0, postCorrect = 0;
+                abstainWithLabel = 0, asserted = 0, wrong = 0, rawCorrect = 0, flippedRight = 0, flippedWrong = 0, postCorrect = 0,
+                rawSufficient = 0, rawJudged = 0, postSufficient = 0, postJudged = 0, unrelated = 0;
         var perCase = summary.path("cases").properties();
         for (var entry : (Iterable<Map.Entry<String, JsonNode>>) perCase::iterator) {
             Case c = cases.get(entry.getKey());
@@ -60,6 +64,16 @@ class DiagnosisRawRescoreTest {
                 if (r.asserted()) asserted++;
                 if (r.confidentWrong()) wrong++;
                 if (r.asserted() && !r.confidentWrong()) rawCorrect++;
+                if (r.sufficient() != null) {
+                    rawJudged++;
+                    if (r.sufficient()) rawSufficient++;
+                    unrelated += r.unrelated();
+                }
+                Boolean post = postSufficient(c, run.path("diagnosis"));
+                if (post != null) {
+                    postJudged++;
+                    if (post) postSufficient++;
+                }
                 if (r.asserted() && run.path("diagnosis").path("abstain").asBoolean(false)) {
                     if (r.confidentWrong()) flippedWrong++;
                     else flippedRight++;
@@ -69,6 +83,19 @@ class DiagnosisRawRescoreTest {
         return "| " + variant + " | " + calls + " | " + errors + " | " + jsonFail + " | " + outOfList + " | " + relation
                 + " | " + (checkPointers ? invalidCalls + " · " + invalidPointers : "-") + " | " + abstainWithLabel
                 + " | " + asserted + " | " + wrong + " | " + rawCorrect + " | " + flippedRight + " · " + flippedWrong
-                + " | " + postCorrect + " |\n";
+                + " | " + postCorrect + " | " + (checkPointers ? fraction(rawSufficient, rawJudged) + " | " + fraction(postSufficient, postJudged) : "- | -")
+                + " | " + (checkPointers ? String.valueOf(unrelated) : "-") + " |\n";
+    }
+
+    /** 서버 보정 후 진단(저장된 diagnosis)이 단정했을 때 남은 인용으로 근거 묶음을 덮는가. 해당 없으면 null */
+    static Boolean postSufficient(Case c, JsonNode diagnosis) {
+        if (c.expected().abstain() || diagnosis.path("abstain").asBoolean(true) || !diagnosis.hasNonNull("root_cause")) return null;
+        List<String> cited = new ArrayList<>();
+        diagnosis.path("cited").forEach(p -> cited.add(p.isTextual() ? p.asText() : p.path("pointer").asText()));
+        return DiagnosisEval.evidenceSufficient(c.expected(), cited);
+    }
+
+    private static String fraction(int n, int of) {
+        return of == 0 ? "-" : n + "/" + of;
     }
 }

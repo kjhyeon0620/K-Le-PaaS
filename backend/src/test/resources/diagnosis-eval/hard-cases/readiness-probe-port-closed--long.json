@@ -2,6 +2,9 @@
   "id" : "readiness-probe-port-closed--long",
   "group" : "NOISE-EXTRA-PODS",
   "provenance" : "derived: readiness-probe-port-closed에 같은 상태 레플리카 2개와 이전 버전 정상 Pod 2개(로그 40줄씩) 추가",
+  "episode_id" : "readiness-probe-port-closed",
+  "split" : "robustness",
+  "slice" : "ROBUSTNESS",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -184,8 +187,14 @@
     "category" : "READINESS",
     "root_cause" : "probe_port_closed",
     "evidence" : [ "/logs/events/0", "/logs/pods/0/logs/5", "/detail/config/health_probe" ],
+    "evidence_sets" : [ [ "/logs/events/0", "/detail/config/container_port" ], [ "/logs/events/0", "/logs/pods/0/logs/5" ], [ "/logs/events/0", "/logs/pods/0/logs/6" ] ],
     "abstain" : false,
     "forbidden" : [ ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "원인은 원본과 같다. 정답 근거는 첫 Pod에 그대로 있고 복제 레플리카에도 같은 근거가 있다. 추가한 이전 버전 Pod는 정상 동작 로그다. 원본이 항상 첫 위치라 장문 추론 능력을 재는 사례가 아니다."
 }

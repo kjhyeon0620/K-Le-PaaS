@@ -2,6 +2,14 @@
   "id": "g1-my-env-miss",
   "group": "BLIND-PUBLIC",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g1-my-env-miss (mysql, 흔함 상), 로컬 k3s 재현",
+  "episode_id": "g1-my-env-miss",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "required_env_missing",
+    "observed": "required_env_missing",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -224,11 +232,66 @@
     "category": "ENV_CONFIG",
     "root_cause": "required_env_missing",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/previous_logs/3",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/3",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/3",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/4",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/4",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/4",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/logs/3",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/logs/3",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/logs/3",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/logs/4",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/logs/4",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/logs/4",
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:mysql"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"env_remove\": [\"MYSQL_ROOT_PASSWORD\"]} / 고치는 방법: 필수 환경 변수인 MYSQL_ROOT_PASSWORD를 입력하여 DB 초기화 프로세스가 진행되게 하세요."
 }

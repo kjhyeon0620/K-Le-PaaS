@@ -2,6 +2,14 @@
   "id": "readiness-probe-port-closed",
   "group": "READINESS",
   "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에서 실제로 실패시킨 배포의 detail·logs API 응답",
+  "episode_id": "readiness-probe-port-closed",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "probe_port_closed",
+    "observed": "probe_port_closed",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -158,8 +166,27 @@
       "/logs/pods/0/logs/5",
       "/detail/config/health_probe"
     ],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/detail/config/container_port"
+      ],
+      [
+        "/logs/events/0",
+        "/logs/pods/0/logs/5"
+      ],
+      [
+        "/logs/events/0",
+        "/logs/pods/0/logs/6"
+      ]
+    ],
     "abstain": false,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "앱은 1883에서 대기하는데 probe는 8080으로 가서 connection refused."
 }

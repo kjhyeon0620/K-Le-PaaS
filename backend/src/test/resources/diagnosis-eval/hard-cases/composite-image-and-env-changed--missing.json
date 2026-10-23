@@ -2,6 +2,9 @@
   "id" : "composite-image-and-env-changed--missing",
   "group" : "INSUFFICIENT-DERIVED",
   "provenance" : "derived: composite-image-and-env-changed에서 Pod 로그를 조회 실패로 바꿈, 만료된 이벤트 삭제",
+  "episode_id" : "composite-image-and-env-changed",
+  "split" : "robustness",
+  "slice" : "INSUFFICIENT",
   "input" : {
     "detail" : {
       "deployment" : {
@@ -99,8 +102,15 @@
     "category" : null,
     "root_cause" : null,
     "evidence" : [ ],
+    "evidence_sets" : [ ],
     "abstain" : true,
-    "forbidden" : [ ]
+    "forbidden" : [ ],
+    "allowed_hypotheses" : [ "필수 환경 변수 누락 등 설정 문제 가능성(가설로서)" ]
+  },
+  "audit" : {
+    "status" : "kept",
+    "reason" : "#158 변형 규칙의 기대 답",
+    "at" : "2026-10-23"
   },
   "notes" : "이미지와 env 하나가 함께 바뀌었고, 둘 중 무엇이 원인인지 가릴 로그·이벤트가 없다. 이미지를 사내 앱 이미지로 바꿔 공개 이미지에 대한 사전 지식(postgres는 비밀번호 env가 필요)으로 단정할 수 없게 했다. 판단 보류가 정답이고, 가능한 원인을 가설로 제시하는 것은 허용한다."
 }

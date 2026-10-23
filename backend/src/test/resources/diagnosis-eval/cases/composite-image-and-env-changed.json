@@ -2,6 +2,14 @@
   "id": "composite-image-and-env-changed",
   "group": "COMPOSITE",
   "provenance": "captured: 위와 같음 (이미지 태그와 env를 함께 바꿈)",
+  "episode_id": "composite-image-and-env-changed",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "required_env_missing",
+    "observed": "required_env_missing",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -181,8 +189,63 @@
       "/logs/pods/0/previous_logs/1",
       "/detail/changes/1"
     ],
+    "evidence_sets": [
+      [
+        "/logs/pods/0/previous_logs/0",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/0",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/0",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/1",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/1",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/previous_logs/1",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/logs/0",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/logs/0",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/logs/0",
+        "/detail/deployment/fail_reason"
+      ],
+      [
+        "/logs/pods/0/logs/1",
+        "/logs/pods/0/state_reason"
+      ],
+      [
+        "/logs/pods/0/logs/1",
+        "/logs/pods/0/last_termination_reason"
+      ],
+      [
+        "/logs/pods/0/logs/1",
+        "/detail/deployment/fail_reason"
+      ]
+    ],
     "abstain": false,
     "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "이미지도 바뀌었지만 이미지는 정상으로 받아 실행됐다(이벤트 Pulled·Started). 원인은 함께 삭제된 POSTGRES_PASSWORD. 이미지 변경은 방해 요소다."
 }

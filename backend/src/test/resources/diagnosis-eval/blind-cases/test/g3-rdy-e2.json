@@ -2,6 +2,14 @@
   "id": "g3-rdy-e2",
   "group": "BLIND-INTERNAL",
   "provenance": "independent: gemini-3.1-pro-preview 시나리오 g3-rdy-e2 (nuri-push-node, 흔함 중), 로컬 k3s 재현",
+  "episode_id": "g3-rdy-e2",
+  "split": "dev",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "probe_port_closed",
+    "observed": "probe_port_closed",
+    "recovered": null
+  },
   "input": {
     "detail": {
       "deployment": {
@@ -202,11 +210,26 @@
     "category": "READINESS",
     "root_cause": "probe_port_closed",
     "evidence": [],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/detail/config/container_port"
+      ],
+      [
+        "/logs/events/0",
+        "/logs/pods/0/logs/6"
+      ]
+    ],
     "abstain": false,
     "forbidden": [],
     "knowledge_ids": [
       "runbook:nuri-push-node"
     ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#159 1차 정답 감사: 관측으로 입증되는 결론과 정답이 같다",
+    "at": "2026-10-22"
   },
   "notes": "변경: {\"readiness_probe\": {\"path\": \"/system/ping\", \"port\": 10081}} / 고치는 방법: 앱은 정상 기동되었으나 probe 포트가 잘못되었습니다. 10080 포트로 변경하세요."
 }

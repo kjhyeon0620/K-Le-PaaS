@@ -26,9 +26,12 @@ final class RawDiagnosis {
      * @param asserted         보류하지 않고 구체 원인을 냄
      * @param confidentWrong   단정했는데 틀렸거나, 보류가 정답인 사례에서 단정
      * @param evidenceHit      단정한 지원 사례에서 원시 인용이 정답 근거 중 하나와 일치 (해당 없으면 null)
+     * @param sufficient       단정한 지원 사례에서 원시 인용이 최소 충분 근거 묶음 하나를 빠짐없이 덮음 (#166, 묶음이 없으면 null)
+     * @param unrelated        근거 묶음 밖 원시 인용 수 (#166, sufficient가 null이면 0)
      */
     record Verdict(boolean json, boolean labelsInList, boolean relationOk, int pointers, int invalidPointers,
-                   boolean abstainWithLabel, boolean asserted, boolean confidentWrong, Boolean evidenceHit) {
+                   boolean abstainWithLabel, boolean asserted, boolean confidentWrong, Boolean evidenceHit,
+                   Boolean sufficient, int unrelated) {
 
         boolean contractViolation() {
             return !json || !labelsInList || !relationOk || invalidPointers > 0 || abstainWithLabel;
@@ -43,7 +46,7 @@ final class RawDiagnosis {
         } catch (Exception e) {
             out = null;
         }
-        if (out == null || !out.isObject()) return new Verdict(false, true, true, 0, 0, false, false, false, null);
+        if (out == null || !out.isObject()) return new Verdict(false, true, true, 0, 0, false, false, false, null, null, 0);
 
         String category = text(out.get("category"));
         String rootCause = text(out.get("root_cause"));
@@ -69,8 +72,10 @@ final class RawDiagnosis {
         boolean wrong = asserted && (e.abstain() || !e.accepts(rootCause));
         Boolean evidenceHit = asserted && !e.abstain() && !e.evidence().isEmpty()
                 ? pointers.stream().anyMatch(e.evidence()::contains) : null;
+        Boolean sufficient = asserted && !e.abstain() ? DiagnosisEval.evidenceSufficient(e, pointers) : null;
         return new Verdict(true, labelsInList, relationOk, out.path("cited").size(),
-                invalid, abstain && (category != null || rootCause != null), asserted, wrong, evidenceHit);
+                invalid, abstain && (category != null || rootCause != null), asserted, wrong, evidenceHit,
+                sufficient, sufficient == null ? 0 : DiagnosisEval.unrelatedCitations(e, pointers));
     }
 
     private static boolean exists(Case c, String pointer, int knowledgeCount) {
