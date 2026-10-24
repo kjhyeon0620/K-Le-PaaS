@@ -1,0 +1,348 @@
+{
+  "uid": "klepaas-llm",
+  "title": "K-Le-PaaS LLM 사용량",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "LLM 호출 (재기동 이후)",
+      "description": "재기동 이후 누적. 지표는 메모리에 있어 재기동하면 0부터 다시 센다",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (feature, outcome) (klepaas_llm_calls_total)",
+          "legendFormat": "{{feature}} {{outcome}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "LLM 지연 (성공 호출, 재기동 이후)",
+      "description": "재기동 이후 누적. 지표는 메모리에 있어 재기동하면 0부터 다시 센다. p50·p95는 히스토그램 구간에서 추정한 값",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le, feature) (klepaas_llm_latency_seconds_bucket))",
+          "legendFormat": "p50 {{feature}}",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, feature) (klepaas_llm_latency_seconds_bucket))",
+          "legendFormat": "p95 {{feature}}",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (feature) (klepaas_llm_latency_seconds_sum) / sum by (feature) (klepaas_llm_latency_seconds_count)",
+          "legendFormat": "평균 {{feature}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "토큰 (재기동 이후, 종류별)",
+      "description": "재기동 이후 누적. 지표는 메모리에 있어 재기동하면 0부터 다시 센다. 공급사가 보고한 값만. 입력은 캐시 입력, 출력은 추론 토큰을 포함",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (feature, kind) (klepaas_llm_tokens_total)",
+          "legendFormat": "{{feature}} {{kind}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "진단 요청 경로 (재기동 이후)",
+      "description": "재기동 이후 누적. 지표는 메모리에 있어 재기동하면 0부터 다시 센다. rule·no_evidence·reused는 모델을 부르지 않은 경로",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (route) (klepaas_diagnosis_requests_total)",
+          "legendFormat": "{{route}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "모델을 부르지 않은 진단 비율",
+      "description": "재기동 이후 누적. 지표는 메모리에 있어 재기동하면 0부터 다시 센다",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum(klepaas_diagnosis_requests_total{route=~\"rule|no_evidence|reused\"}) / sum(klepaas_diagnosis_requests_total)",
+          "legendFormat": "모델 미호출",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "LLM 실패 비율",
+      "description": "재기동 이후 누적. 지표는 메모리에 있어 재기동하면 0부터 다시 센다",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "(sum by (feature) (klepaas_llm_calls_total{outcome=\"error\"}) or sum by (feature) (klepaas_llm_calls_total) * 0) / sum by (feature) (klepaas_llm_calls_total)",
+          "legendFormat": "{{feature}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "LLM 호출 추이 (5분 증가량)",
+      "description": "트래픽이 있을 때의 추이. 호출이 드물면 비어 보인다",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (feature) (increase(klepaas_llm_calls_total[5m]))",
+          "legendFormat": "{{feature}}",
+          "instant": false
+        }
+      ]
+    }
+  ]
+}

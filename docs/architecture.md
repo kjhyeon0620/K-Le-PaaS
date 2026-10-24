@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 관측 시그니처 규칙 `SignatureRules`·규칙 결과 `RuleDiagnosis`(#170), 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만든다) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 관측 시그니처 규칙 `SignatureRules`·규칙 결과 `RuleDiagnosis`(#170), 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만들고 호출·지연·토큰 지표 래퍼 `MeteredLlmClient`로 감싼다(#174)) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
@@ -305,6 +305,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `nlp.llm.base-url` / `diagnosis.llm.base-url` | `${NLP_LLM_BASE_URL:}` / `${DIAGNOSIS_LLM_BASE_URL:}` | `openai-compatible`일 때 필수인 OpenAI 호환 서버 주소(`/v1` 포함, 예: 로컬 Ollama). 비어 있으면 기동 실패. 키는 보내지 않는다 (스펙 0150) |
 | `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI·OpenAI 호환 서버 reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115·0150) |
 | `diagnosis.rag.enabled` | `${DIAGNOSIS_RAG_ENABLED:false}` | 진단에 지식을 넣을지. #123 독립 평가에서 개선이 없어 기본 꺼짐. 꺼져도 문서·사건 저장과 API는 동작 (#129) |
+| `management.server.port`·`address` | `${MANAGEMENT_PORT:8081}`·`${MANAGEMENT_ADDRESS:127.0.0.1}` | 지표(`/actuator/prometheus`)를 여는 관리 포트. 127.0.0.1에만 열고 앱 포트에는 `/actuator`가 없다 (#174, [observability](observability.md)) |
 | `diagnosis.rule-first.enabled` | `${DIAGNOSIS_RULE_FIRST_ENABLED:true}` | 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않을지. #168 동결 평가 세트에서 채택 조건 충족. 끄면 모든 진단이 모델 경로 (#170) |
 | `diagnosis.rag.embedding-model` / `top-k` / `min-similarity` | `text-embedding-3-small` / `4` / `0.45` | 지식 검색 임베딩 모델, 상위 개수, 유사도 기준 (스펙 0104) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
@@ -341,3 +342,4 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |
+| 인증 없이 허용된 경로(`/api/v1/system/**`, `/actuator/prometheus` 등) 중 없는 경로는 404가 아니라 500 `INTERNAL_ERROR`를 돌려준다. `GlobalExceptionHandler`의 `Exception` 처리가 `NoResourceFoundException`도 잡는다 (#174에서 발견) | 없는 경로를 서버 오류로 보이게 한다. 내용은 노출되지 않는다 | 이슈 후보 (에러 응답 계약 변경) |

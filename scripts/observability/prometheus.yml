@@ -1,0 +1,9 @@
+# 로컬 지표 확인용 (#174). 백엔드 관리 포트(127.0.0.1:8081)의 /actuator/prometheus를 15초마다 긁는다.
+# 운영 서버는 이 파일을 쓰지 않는다 (docs/observability.md)
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: klepaas-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8081"]

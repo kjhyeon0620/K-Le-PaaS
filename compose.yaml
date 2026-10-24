@@ -12,5 +12,28 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  # 로컬 지표 확인 (#174). `docker compose --profile observability up -d` 후 Prometheus http://127.0.0.1:9090, Grafana http://127.0.0.1:3000
+  # 백엔드 관리 포트(127.0.0.1:8081)의 지표를 긁는다. 운영은 이 구성을 쓰지 않는다 (docs/observability.md)
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: [observability]
+    volumes:
+      - ./scripts/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: [observability]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./scripts/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./scripts/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+
 volumes:
   postgres-data:

@@ -42,3 +42,8 @@ cloud:
 slack:
   webhook:
     url:
+
+# 테스트 컨텍스트가 여러 개 떠도 관리 포트가 겹치지 않게 끈다. 노출 범위 테스트는 0(임의 포트)으로 켠다 (#174)
+management:
+  server:
+    port: -1

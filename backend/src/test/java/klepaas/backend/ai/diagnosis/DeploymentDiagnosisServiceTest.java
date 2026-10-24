@@ -34,8 +34,9 @@ class DeploymentDiagnosisServiceTest {
     private final klepaas.backend.ai.knowledge.KnowledgeService knowledge = mock(klepaas.backend.ai.knowledge.KnowledgeService.class);
     private final JsonMapper json =
             JsonMapper.builder().propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE).build();
+    private final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
     private final DeploymentDiagnosisService service =
-            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, true);
+            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, true, meters);
 
     {
         when(gemini.model()).thenReturn("luna");
@@ -104,6 +105,7 @@ class DeploymentDiagnosisServiceTest {
 
         assertThat(reused.reused()).isTrue();
         assertThat(reused.category()).isEqualTo("ENV_CONFIG");
+        assertThat(route("reused")).isEqualTo(1);
         verifyNoInteractions(deployments);
         verify(gemini, never()).completeJson(any());
         verify(repository, never()).save(any());
@@ -117,6 +119,7 @@ class DeploymentDiagnosisServiceTest {
         assertThat(service.diagnose(7L, 1L, false).reused()).isFalse();
         verify(gemini, times(2)).completeJson(any());
         verify(repository, times(2)).save(any());
+        assertThat(route("model")).isEqualTo(2);
     }
 
     @Test
@@ -130,6 +133,7 @@ class DeploymentDiagnosisServiceTest {
         assertThat(result.abstain()).isTrue();
         assertThat(result.model()).isEqualTo("rule");
         assertThat(result.promptVersion()).isEqualTo("no-evidence-v1");
+        assertThat(route("no_evidence")).isEqualTo(1);
         assertThat(result.warnings()).singleElement().satisfies(w -> assertThat(w).contains("모델을 호출하지 않았습니다"));
         verify(gemini, never()).completeJson(any());
         var saved = ArgumentCaptor.forClass(DeploymentDiagnosis.class);
@@ -224,6 +228,7 @@ class DeploymentDiagnosisServiceTest {
         assertThat(result.warnings()).singleElement().satisfies(w -> assertThat(w).contains("R-PROBE-PORT").contains("모델을 호출하지 않았습니다"));
         verify(gemini, never()).completeJson(any());
         verifyNoInteractions(knowledge);
+        assertThat(route("rule")).isEqualTo(1);
         var saved = ArgumentCaptor.forClass(DeploymentDiagnosis.class);
         verify(repository).save(saved.capture());
         assertThat(saved.getValue().getRequestedModel()).isEqualTo("rule");
@@ -246,7 +251,7 @@ class DeploymentDiagnosisServiceTest {
 
     @Test
     void ruleFirstDisabledAlwaysUsesModel() throws Exception {
-        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false);
+        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false, meters);
         observed("t-ls-probe-port");
         when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
 
@@ -266,7 +271,7 @@ class DeploymentDiagnosisServiceTest {
 
         // 규칙 우선을 끄면 저장된 규칙 결과를 쓰지 않고 모델로 진단한다
         when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
-        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false);
+        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false, meters);
         assertThat(off.diagnose(7L, 1L, false).reused()).isFalse();
         verify(gemini).completeJson(any());
     }
@@ -286,6 +291,13 @@ class DeploymentDiagnosisServiceTest {
         assertThatThrownBy(() -> service.diagnose(7L, 1L, false)).isInstanceOfSatisfying(AiProcessingException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.AI_PARSE_ERROR));
         verify(repository, never()).save(any());
+        assertThat(route("model_error")).isEqualTo(1);
+    }
+
+    /** 진단 경로 지표 (#174) */
+    private double route(String route) {
+        var c = meters.find("klepaas.diagnosis.requests").tag("route", route).counter();
+        return c == null ? 0 : c.count();
     }
 
     private static LlmClient.Response text(String body) {

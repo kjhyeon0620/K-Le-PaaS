@@ -11,6 +11,7 @@ import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.global.exception.InvalidRequestException;
 import lombok.extern.slf4j.Slf4j;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
@@ -52,12 +53,13 @@ public class DeploymentDiagnosisService {
     private final KnowledgeService knowledgeService;
     // #168 동결 평가 세트에서 규칙 우선의 채택 조건을 충족했다. 끄면 모든 진단이 모델 경로다
     private final boolean ruleFirst;
+    private final MeterRegistry meterRegistry;
     private static final java.util.regex.Pattern KNOWLEDGE_POINTER = java.util.regex.Pattern.compile("^/knowledge/(\\d+)(/|$)");
 
     public DeploymentDiagnosisService(DeploymentDetailService deploymentDetailService, DeploymentService deploymentService,
                                       LlmClient diagnosisLlm, JsonMapper jsonMapper, DeploymentDiagnosisRepository diagnosisRepository,
                                       KnowledgeService knowledgeService,
-                                      @Value("${diagnosis.rule-first.enabled:true}") boolean ruleFirst) {
+                                      @Value("${diagnosis.rule-first.enabled:true}") boolean ruleFirst, MeterRegistry meterRegistry) {
         this.deploymentDetailService = deploymentDetailService;
         this.deploymentService = deploymentService;
         this.diagnosisLlm = diagnosisLlm;
@@ -65,6 +67,12 @@ public class DeploymentDiagnosisService {
         this.diagnosisRepository = diagnosisRepository;
         this.knowledgeService = knowledgeService;
         this.ruleFirst = ruleFirst;
+        this.meterRegistry = meterRegistry;
+    }
+
+    /** 진단 요청 경로 수 (#174): reused·no_evidence·rule·model·model_error. 규칙 우선(#170)이 줄인 모델 호출을 운영에서 본다 */
+    private void route(String route) {
+        meterRegistry.counter("klepaas.diagnosis.requests", "route", route).increment();
     }
 
     public DeploymentDiagnosisResponse diagnose(Long deploymentId, Long userId, boolean refresh) {
@@ -77,12 +85,14 @@ public class DeploymentDiagnosisService {
         if (!refresh) {
             var saved = diagnosisRepository.findFirstByDeploymentIdOrderByIdDesc(deploymentId).filter(this::reusable);
             if (saved.isPresent()) {
+                route("reused");
                 return jsonMapper.readValue(saved.get().getResult(), DeploymentDiagnosisResponse.class)
                         .saved(true, saved.get().getCreatedAt());
             }
         }
         var logs = deploymentService.getDeploymentLogs(deploymentId, LOG_LINES, userId);
         if (noEvidence(detail, logs)) {
+            route("no_evidence");
             return save(new DeploymentDiagnosisResponse(deploymentId, RULE_MODEL, NO_EVIDENCE_VERSION, null, null, true,
                     "Pod·이벤트·설정 변경이 관측되지 않고 실패 종류가 원인을 가리키지 않아 원인을 판단할 수 없습니다.",
                     List.of(), List.of(), List.of("배포 대상 Pod와 Kubernetes 이벤트를 직접 확인합니다."), List.of(),
@@ -98,7 +108,10 @@ public class DeploymentDiagnosisService {
                 var rule = RuleDiagnosis.diagnose(deploymentId, redacted);
                 log.info("Diagnosis rule: deploymentId={}, version={}, state={}, rule={}, matched={}", deploymentId,
                         SignatureRules.RULE_VERSION, rule.rule().state(), rule.rule().rule(), rule.rule().matched());
-                if (rule.response() != null) return save(rule.response(), RULE_MODEL, null);
+                if (rule.response() != null) {
+                    route("rule");
+                    return save(rule.response(), RULE_MODEL, null);
+                }
             } catch (RuntimeException e) {
                 // 규칙 판정 실패는 진단을 막지 않는다. 모델 경로로 간다
                 log.warn("Diagnosis rule failed: deploymentId={}, error={}", deploymentId, e.getClass().getSimpleName());
@@ -109,15 +122,23 @@ public class DeploymentDiagnosisService {
         String modelInput = knowledge.isEmpty() ? redacted : DiagnosisPrompt.withKnowledge(redacted, knowledge);
         String version = knowledge.isEmpty() ? DiagnosisPrompt.VERSION : DiagnosisPrompt.RAG_VERSION;
 
-        LlmClient.Response response = diagnosisLlm.completeJson(DiagnosisPrompt.build(modelInput, false, !knowledge.isEmpty()));
+        LlmClient.Response response;
+        try {
+            response = diagnosisLlm.completeJson(DiagnosisPrompt.build(modelInput, false, !knowledge.isEmpty()));
+        } catch (RuntimeException e) {
+            route("model_error");
+            throw e;
+        }
         String text = response.text();
         DiagnosisPrompt.Diagnosis d;
         try {
             d = DiagnosisPrompt.parse(modelInput, text);
         } catch (IllegalArgumentException e) {
             log.warn("Diagnosis response unreadable: deploymentId={}", deploymentId);
+            route("model_error");
             throw new AiProcessingException(ErrorCode.AI_PARSE_ERROR, "진단 응답을 읽을 수 없습니다");
         }
+        route("model");
         // 지식 인용(/knowledge/i/...)은 knowledge로, 관측 근거는 cited로 나눈다
         List<DiagnosisPrompt.Citation> observed = new ArrayList<>();
         Map<Integer, KnowledgeCitation> cited = new LinkedHashMap<>();
