@@ -85,6 +85,7 @@ branch: test/#172-eval-regression-gate
 
 ## 운영 반영
 - 없음 (테스트·CI·문서만). 이 PR에서 스펙 0170 운영 반영(#171 배포 성공, 운영 확인)을 기록했다.
+- 2026-10-25 머지(#173) 후 `main` 배포 workflow 성공. PR 실행에서 "Diagnosis evaluation regression summary" 단계 성공.
 
 ## 회고
 - 어긋난 점: 처음 회귀 감지 확인에서 실패 메시지를 출력에서 걸러 실패 여부를 놓칠 뻔했다(테스트 결과 파일에서 확인).

@@ -57,6 +57,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/cli-auth/sessions/**").permitAll()
                         .requestMatchers("/api/v1/system/**").permitAll()
+                        // 지표 (#174): 관리 포트(127.0.0.1)에만 매핑된다. 앱 포트에는 이 경로가 없다
+                        .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
                         .requestMatchers("/api/v1/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()

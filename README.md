@@ -84,7 +84,7 @@ flowchart LR
 
 같은 사례로 Claude Haiku·Gemini Flash·gpt-5-mini도 비교했고, 품질이 같은 모델 중 비용·지연이 가장 낮은 모델을 기본으로 골랐습니다. ([스펙 0099](docs/specs/0099-diagnosis-eval-cases/spec.md), [0100](docs/specs/0100-evidence-based-diagnosis/spec.md))
 
-위 규칙 기준선은 구체 원인을 내지 않는 고정 설명이라 AI의 추가 가치를 보여 주지 않습니다. 관측 시그니처로 원인을 정하는 규칙과 비교하면(#161), 이 12개와 독립 작성 39개를 합친 개발 세트 51사례에서 규칙이 지원 사례 48/49를 잘못된 판정 없이 맞혔고 LLM이 추가로 해결한 사례는 1개였습니다. 규칙을 먼저 쓰고 못 정한 경우만 LLM을 부르면 확신 오답과 LLM 호출이 모두 줄었습니다. 제품 반영은 동결한 새 평가 세트로 확인한 뒤에 합니다. 근거 인용 지표가 서버 보정 후 값이었던 점 등 정정 내용은 [진단 평가 정정 기록](docs/eval/diagnosis-eval-corrections.md)에 있습니다.
+위 규칙 기준선은 구체 원인을 내지 않는 고정 설명이라 AI의 추가 가치를 보여 주지 않습니다. 관측 시그니처로 원인을 정하는 규칙과 비교하면(#161), 이 12개와 독립 작성 39개를 합친 개발 세트 51사례에서 규칙이 지원 사례 48/49를 잘못된 판정 없이 맞혔고 LLM이 추가로 해결한 사례는 1개였습니다. 규칙을 먼저 쓰고 못 정한 경우만 LLM을 부르면 확신 오답과 LLM 호출이 모두 줄었습니다. 모델 점수를 보기 전에 동결한 장애 주입 평가 세트(#168)에서 채택 조건을 확인한 뒤 제품에 반영했습니다(#170). 근거 인용 지표가 서버 보정 후 값이었던 점 등 정정 내용은 [진단 평가 정정 기록](docs/eval/diagnosis-eval-corrections.md)에 있습니다.
 
 **측정으로 내린 결정**
 - 비용 절감(#115): 추론 강도·출력 간결화·입력 정리를 사례 12개 × 10회로 측정했으나 품질 기준을 넘지 못해 출력 상한과 토큰 로그만 적용했습니다. 계산 금액과 선불 잔액 차감액이 4% 안에서 맞았습니다. ([스펙 0115](docs/specs/0115-diagnosis-cost-reduction/spec.md))
@@ -101,6 +101,7 @@ flowchart LR
 | 승인 복구 | 구현, 운영 실증 | #101, #105 |
 | 자연어 명령 | 구현 | OpenAI `gpt-6-luna` 해석(설정으로 공급사 변경, #136), 위험도·승인, 명령 이력. 고정 입력 30개 × 5회 평가: 교체 후보 `gemini-3.8-flash` intent 92%, `gpt-6-luna` 95%, 두 모델 모두 변경 명령을 승인 불필요(LOW)로 분류한 해석 0 (#58) |
 | AI 진단 | 실험, 운영 사용 | 근거 기반, 결과 재사용, 규칙이 원인을 정하면 모델 호출 없음(#170). RAG는 기본 꺼짐 |
+| LLM 지표 | 구현 | 호출·지연·토큰·진단 경로 지표를 관리 포트(127.0.0.1)에서 Prometheus 형식으로 노출, 로컬 Prometheus·Grafana 구성(#174, [observability](docs/observability.md)) |
 | 에이전트·MCP | 구현, 실서버 확인 | 제안 전용 토큰, 복구 제안, `/api/v1/mcp` |
 | CLI | 구현 | `auth`, `ask`, `confirm`, `history`, `repositories`, `deployments`, `knowledge`, `incidents`, `cost`, `doctor` |
 | 비용 추정 | 구현 | spec 기반 plan·diff·explain·check (실제 청구 아님) |
@@ -250,6 +251,9 @@ DIAGNOSIS_LLM_MODEL=gpt-6-luna
 DIAGNOSIS_LLM_BASE_URL=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+# 지표 관리 포트 (#174). 127.0.0.1에만 열린다. docs/observability.md
+MANAGEMENT_PORT=8081
+MANAGEMENT_ADDRESS=127.0.0.1
 # 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않을지 (#170, 기본 true)
 DIAGNOSIS_RULE_FIRST_ENABLED=true
 # 진단에 운영문서·확정 사건을 넣을지 (#129, 기본 false)
