@@ -1,6 +1,6 @@
 {
   "dataset" : "klepaas-diagnosis-eval",
-  "version" : "1.0.0",
+  "version" : "1.1.0",
   "released_at" : "2026-10-24",
   "spec" : "docs/eval/diagnosis-eval-spec.md",
   "splits" : {
@@ -319,9 +319,97 @@
       } ]
     },
     "test" : {
-      "count" : 0,
-      "slices" : { },
-      "cases" : [ ]
+      "count" : 14,
+      "slices" : {
+        "INSUFFICIENT" : 2,
+        "SUPPORTED" : 2,
+        "UNSUPPORTED_OBSERVED" : 10
+      },
+      "cases" : [ {
+        "episode_id" : "t-ls-arch",
+        "id" : "t-ls-arch",
+        "path" : "test-cases/t-ls-arch.json",
+        "sha256" : "5059ca705fded6d2d924d7f94255746a92c67f108255aa36efd8215f379e43e8",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-ls-noshebang",
+        "id" : "t-ls-noshebang",
+        "path" : "test-cases/t-ls-noshebang.json",
+        "sha256" : "96fa2736c50f9e46f1c82d468a3019b3d5151f64cb07bc91dfba88ccb0213552",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-ls-oom",
+        "id" : "t-ls-oom",
+        "path" : "test-cases/t-ls-oom.json",
+        "sha256" : "4a3eddb56a0803491848f2529d93c4c7c3cd35bf3108d1be054d1730b38c1936",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-ls-probe-port",
+        "id" : "t-ls-probe-port",
+        "path" : "test-cases/t-ls-probe-port.json",
+        "sha256" : "7c4898017c1269df9308636c3a2444c27779e302124cef0ecb1844157bbca812",
+        "slice" : "SUPPORTED"
+      }, {
+        "episode_id" : "t-ls-sigkill",
+        "id" : "t-ls-sigkill",
+        "path" : "test-cases/t-ls-sigkill.json",
+        "sha256" : "7b2e8a4b2dbd696e044fad5a65e6209325c0e8865c04158bbae386b70c9cb415",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-ls-silent-exit",
+        "id" : "t-ls-silent-exit",
+        "path" : "test-cases/t-ls-silent-exit.json",
+        "sha256" : "1b78ed4ba6db095f159527d454c3e3d01fe7248ea486b531809a666133accfee",
+        "slice" : "INSUFFICIENT"
+      }, {
+        "episode_id" : "t-ls-slow-start",
+        "id" : "t-ls-slow-start",
+        "path" : "test-cases/t-ls-slow-start.json",
+        "sha256" : "1eaba982037d567e465f5635a102ddf4e7c4b14c4776bebfda905ec33738663c",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-mi-arch",
+        "id" : "t-mi-arch",
+        "path" : "test-cases/t-mi-arch.json",
+        "sha256" : "ed7ca0f3c6456de9e570f758998ec3f07c5bdf491e620258d5e33db87e844cb5",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-mi-noshebang",
+        "id" : "t-mi-noshebang",
+        "path" : "test-cases/t-mi-noshebang.json",
+        "sha256" : "a7bf0e26d61599d99f4bceb867fc1f024d8d002d0b2d5f17338b2cc0c1d26981",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-mi-oom",
+        "id" : "t-mi-oom",
+        "path" : "test-cases/t-mi-oom.json",
+        "sha256" : "e1924cc8719bfe6da242c6c60dd07eaf977c6b5351dd22c4e58840aae8c13598",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-mi-probe-port",
+        "id" : "t-mi-probe-port",
+        "path" : "test-cases/t-mi-probe-port.json",
+        "sha256" : "bf9515f4d8845c171a36125f3a7cd4e71ac368a323b1ce1ad15c4404fdd13751",
+        "slice" : "SUPPORTED"
+      }, {
+        "episode_id" : "t-mi-sigkill",
+        "id" : "t-mi-sigkill",
+        "path" : "test-cases/t-mi-sigkill.json",
+        "sha256" : "cddec603addea09ae3e1a862cb68755612f1eb4436967631965c9e65ca89115c",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      }, {
+        "episode_id" : "t-mi-silent-exit",
+        "id" : "t-mi-silent-exit",
+        "path" : "test-cases/t-mi-silent-exit.json",
+        "sha256" : "79d04ef3ee94b5083d6baba8af5fc19a46ee157b8131e296ae032260be44f8de",
+        "slice" : "INSUFFICIENT"
+      }, {
+        "episode_id" : "t-mi-slow-start",
+        "id" : "t-mi-slow-start",
+        "path" : "test-cases/t-mi-slow-start.json",
+        "sha256" : "d2e1b663e254239f93accd85ce534c1867a935eb6c73e7e57b73290e27609357",
+        "slice" : "UNSUPPORTED_OBSERVED"
+      } ]
     },
     "robustness" : {
       "count" : 24,

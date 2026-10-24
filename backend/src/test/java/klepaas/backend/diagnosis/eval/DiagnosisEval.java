@@ -31,6 +31,8 @@ public final class DiagnosisEval {
     public static final Path BLIND_CASES = Path.of("src/test/resources/diagnosis-eval/blind-cases");
     /** #99 사례를 기계적으로 바꾼 회귀·보류 검사 (#158) */
     public static final Path HARD_CASES = Path.of("src/test/resources/diagnosis-eval/hard-cases");
+    /** 모델 점수를 보기 전에 동결한 평가 분할 (#168, 신규 장애 주입). 정답을 고치면 dev로 강등한다 */
+    public static final Path TEST_CASES = Path.of("src/test/resources/diagnosis-eval/test-cases");
     public static final ObjectMapper JSON = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -203,7 +205,7 @@ public final class DiagnosisEval {
 
     /**
      * base: #99 사례, rag: #104 가공 사례, blind-tune·blind-test: #123 독립 작성 사례,
-     * hard: #158 기계 변형 회귀·보류 검사(감사용 사례는 자동 채점에서 뺀다)
+     * hard: #158 기계 변형 회귀·보류 검사(감사용 사례는 자동 채점에서 뺀다), test: #168 동결 평가 분할
      */
     public static List<Case> loadCaseSet(String caseSet) throws IOException {
         if (caseSet.equals("hard")) {
@@ -213,6 +215,7 @@ public final class DiagnosisEval {
             case "rag" -> RAG_CASES;
             case "blind-tune" -> BLIND_CASES.resolve("tune");
             case "blind-test" -> BLIND_CASES.resolve("test");
+            case "test" -> TEST_CASES;
             default -> CASES;
         });
     }

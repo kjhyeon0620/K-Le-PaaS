@@ -1,0 +1,197 @@
+{
+  "id": "t-ls-arch",
+  "group": "FROZEN-INJECTED",
+  "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에 #168 주입(ledger-sync, 변경 {\"image\": \"2.0.0\"}), 회복 배포 SUCCESS",
+  "episode_id": "t-ls-arch",
+  "split": "test",
+  "slice": "UNSUPPORTED_OBSERVED",
+  "injection": {
+    "intent": "amd64 전용 이미지를 ARM64 노드에 배포(아키텍처 불일치)",
+    "observed": "진입점 실행이 exec format error로 실패해 반복 종료. 입력으로는 아키텍처 문제와 파일 형식 문제를 구분할 수 없다",
+    "recovered": true
+  },
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 8,
+        "repository_id": 1,
+        "repository_name": "eval/e01-ledger-sync",
+        "branch_name": "main",
+        "commit_hash": "b000001",
+        "image_uri": "corp.local/ledger-sync:2.0.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e01-ledger-sync-bbc6ffb9-86zwm, generation=2, 마지막 종료=Error, exit=1): back-off 10s restarting failed container=eval-e01-ledger-sync pod=eval-e01-ledger-sync-bbc6ffb9-86zwm_default(7f9bef6f-32dd-4ed4-8885-27639a7a118a)",
+        "started_at": "2026-10-23T18:20:19.876714Z",
+        "finished_at": "2026-10-23T18:20:23.962311Z",
+        "created_at": "2026-10-23T18:20:19.876816Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "CRASH_LOOP",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "eval168"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 8080,
+        "domain_url": "e01-ledger-sync.eval.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "LOG_LEVEL"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/healthz",
+          "port": null,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "50m",
+          "cpu_limit": null,
+          "memory_request": "64Mi",
+          "memory_limit": "256Mi"
+        }
+      },
+      "previous_success": {
+        "id": 4,
+        "commit_hash": "a000001",
+        "image_uri": "corp.local/ledger-sync:1.9.0",
+        "image_digest": "sha256:1d6a53dc3bea16a3b757bd72a853f67058fbea76c355e948c34d89385e975bae",
+        "finished_at": "2026-10-23T18:20:19.480687Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "image_uri",
+          "before": "corp.local/ledger-sync:1.9.0",
+          "after": "corp.local/ledger-sync:2.0.0",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "CRASH_LOOP",
+        "title": "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary": "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks": [
+          "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다",
+          "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)",
+          "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 8,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e01-ledger-sync-bbc6ffb9-86zwm, generation=2, 마지막 종료=Error, exit=1): back-off 10s restarting failed container=eval-e01-ledger-sync pod=eval-e01-ledger-sync-bbc6ffb9-86zwm_default(7f9bef6f-32dd-4ed4-8885-27639a7a118a)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 8,
+      "pods": [
+        {
+          "name": "eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 1,
+          "state": "waiting",
+          "state_reason": "CrashLoopBackOff",
+          "state_message": "back-off 10s restarting failed container=eval-e01-ledger-sync pod=eval-e01-ledger-sync-bbc6ffb9-86zwm_default(7f9bef6f-32dd-4ed4-8885-27639a7a118a)",
+          "last_termination_reason": "Error",
+          "last_exit_code": 1,
+          "logs": [
+            "exec /entrypoint.sh: exec format error"
+          ],
+          "previous_logs": [
+            "exec /entrypoint.sh: exec format error"
+          ],
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container eval-e01-ledger-sync in pod eval-e01-ledger-sync-bbc6ffb9-86zwm_default(7f9bef6f-32dd-4ed4-8885-27639a7a118a)",
+          "object": "Pod/eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:22Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"corp.local/ledger-sync:2.0.0\" already present on machine",
+          "object": "Pod/eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container eval-e01-ledger-sync",
+          "object": "Pod/eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container eval-e01-ledger-sync",
+          "object": "Pod/eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/eval-e01-ledger-sync-bbc6ffb9-86zwm to 047c7df1a48f",
+          "object": "Pod/eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "count": null,
+          "last_seen": "2026-10-23T18:20:19.912819Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: eval-e01-ledger-sync-bbc6ffb9-86zwm",
+          "object": "ReplicaSet/eval-e01-ledger-sync-bbc6ffb9",
+          "count": 1,
+          "last_seen": "2026-10-23T18:20:19Z"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "category": null,
+    "root_cause": null,
+    "evidence": [],
+    "evidence_sets": [],
+    "abstain": true,
+    "forbidden": [],
+    "allowed_hypotheses": [
+      "이미지 아키텍처와 노드 아키텍처 불일치 가능성",
+      "진입점 파일 형식(인터프리터 지정 누락 등) 문제 가능성"
+    ],
+    "forbidden_assertions": [
+      "아키텍처 불일치를 확인된 원인으로 단정"
+    ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#168 정답 작성(Claude Code, 판정 가이드 적용). 독립 판정 일치도는 스펙 0168",
+    "at": "2026-10-24"
+  },
+  "notes": "#168 amd64 전용 이미지를 ARM64 노드에 배포(아키텍처 불일치)"
+}
