@@ -2,6 +2,10 @@
 
 형식·분할 규칙은 [평가 명세](../../../../../docs/eval/diagnosis-eval-spec.md). 버전이 바뀌면 이전 버전 점수와 직접 비교할 수 없는 경우가 있어 그 범위를 함께 적는다.
 
+## 회귀 기준 (2026-10-25, #172)
+- 사례는 바뀌지 않았다(데이터셋 1.1.0 그대로). 이미 측정한 기준 실행 7개의 모델 원문을 `baselines/`에 두고 기대 요약 `baselines/expected.json`을 만들었다: `gpt-6-luna` dev #99(#115 기준선 2차)·dev #123·robustness(#158, 감사용 1건 제외)·test(#168), `gemma4:26b-a4b` dev #99(#152)·dev #123(#154)·test(#168). 모두 `diagnosis-v1` 프롬프트.
+- 이후 `expected.json`을 다시 쓸 때는 여기에 날짜·이슈·이유·바뀐 항목을 적는다.
+
 ## 1.1.0 (2026-10-24, #168)
 - `test` 분할 14건을 추가하고 모델 측정 전에 동결했다(`test-cases/`). 로컬 k3s에 신규 장애를 주입하고 회복까지 확인한 캡처다: 실행 형식 오류 2종(아키텍처 불일치·shebang 없음), exit 137 2종(OOMKilled·OOM 아님), connection refused 2종(잘못된 probe 포트·느린 기동), 로그 없는 종료, 각각 서로 다른 앱 2개.
 - 갈래: SUPPORTED 2, UNSUPPORTED_OBSERVED 10, INSUFFICIENT 2. 정답은 Claude Code가 판정 가이드로 붙였고 Gemini 독립 판정과 14건 모두 일치했다. 사람 판정은 하지 않았다.

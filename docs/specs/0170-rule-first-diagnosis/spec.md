@@ -114,6 +114,8 @@ branch: feat/#170-rule-first-diagnosis
 
 ## 운영 반영
 - 머지 후 배포 workflow 결과와 운영 확인(Q3) 결과를 다음 PR에서 기록한다.
+- 2026-10-25 머지(#171) 후 `main` 배포 workflow 성공(build·deploy). 운영 설정 변경 없음(`DIAGNOSIS_RULE_FIRST_ENABLED` 미설정 = 기본 켬).
+- 2026-10-25 운영 확인(사용자 승인, #105와 같은 CLI 토큰 방식): 운영 샘플 앱 readiness probe 포트를 비움 → 9090으로 바꿔 같은 이미지로 배포 → #26 FAILED·READINESS_TIMEOUT(120초, 기존 Pod `available=1` 유지) → 진단 `model=rule`·`signature-v1.2`·`READINESS/probe_port_closed`, 근거 `/logs/events/0`, 요약 "readiness probe가 9090 포트에서 연결을 거부당했습니다. 컨테이너 포트는 8080입니다.", 경고 "모델을 호출하지 않았습니다", 응답 0.31초 → probe를 원래 값으로 되돌려 재배포 #27 SUCCESS, 설정이 원래와 같음을 비교 확인. 원자료 `.local/evidence/0170-rule-first-diagnosis/ops/`.
 
 ## 회고
 - 어긋난 점: 규칙 결과의 관측 사실에 이벤트 JSON 원문이 그대로 들어갔다. 실제 응답을 보고서야 알았다.
