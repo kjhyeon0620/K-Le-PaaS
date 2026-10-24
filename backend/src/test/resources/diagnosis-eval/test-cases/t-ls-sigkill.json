@@ -1,0 +1,212 @@
+{
+  "id": "t-ls-sigkill",
+  "group": "FROZEN-INJECTED",
+  "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에 #168 주입(ledger-sync, 변경 {\"image\": \"2.1.0\"}), 회복 배포 SUCCESS",
+  "episode_id": "t-ls-sigkill",
+  "split": "test",
+  "slice": "UNSUPPORTED_OBSERVED",
+  "injection": {
+    "intent": "새 버전의 작업 프로세스가 SIGKILL로 종료(OOM 아님)",
+    "observed": "기동 후 Killed 로그와 exit 137(종료 사유 Error)로 반복 종료. OOMKilled는 관측되지 않았다",
+    "recovered": true
+  },
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 5,
+        "repository_id": 3,
+        "repository_name": "eval/e04-ledger-sync",
+        "branch_name": "main",
+        "commit_hash": "b000004",
+        "image_uri": "corp.local/ledger-sync:2.1.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e04-ledger-sync-5c96f7fd6d-cpdhd, generation=2, 마지막 종료=Error, exit=137): back-off 20s restarting failed container=eval-e04-ledger-sync pod=eval-e04-ledger-sync-5c96f7fd6d-cpdhd_default(8bfebdd2-627b-4a17-8024-934dcec26171)",
+        "started_at": "2026-10-23T18:20:19.679022Z",
+        "finished_at": "2026-10-23T18:21:02.096774Z",
+        "created_at": "2026-10-23T18:20:19.679224Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "CRASH_LOOP",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "eval168"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 8080,
+        "domain_url": "e04-ledger-sync.eval.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "LOG_LEVEL"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/healthz",
+          "port": null,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "50m",
+          "cpu_limit": null,
+          "memory_request": "64Mi",
+          "memory_limit": "256Mi"
+        }
+      },
+      "previous_success": {
+        "id": 3,
+        "commit_hash": "a000004",
+        "image_uri": "corp.local/ledger-sync:1.9.0",
+        "image_digest": "sha256:1d6a53dc3bea16a3b757bd72a853f67058fbea76c355e948c34d89385e975bae",
+        "finished_at": "2026-10-23T18:20:19.480739Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "image_uri",
+          "before": "corp.local/ledger-sync:1.9.0",
+          "after": "corp.local/ledger-sync:2.1.0",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "CRASH_LOOP",
+        "title": "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary": "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks": [
+          "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다",
+          "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)",
+          "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 5,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e04-ledger-sync-5c96f7fd6d-cpdhd, generation=2, 마지막 종료=Error, exit=137): back-off 20s restarting failed container=eval-e04-ledger-sync pod=eval-e04-ledger-sync-5c96f7fd6d-cpdhd_default(8bfebdd2-627b-4a17-8024-934dcec26171)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 5,
+      "pods": [
+        {
+          "name": "eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 2,
+          "state": "waiting",
+          "state_reason": "CrashLoopBackOff",
+          "state_message": "back-off 20s restarting failed container=eval-e04-ledger-sync pod=eval-e04-ledger-sync-5c96f7fd6d-cpdhd_default(8bfebdd2-627b-4a17-8024-934dcec26171)",
+          "last_termination_reason": "Error",
+          "last_exit_code": 137,
+          "logs": [
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: starting version 2.1.0",
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: configuration loaded",
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: in-memory index loaded",
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: listening on 0.0.0.0:8080",
+            "Killed"
+          ],
+          "previous_logs": [
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: starting version 2.1.0",
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: configuration loaded",
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: in-memory index loaded",
+            "2026-10-23T18:20:43Z [INFO] ledger-sync: listening on 0.0.0.0:8080",
+            "Killed"
+          ],
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container eval-e04-ledger-sync in pod eval-e04-ledger-sync-5c96f7fd6d-cpdhd_default(8bfebdd2-627b-4a17-8024-934dcec26171)",
+          "object": "Pod/eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "count": 3,
+          "last_seen": "2026-10-23T18:21:01Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: Get \"http://10.42.0.7:8080/healthz\": dial tcp 10.42.0.7:8080: connect: connection refused",
+          "object": "Pod/eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "count": 10,
+          "last_seen": "2026-10-23T18:20:46Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"corp.local/ledger-sync:2.1.0\" already present on machine",
+          "object": "Pod/eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "count": 3,
+          "last_seen": "2026-10-23T18:20:43Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container eval-e04-ledger-sync",
+          "object": "Pod/eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "count": 3,
+          "last_seen": "2026-10-23T18:20:43Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container eval-e04-ledger-sync",
+          "object": "Pod/eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "count": 3,
+          "last_seen": "2026-10-23T18:20:43Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/eval-e04-ledger-sync-5c96f7fd6d-cpdhd to 047c7df1a48f",
+          "object": "Pod/eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "count": null,
+          "last_seen": "2026-10-23T18:20:19.738622Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: eval-e04-ledger-sync-5c96f7fd6d-cpdhd",
+          "object": "ReplicaSet/eval-e04-ledger-sync-5c96f7fd6d",
+          "count": 1,
+          "last_seen": "2026-10-23T18:20:19Z"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "category": null,
+    "root_cause": null,
+    "evidence": [],
+    "evidence_sets": [],
+    "abstain": true,
+    "forbidden": [],
+    "allowed_hypotheses": [
+      "메모리 부족 등 외부에서 SIGKILL을 보냈을 가능성(가설)"
+    ],
+    "forbidden_assertions": [
+      "OOMKilled(메모리 부족)를 확인된 사실로 단정"
+    ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#168 정답 작성(Claude Code, 판정 가이드 적용). 독립 판정 일치도는 스펙 0168",
+    "at": "2026-10-24"
+  },
+  "notes": "#168 새 버전의 작업 프로세스가 SIGKILL로 종료(OOM 아님)"
+}

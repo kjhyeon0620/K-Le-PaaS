@@ -1,0 +1,204 @@
+{
+  "id": "t-mi-probe-port",
+  "group": "FROZEN-INJECTED",
+  "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에 #168 주입(media-indexer, 변경 {\"probe_port\": 9001}), 회복 배포 SUCCESS",
+  "episode_id": "t-mi-probe-port",
+  "split": "test",
+  "slice": "SUPPORTED",
+  "injection": {
+    "intent": "readiness probe 포트를 컨테이너 포트 + 1로 바꿈",
+    "observed": "probe_port_closed",
+    "recovered": true
+  },
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 32,
+        "repository_id": 12,
+        "repository_name": "eval/e12-media-indexer",
+        "branch_name": "main",
+        "commit_hash": "b000012",
+        "image_uri": "corp.local/media-indexer:1.9.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=eval-e12-media-indexer-6fb7d7f9b7-dg4zv 실행 중이나 Ready 아님 (restarts=0)",
+        "started_at": "2026-10-23T18:21:08.911436Z",
+        "finished_at": "2026-10-23T18:22:39.956757Z",
+        "created_at": "2026-10-23T18:21:08.911644Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "READINESS_TIMEOUT",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "eval168"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 9000,
+        "domain_url": "e12-media-indexer.eval.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "LOG_LEVEL"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/healthz",
+          "port": 9001,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "50m",
+          "cpu_limit": null,
+          "memory_request": "64Mi",
+          "memory_limit": "256Mi"
+        }
+      },
+      "previous_success": {
+        "id": 30,
+        "commit_hash": "a000012",
+        "image_uri": "corp.local/media-indexer:1.9.0",
+        "image_digest": "sha256:2d4b12e0b1e8d4d42607f8e895c441046ae57cc8daaf8fce25bd778babef841d",
+        "finished_at": "2026-10-23T18:21:08.658676Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "health_probe",
+          "before": "HealthProbe[path=/healthz, port=null, initialDelaySeconds=0, periodSeconds=2, failureThreshold=2, startupFailureThreshold=null]",
+          "after": "HealthProbe[path=/healthz, port=9001, initialDelaySeconds=0, periodSeconds=2, failureThreshold=2, startupFailureThreshold=null]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "READINESS_TIMEOUT",
+        "title": "readiness probe를 통과하지 못했습니다",
+        "summary": "컨테이너는 실행 중이지만 제한 시간 안에 Ready가 되지 않았습니다. 기존 Pod는 계속 응답합니다.",
+        "checks": [
+          "이벤트의 Readiness probe failed 메시지(상태 코드)를 확인합니다",
+          "health probe 경로·포트가 앱과 맞는지 확인합니다",
+          "앱 기동이 rollout 제한 시간보다 오래 걸리는지 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 32,
+      "status": "FAILED",
+      "fail_reason": "rollout 타임아웃(90초, generation=2): observedGeneration=2, updated=1, available=1, unavailable=1; pod=eval-e12-media-indexer-6fb7d7f9b7-dg4zv 실행 중이나 Ready 아님 (restarts=0)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 32,
+      "pods": [
+        {
+          "name": "eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 0,
+          "state": "running",
+          "state_reason": null,
+          "state_message": null,
+          "last_termination_reason": null,
+          "last_exit_code": null,
+          "logs": [
+            "{\"ts\":\"2026-10-23T18:21:09Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"starting version 1.9.0\"}",
+            "{\"ts\":\"2026-10-23T18:21:09Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"configuration loaded\"}",
+            "{\"ts\":\"2026-10-23T18:21:09Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"in-memory index loaded\"}",
+            "{\"ts\":\"2026-10-23T18:21:09Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"listening on 0.0.0.0:9000\"}"
+          ],
+          "previous_logs": null,
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: Get \"http://10.42.0.26:9001/healthz\": dial tcp 10.42.0.26:9001: connect: connection refused",
+          "object": "Pod/eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "count": 22,
+          "last_seen": "2026-10-23T18:21:49Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"corp.local/media-indexer:1.9.0\" already present on machine",
+          "object": "Pod/eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "count": 1,
+          "last_seen": "2026-10-23T18:21:09Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container eval-e12-media-indexer",
+          "object": "Pod/eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "count": 1,
+          "last_seen": "2026-10-23T18:21:09Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container eval-e12-media-indexer",
+          "object": "Pod/eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "count": 1,
+          "last_seen": "2026-10-23T18:21:09Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/eval-e12-media-indexer-6fb7d7f9b7-dg4zv to 047c7df1a48f",
+          "object": "Pod/eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "count": null,
+          "last_seen": "2026-10-23T18:21:08.954317Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: eval-e12-media-indexer-6fb7d7f9b7-dg4zv",
+          "object": "ReplicaSet/eval-e12-media-indexer-6fb7d7f9b7",
+          "count": 1,
+          "last_seen": "2026-10-23T18:21:08Z"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "category": "READINESS",
+    "root_cause": "probe_port_closed",
+    "evidence": [
+      "/detail/config/container_port",
+      "/logs/events/0",
+      "/logs/pods/0/logs/3"
+    ],
+    "evidence_sets": [
+      [
+        "/logs/events/0",
+        "/detail/config/container_port"
+      ],
+      [
+        "/logs/events/0",
+        "/logs/pods/0/logs/3"
+      ]
+    ],
+    "abstain": false,
+    "forbidden": []
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#168 정답 작성(Claude Code, 판정 가이드 적용). 독립 판정 일치도는 스펙 0168",
+    "at": "2026-10-24"
+  },
+  "notes": "#168 readiness probe 포트를 컨테이너 포트 + 1로 바꿈"
+}

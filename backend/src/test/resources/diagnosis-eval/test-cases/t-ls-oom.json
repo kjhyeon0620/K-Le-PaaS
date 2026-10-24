@@ -1,0 +1,198 @@
+{
+  "id": "t-ls-oom",
+  "group": "FROZEN-INJECTED",
+  "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에 #168 주입(ledger-sync, 변경 {\"memory_limit\": \"64Mi\"}), 회복 배포 SUCCESS",
+  "episode_id": "t-ls-oom",
+  "split": "test",
+  "slice": "UNSUPPORTED_OBSERVED",
+  "injection": {
+    "intent": "메모리 limit을 256Mi에서 64Mi로 낮춤(기동 때 약 120MB 사용)",
+    "observed": "컨테이너가 OOMKilled(exit 137)로 반복 종료. 직전 변경은 resources",
+    "recovered": true
+  },
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 7,
+        "repository_id": 4,
+        "repository_name": "eval/e03-ledger-sync",
+        "branch_name": "main",
+        "commit_hash": "b000003",
+        "image_uri": "corp.local/ledger-sync:1.9.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e03-ledger-sync-5c96584dbc-4tqsl, generation=2, 마지막 종료=OOMKilled, exit=137): back-off 10s restarting failed container=eval-e03-ledger-sync pod=eval-e03-ledger-sync-5c96584dbc-4tqsl_default(b5978e80-3976-42fa-98a2-974529559e8a)",
+        "started_at": "2026-10-23T18:20:19.793514Z",
+        "finished_at": "2026-10-23T18:20:23.887773Z",
+        "created_at": "2026-10-23T18:20:19.793671Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "CRASH_LOOP",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "eval168"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 8080,
+        "domain_url": "e03-ledger-sync.eval.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "LOG_LEVEL"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/healthz",
+          "port": null,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "50m",
+          "cpu_limit": null,
+          "memory_request": "64Mi",
+          "memory_limit": "64Mi"
+        }
+      },
+      "previous_success": {
+        "id": 2,
+        "commit_hash": "a000003",
+        "image_uri": "corp.local/ledger-sync:1.9.0",
+        "image_digest": "sha256:1d6a53dc3bea16a3b757bd72a853f67058fbea76c355e948c34d89385e975bae",
+        "finished_at": "2026-10-23T18:20:19.480906Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "resources",
+          "before": "ContainerResources[cpuRequest=50m, cpuLimit=null, memoryRequest=64Mi, memoryLimit=256Mi]",
+          "after": "ContainerResources[cpuRequest=50m, cpuLimit=null, memoryRequest=64Mi, memoryLimit=64Mi]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "CRASH_LOOP",
+        "title": "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary": "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks": [
+          "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다",
+          "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)",
+          "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 7,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e03-ledger-sync-5c96584dbc-4tqsl, generation=2, 마지막 종료=OOMKilled, exit=137): back-off 10s restarting failed container=eval-e03-ledger-sync pod=eval-e03-ledger-sync-5c96584dbc-4tqsl_default(b5978e80-3976-42fa-98a2-974529559e8a)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 7,
+      "pods": [
+        {
+          "name": "eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 1,
+          "state": "waiting",
+          "state_reason": "CrashLoopBackOff",
+          "state_message": "back-off 10s restarting failed container=eval-e03-ledger-sync pod=eval-e03-ledger-sync-5c96584dbc-4tqsl_default(b5978e80-3976-42fa-98a2-974529559e8a)",
+          "last_termination_reason": "OOMKilled",
+          "last_exit_code": 137,
+          "logs": [
+            "2026-10-23T18:20:20Z [INFO] ledger-sync: starting version 1.9.0",
+            "2026-10-23T18:20:20Z [INFO] ledger-sync: configuration loaded"
+          ],
+          "previous_logs": [
+            "2026-10-23T18:20:20Z [INFO] ledger-sync: starting version 1.9.0",
+            "2026-10-23T18:20:20Z [INFO] ledger-sync: configuration loaded"
+          ],
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container eval-e03-ledger-sync in pod eval-e03-ledger-sync-5c96584dbc-4tqsl_default(b5978e80-3976-42fa-98a2-974529559e8a)",
+          "object": "Pod/eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:22Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"corp.local/ledger-sync:1.9.0\" already present on machine",
+          "object": "Pod/eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container eval-e03-ledger-sync",
+          "object": "Pod/eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container eval-e03-ledger-sync",
+          "object": "Pod/eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/eval-e03-ledger-sync-5c96584dbc-4tqsl to 047c7df1a48f",
+          "object": "Pod/eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "count": null,
+          "last_seen": "2026-10-23T18:20:19.837770Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: eval-e03-ledger-sync-5c96584dbc-4tqsl",
+          "object": "ReplicaSet/eval-e03-ledger-sync-5c96584dbc",
+          "count": 1,
+          "last_seen": "2026-10-23T18:20:19Z"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "category": null,
+    "root_cause": null,
+    "evidence": [],
+    "evidence_sets": [],
+    "abstain": true,
+    "forbidden": [],
+    "allowed_hypotheses": [
+      "메모리 limit이 앱 기동 사용량보다 작음"
+    ],
+    "forbidden_assertions": [
+      "메모리 누수를 확인된 원인으로 단정"
+    ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#168 정답 작성(Claude Code, 판정 가이드 적용). 독립 판정 일치도는 스펙 0168",
+    "at": "2026-10-24"
+  },
+  "notes": "#168 메모리 limit을 256Mi에서 64Mi로 낮춤(기동 때 약 120MB 사용)"
+}

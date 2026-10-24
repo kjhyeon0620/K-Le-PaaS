@@ -1,0 +1,198 @@
+{
+  "id": "t-mi-oom",
+  "group": "FROZEN-INJECTED",
+  "provenance": "captured: 패키징 JAR + 로컬 임시 k3s v1.30.6에 #168 주입(media-indexer, 변경 {\"memory_limit\": \"64Mi\"}), 회복 배포 SUCCESS",
+  "episode_id": "t-mi-oom",
+  "split": "test",
+  "slice": "UNSUPPORTED_OBSERVED",
+  "injection": {
+    "intent": "메모리 limit을 256Mi에서 64Mi로 낮춤(기동 때 약 120MB 사용)",
+    "observed": "컨테이너가 OOMKilled(exit 137)로 반복 종료. 직전 변경은 resources",
+    "recovered": true
+  },
+  "input": {
+    "detail": {
+      "deployment": {
+        "id": 26,
+        "repository_id": 10,
+        "repository_name": "eval/e10-media-indexer",
+        "branch_name": "main",
+        "commit_hash": "b000010",
+        "image_uri": "corp.local/media-indexer:1.9.0",
+        "status": "FAILED",
+        "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e10-media-indexer-cd4b54c89-44kb8, generation=2, 마지막 종료=OOMKilled, exit=137): back-off 10s restarting failed container=eval-e10-media-indexer pod=eval-e10-media-indexer-cd4b54c89-44kb8_default(5a446485-17f9-4c81-9c81-e6450e45b88d)",
+        "started_at": "2026-10-23T18:20:56.533731Z",
+        "finished_at": "2026-10-23T18:21:00.615029Z",
+        "created_at": "2026-10-23T18:20:56.533784Z",
+        "trigger_source": "CLI",
+        "requested_by_user_id": 1,
+        "command_log_id": null,
+        "image_digest": null,
+        "failure_kind": "CRASH_LOOP",
+        "recovered_from_deployment_id": null
+      },
+      "requested_by": {
+        "user_id": 1,
+        "name": "eval168"
+      },
+      "command": null,
+      "config": {
+        "build_strategy": "PREBUILT_IMAGE",
+        "image_uri_template": null,
+        "min_replicas": 1,
+        "max_replicas": 1,
+        "container_port": 9000,
+        "domain_url": "e10-media-indexer.eval.test",
+        "service_type": "CLUSTER_IP",
+        "node_port": null,
+        "env_names": [
+          "LOG_LEVEL"
+        ],
+        "env_from_config_maps": [],
+        "env_from_secrets": [],
+        "image_pull_secret_enabled": false,
+        "image_pull_secret_name": null,
+        "health_probe": {
+          "path": "/healthz",
+          "port": null,
+          "initial_delay_seconds": 0,
+          "period_seconds": 2,
+          "failure_threshold": 2,
+          "startup_failure_threshold": null
+        },
+        "resources": {
+          "cpu_request": "50m",
+          "cpu_limit": null,
+          "memory_request": "64Mi",
+          "memory_limit": "64Mi"
+        }
+      },
+      "previous_success": {
+        "id": 25,
+        "commit_hash": "a000010",
+        "image_uri": "corp.local/media-indexer:1.9.0",
+        "image_digest": "sha256:2d4b12e0b1e8d4d42607f8e895c441046ae57cc8daaf8fce25bd778babef841d",
+        "finished_at": "2026-10-23T18:20:56.436930Z"
+      },
+      "comparison": "AVAILABLE",
+      "changes": [
+        {
+          "field": "resources",
+          "before": "ContainerResources[cpuRequest=50m, cpuLimit=null, memoryRequest=64Mi, memoryLimit=256Mi]",
+          "after": "ContainerResources[cpuRequest=50m, cpuLimit=null, memoryRequest=64Mi, memoryLimit=64Mi]",
+          "kind": "CHANGED"
+        }
+      ],
+      "explanation": {
+        "kind": "CRASH_LOOP",
+        "title": "컨테이너가 시작 후 반복해서 종료됩니다",
+        "summary": "컨테이너가 실행 직후 종료돼 Kubernetes가 재시작을 반복하고 있습니다.",
+        "checks": [
+          "Logs의 직전 컨테이너 로그에서 종료 이유를 확인합니다",
+          "필수 환경 변수와 설정이 빠지지 않았는지 확인합니다 (변경 내역의 env)",
+          "마지막 종료 사유가 OOMKilled면 메모리 limit을 확인합니다"
+        ]
+      }
+    },
+    "logs": {
+      "deployment_id": 26,
+      "status": "FAILED",
+      "fail_reason": "rollout 실패: CrashLoopBackOff (pod=eval-e10-media-indexer-cd4b54c89-44kb8, generation=2, 마지막 종료=OOMKilled, exit=137): back-off 10s restarting failed container=eval-e10-media-indexer pod=eval-e10-media-indexer-cd4b54c89-44kb8_default(5a446485-17f9-4c81-9c81-e6450e45b88d)",
+      "observation": "AVAILABLE",
+      "observation_message": null,
+      "applied_deployment_id": 26,
+      "pods": [
+        {
+          "name": "eval-e10-media-indexer-cd4b54c89-44kb8",
+          "phase": "Running",
+          "ready": false,
+          "restart_count": 1,
+          "state": "waiting",
+          "state_reason": "CrashLoopBackOff",
+          "state_message": "back-off 10s restarting failed container=eval-e10-media-indexer pod=eval-e10-media-indexer-cd4b54c89-44kb8_default(5a446485-17f9-4c81-9c81-e6450e45b88d)",
+          "last_termination_reason": "OOMKilled",
+          "last_exit_code": 137,
+          "logs": [
+            "{\"ts\":\"2026-10-23T18:20:57Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"starting version 1.9.0\"}",
+            "{\"ts\":\"2026-10-23T18:20:57Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"configuration loaded\"}"
+          ],
+          "previous_logs": [
+            "{\"ts\":\"2026-10-23T18:20:57Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"starting version 1.9.0\"}",
+            "{\"ts\":\"2026-10-23T18:20:57Z\",\"level\":\"info\",\"svc\":\"media-indexer\",\"msg\":\"configuration loaded\"}"
+          ],
+          "logs_error": null
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container eval-e10-media-indexer in pod eval-e10-media-indexer-cd4b54c89-44kb8_default(5a446485-17f9-4c81-9c81-e6450e45b88d)",
+          "object": "Pod/eval-e10-media-indexer-cd4b54c89-44kb8",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:59Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Container image \"corp.local/media-indexer:1.9.0\" already present on machine",
+          "object": "Pod/eval-e10-media-indexer-cd4b54c89-44kb8",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:57Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container eval-e10-media-indexer",
+          "object": "Pod/eval-e10-media-indexer-cd4b54c89-44kb8",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:57Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container eval-e10-media-indexer",
+          "object": "Pod/eval-e10-media-indexer-cd4b54c89-44kb8",
+          "count": 2,
+          "last_seen": "2026-10-23T18:20:57Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "Successfully assigned default/eval-e10-media-indexer-cd4b54c89-44kb8 to 047c7df1a48f",
+          "object": "Pod/eval-e10-media-indexer-cd4b54c89-44kb8",
+          "count": null,
+          "last_seen": "2026-10-23T18:20:56.566839Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "SuccessfulCreate",
+          "message": "Created pod: eval-e10-media-indexer-cd4b54c89-44kb8",
+          "object": "ReplicaSet/eval-e10-media-indexer-cd4b54c89",
+          "count": 1,
+          "last_seen": "2026-10-23T18:20:56Z"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "category": null,
+    "root_cause": null,
+    "evidence": [],
+    "evidence_sets": [],
+    "abstain": true,
+    "forbidden": [],
+    "allowed_hypotheses": [
+      "메모리 limit이 앱 기동 사용량보다 작음"
+    ],
+    "forbidden_assertions": [
+      "메모리 누수를 확인된 원인으로 단정"
+    ]
+  },
+  "audit": {
+    "status": "kept",
+    "reason": "#168 정답 작성(Claude Code, 판정 가이드 적용). 독립 판정 일치도는 스펙 0168",
+    "at": "2026-10-24"
+  },
+  "notes": "#168 메모리 limit을 256Mi에서 64Mi로 낮춤(기동 때 약 120MB 사용)"
+}

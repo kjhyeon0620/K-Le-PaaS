@@ -29,7 +29,8 @@ class DiagnosisDatasetTest {
     static final Path ROOT = Path.of("src/test/resources/diagnosis-eval");
     static final Path MANIFEST = ROOT.resolve("manifest.json");
     /** 데이터셋에 속한 사례 디렉터리. RAG 가공 사례와 #123 조정용·과거 사건은 평가 분할에 넣지 않는다 */
-    static final List<Path> DIRS = List.of(DiagnosisEval.CASES, DiagnosisEval.BLIND_CASES.resolve("test"), DiagnosisEval.HARD_CASES);
+    static final List<Path> DIRS = List.of(DiagnosisEval.CASES, DiagnosisEval.BLIND_CASES.resolve("test"), DiagnosisEval.HARD_CASES,
+            DiagnosisEval.TEST_CASES);
     static final List<String> SPLITS = List.of("dev", "test", "robustness");
     static final Set<String> SLICES = Set.of("SUPPORTED", "UNSUPPORTED_OBSERVED", "INSUFFICIENT", "CONFLICT", "ROBUSTNESS");
     static final Set<String> AUDIT = Set.of("kept", "corrected", "multi_answer", "undecidable");
