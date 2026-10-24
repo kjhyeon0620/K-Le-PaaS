@@ -3,7 +3,8 @@ package klepaas.backend.diagnosis.eval;
 import com.fasterxml.jackson.databind.JsonNode;
 import klepaas.backend.diagnosis.eval.DiagnosisEval.Case;
 import klepaas.backend.diagnosis.eval.DiagnosisEval.Expected;
-import klepaas.backend.diagnosis.eval.SignatureRuleBaseline.State;
+import klepaas.backend.ai.diagnosis.SignatureRules;
+import klepaas.backend.ai.diagnosis.SignatureRules.State;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -50,7 +51,7 @@ class DiagnosisPolicyComparisonTest {
                     unresolved.append("| ").append(v.getKey()).append(" | ").append(entry.getKey()).append(" | 채점 묶음 밖 | - | - | - |\n");
                     return;
                 }
-                var rule = SignatureRuleBaseline.diagnose(c.input());
+                var rule = SignatureRules.diagnose(c.input());
                 String ruleAnswer = rule.state() == State.MATCH ? rule.rootCause() : null;
                 int[] llmOnCase = new int[3];
                 for (JsonNode run : entry.getValue()) {

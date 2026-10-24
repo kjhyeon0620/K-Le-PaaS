@@ -35,7 +35,7 @@ class DeploymentDiagnosisServiceTest {
     private final JsonMapper json =
             JsonMapper.builder().propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE).build();
     private final DeploymentDiagnosisService service =
-            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge);
+            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, true);
 
     {
         when(gemini.model()).thenReturn("luna");
@@ -197,6 +197,78 @@ class DeploymentDiagnosisServiceTest {
         assertThat(result.warnings()).contains("지식 검색에 실패해 지식 없이 진단했습니다");
         assertThat(result.knowledge()).isEmpty();
         assertThat(result.retrievedKnowledge()).isEmpty();
+    }
+
+    /** #168에서 로컬 k3s로 캡처한 사례의 상세·로그를 서비스가 받는 DTO로 돌려준다 */
+    private void observed(String caseId) throws Exception {
+        var c = klepaas.backend.diagnosis.eval.DiagnosisEval.loadCaseSet("test").stream().filter(x -> x.id().equals(caseId)).findFirst().orElseThrow();
+        when(details.getDetail(7L, 1L)).thenReturn(json.readValue(c.input().get("detail").toString(), DeploymentDetailResponse.class));
+        when(deployments.getDeploymentLogs(7L, 40, 1L)).thenReturn(json.readValue(c.input().get("logs").toString(), DeploymentLogResponse.class));
+    }
+
+    @Test
+    void ruleMatchDiagnosesWithoutModelOrKnowledgeAndIsSaved() throws Exception {
+        observed("t-ls-probe-port");
+
+        var result = service.diagnose(7L, 1L, false);
+
+        assertThat(result.model()).isEqualTo("rule");
+        assertThat(result.promptVersion()).isEqualTo(SignatureRules.RULE_VERSION);
+        assertThat(result.category()).isEqualTo("READINESS");
+        assertThat(result.rootCause()).isEqualTo("probe_port_closed");
+        assertThat(result.abstain()).isFalse();
+        assertThat(result.summary()).contains("8081").contains("8080");
+        assertThat(result.cited()).extracting(DiagnosisPrompt.Citation::pointer).containsExactly("/logs/events/0");
+        assertThat(result.cited().get(0).excerpt()).contains("connection refused");
+        assertThat(result.observedFacts()).singleElement().satisfies(f -> assertThat(f).startsWith("Unhealthy: Readiness probe failed"));
+        assertThat(result.warnings()).singleElement().satisfies(w -> assertThat(w).contains("R-PROBE-PORT").contains("모델을 호출하지 않았습니다"));
+        verify(gemini, never()).completeJson(any());
+        verifyNoInteractions(knowledge);
+        var saved = ArgumentCaptor.forClass(DeploymentDiagnosis.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getRequestedModel()).isEqualTo("rule");
+        assertThat(saved.getValue().getPromptVersion()).isEqualTo(SignatureRules.RULE_VERSION);
+        assertThat(saved.getValue().getInputTokens()).isNull();
+    }
+
+    @Test
+    void ruleNoMatchFallsBackToModel() throws Exception {
+        // 느린 기동: 컨테이너 포트에서 연결 거부라 규칙이 원인을 정하지 않는다 (#168)
+        observed("t-ls-slow-start");
+        when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
+
+        var result = service.diagnose(7L, 1L, false);
+
+        verify(gemini).completeJson(any());
+        assertThat(result.promptVersion()).isEqualTo(DiagnosisPrompt.VERSION);
+        assertThat(result.warnings()).noneMatch(w -> w.contains("규칙"));
+    }
+
+    @Test
+    void ruleFirstDisabledAlwaysUsesModel() throws Exception {
+        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false);
+        observed("t-ls-probe-port");
+        when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
+
+        assertThat(off.diagnose(7L, 1L, false).model()).isEqualTo("model-test");
+        verify(gemini).completeJson(any());
+    }
+
+    @Test
+    void savedRuleResultIsReusedRegardlessOfModelOnlyWhileRuleFirst() throws Exception {
+        observed("t-ls-probe-port");
+        when(repository.findFirstByDeploymentIdOrderByIdDesc(7L)).thenReturn(Optional.of(new DeploymentDiagnosis(7L, "rule",
+                SignatureRules.RULE_VERSION, json.writeValueAsString(stored("READINESS")), null, null, null, null, null)));
+        when(gemini.model()).thenReturn("other-model");
+
+        assertThat(service.diagnose(7L, 1L, false).reused()).isTrue();
+        verifyNoInteractions(deployments);
+
+        // 규칙 우선을 끄면 저장된 규칙 결과를 쓰지 않고 모델로 진단한다
+        when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
+        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false);
+        assertThat(off.diagnose(7L, 1L, false).reused()).isFalse();
+        verify(gemini).completeJson(any());
     }
 
     private static DeploymentDiagnosisResponse stored(String category) {

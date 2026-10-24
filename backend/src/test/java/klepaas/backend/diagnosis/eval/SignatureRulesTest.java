@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import klepaas.backend.diagnosis.eval.DiagnosisEval.Case;
-import klepaas.backend.diagnosis.eval.SignatureRuleBaseline.State;
+import klepaas.backend.ai.diagnosis.SignatureRules;
+import klepaas.backend.ai.diagnosis.SignatureRules.State;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +18,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class SignatureRuleBaselineTest {
+class SignatureRulesTest {
 
     private static Case byId(String id) throws Exception {
         List<Case> all = new ArrayList<>(DiagnosisEval.loadCases());
@@ -28,14 +29,14 @@ class SignatureRuleBaselineTest {
     @Test
     @DisplayName("반례: 컨테이너 포트에서 거부된 연결은 포트 문제로 정하지 않는다")
     void refusedOnContainerPortIsNotDecided() throws Exception {
-        var r = SignatureRuleBaseline.diagnose(byId("g1-mq-prb-proto").input());
+        var r = SignatureRules.diagnose(byId("g1-mq-prb-proto").input());
         assertThat(r.state()).isEqualTo(State.NO_MATCH);
     }
 
     @Test
     @DisplayName("반례: 이미 실행·종료한 Pod의 FailedScheduling은 오래된 이벤트로 무시한다")
     void staleSchedulingEventIsIgnored() throws Exception {
-        var r = SignatureRuleBaseline.diagnose(byId("g1-my-env-miss").input());
+        var r = SignatureRules.diagnose(byId("g1-my-env-miss").input());
         assertThat(r.state()).isEqualTo(State.MATCH);
         assertThat(r.rootCause()).isEqualTo("required_env_missing");
         assertThat(r.matched()).containsExactly("R-ENV");
@@ -44,7 +45,7 @@ class SignatureRuleBaselineTest {
     @Test
     @DisplayName("반례: 종료하지 않는 Pod의 설정 누락 경고는 env 원인이 아니다")
     void warningOnHealthyContainerIsIgnored() throws Exception {
-        var r = SignatureRuleBaseline.diagnose(byId("g1-inf-prb-port").input());
+        var r = SignatureRules.diagnose(byId("g1-inf-prb-port").input());
         assertThat(r.matched()).doesNotContain("R-ENV");
         assertThat(r.rootCause()).isEqualTo("probe_port_closed");
         assertThat(r.evidence()).allSatisfy(p -> assertThat(p).startsWith("/logs/events/"));
@@ -56,7 +57,7 @@ class SignatureRuleBaselineTest {
         ObjectNode input = byId("env-postgres-password-missing").input().deepCopy();
         ((ArrayNode) input.at("/logs/events")).addObject().put("type", "Warning").put("reason", "Failed")
                 .put("message", "Failed to pull image \"postgres:previous\": not found").put("object", "Pod/demo-orders-db-5d9c7f6b44-old01");
-        var r = SignatureRuleBaseline.diagnose(input);
+        var r = SignatureRules.diagnose(input);
         assertThat(r.state()).isEqualTo(State.MATCH);
         assertThat(r.matched()).containsExactly("R-ENV");
     }
@@ -64,13 +65,13 @@ class SignatureRuleBaselineTest {
     @Test
     @DisplayName("관측이 없으면 INSUFFICIENT, 서로 다른 원인이 함께 맞으면 CONFLICT")
     void insufficientAndConflict() throws Exception {
-        assertThat(SignatureRuleBaseline.diagnose(byId("insufficient-observation-unavailable").input()).state())
+        assertThat(SignatureRules.diagnose(byId("insufficient-observation-unavailable").input()).state())
                 .isEqualTo(State.INSUFFICIENT);
 
         ObjectNode input = byId("env-postgres-password-missing").input().deepCopy();
         ((ArrayNode) input.at("/logs/events")).addObject().put("type", "Warning").put("reason", "Failed")
                 .put("message", "Failed to pull image \"postgres:16-alpine\": not found");
-        var r = SignatureRuleBaseline.diagnose(input);
+        var r = SignatureRules.diagnose(input);
         assertThat(r.state()).isEqualTo(State.CONFLICT);
         assertThat(r.matched()).containsExactlyInAnyOrder("R-ENV", "R-IMG-PULL");
     }
@@ -82,7 +83,7 @@ class SignatureRuleBaselineTest {
         ObjectNode input = c.input().deepCopy();
         ((ObjectNode) input.at("/detail/deployment")).put("failure_kind", "CRASH_LOOP");
         ((ObjectNode) input.at("/detail")).putNull("explanation");
-        assertThat(SignatureRuleBaseline.diagnose(input)).isEqualTo(SignatureRuleBaseline.diagnose(c.input()));
+        assertThat(SignatureRules.diagnose(input)).isEqualTo(SignatureRules.diagnose(c.input()));
     }
 
     /** 개발 세트 51사례의 규칙 결과를 리포트로 남기고 요약을 고정한다. 규칙을 바꾸면 스펙의 결과표도 갱신한다 */
@@ -90,21 +91,30 @@ class SignatureRuleBaselineTest {
     void developmentSetResult() throws Exception {
         List<Case> cases = new ArrayList<>(DiagnosisEval.loadCases());
         cases.addAll(DiagnosisEval.loadCaseSet("blind-test"));
-        assertThat(report(cases, "signature-rule-dev.json")).doesNotContainKeys("match_wrong", "match_on_abstain_case");
+        // 제품 규칙(#170)이 평가한 v1.2와 같은 결과를 내는지 고정한다 (#161 표)
+        assertThat(report(cases, "signature-rule-dev.json"))
+                .isEqualTo(Map.of("match_correct", 48, "no_match", 1, "insufficient_on_abstain_case", 2));
     }
 
     /** #158 회귀·보류 검사 23사례: 잡음과 추가 입력에 규칙이 흔들리지 않는지 (#158) */
     @Test
     void noiseSetResult() throws Exception {
         assertThat(report(DiagnosisEval.loadCaseSet("hard"), "signature-rule-noise.json"))
-                .doesNotContainKeys("match_wrong", "match_on_abstain_case");
+                .isEqualTo(Map.of("match_correct", 20, "no_match", 3));
+    }
+
+    /** #168 동결 평가 분할 14건: 잘못된 probe 포트 2건만 MATCH하고 분류 밖·증거 부족 장애에서는 MATCH하지 않는다 */
+    @Test
+    void frozenTestSetResult() throws Exception {
+        assertThat(report(DiagnosisEval.loadCaseSet("test"), "signature-rule-test.json"))
+                .isEqualTo(Map.of("match_correct", 2, "no_match", 12));
     }
 
     private static Map<String, Integer> report(List<Case> cases, String file) throws Exception {
         Map<String, Integer> summary = new LinkedHashMap<>();
         Map<String, Object> perCase = new LinkedHashMap<>();
         for (Case c : cases) {
-            var r = SignatureRuleBaseline.diagnose(c.input());
+            var r = SignatureRules.diagnose(c.input());
             String verdict = switch (r.state()) {
                 case MATCH -> c.expected().abstain() ? "match_on_abstain_case"
                         : c.expected().accepts(r.rootCause()) ? "match_correct" : "match_wrong";
@@ -118,7 +128,7 @@ class SignatureRuleBaselineTest {
         Path report = Path.of("build/diagnosis-eval/" + file);
         Files.createDirectories(report.getParent());
         DiagnosisEval.JSON.writerWithDefaultPrettyPrinter().writeValue(report.toFile(),
-                Map.of("rule_version", SignatureRuleBaseline.RULE_VERSION, "summary", summary, "cases", perCase));
+                Map.of("rule_version", SignatureRules.RULE_VERSION, "summary", summary, "cases", perCase));
         System.out.println(file + ": " + summary);
         return summary;
     }

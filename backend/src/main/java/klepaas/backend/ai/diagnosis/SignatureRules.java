@@ -1,7 +1,8 @@
-package klepaas.backend.diagnosis.eval;
+package klepaas.backend.ai.diagnosis;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import klepaas.backend.ai.diagnosis.DiagnosisLabels;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,18 +12,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 시그니처 규칙 진단기 (#161, 판정 가이드는 스펙 0161). LLM과 같은 입력에서 관측 시그니처만으로 구체 원인을 정한다.
- * 사례 ID·정답·notes·failure_kind·규칙 기반 explanation은 보지 않는다. 확신도 대신 적용 조건 상태를 낸다.
+ * 관측 시그니처 규칙 (#161에서 평가, #170에서 제품 반영. 판정 가이드는 docs/eval/diagnosis-eval-spec.md §3).
+ * LLM과 같은 진단 입력({"detail", "logs"})에서 관측 시그니처만으로 구체 원인을 정한다. failure_kind·규칙 기반 explanation은 보지 않는다.
+ * 확신도 대신 적용 조건 상태를 낸다. 서비스와 평가 테스트가 같은 코드를 쓴다. 판정을 바꾸면 RULE_VERSION을 올리고 평가를 다시 한다.
  */
-final class SignatureRuleBaseline {
+public final class SignatureRules {
 
-    enum State { MATCH, NO_MATCH, CONFLICT, INSUFFICIENT }
+    public enum State { MATCH, NO_MATCH, CONFLICT, INSUFFICIENT }
 
     /** rule·rootCause·category는 MATCH일 때만 있다. evidence는 일치한 관측의 JSON Pointer, matched는 일치한 규칙 ID 전부 */
-    record Result(State state, String rule, String category, String rootCause, List<String> evidence, List<String> matched) {
+    public record Result(State state, String rule, String category, String rootCause, List<String> evidence, List<String> matched) {
     }
 
-    static final String RULE_VERSION = "signature-v1.2";
+    public static final String RULE_VERSION = "signature-v1.2";
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private static final Pattern ENV_MISSING = Pattern.compile(
             "(?i)(missing required environment variable|environment variable is missing|\\b[A-Z][A-Z0-9_]{2,}\\b is missing"
@@ -30,10 +33,10 @@ final class SignatureRuleBaseline {
     private static final Pattern REFUSED_PORT = Pattern.compile("dial tcp [^:\\s]+:(\\d+): connect: connection refused");
     private static final Pattern PROTOCOL_BROKEN = Pattern.compile("\": EOF$|malformed HTTP response|transport connection broken");
 
-    private SignatureRuleBaseline() {
+    private SignatureRules() {
     }
 
-    static Result diagnose(JsonNode input) {
+    public static Result diagnose(JsonNode input) {
         JsonNode logs = input.path("logs");
         JsonNode pods = logs.path("pods");
         JsonNode events = logs.path("events");
@@ -160,16 +163,16 @@ final class SignatureRuleBaseline {
     private static JsonNode currentTargetEvents(JsonNode events, JsonNode pods) {
         java.util.Set<String> current = new java.util.HashSet<>();
         pods.forEach(p -> current.add("Pod/" + p.path("name").asText()));
-        com.fasterxml.jackson.databind.node.ArrayNode kept = DiagnosisEval.JSON.createArrayNode();
+        ArrayNode kept = JSON.createArrayNode();
         for (JsonNode e : events) {
             String object = e.path("object").asText("");
-            kept.add(object.startsWith("Pod/") && !current.contains(object) ? DiagnosisEval.JSON.createObjectNode() : e);
+            kept.add(object.startsWith("Pod/") && !current.contains(object) ? JSON.createObjectNode() : e);
         }
         return kept;
     }
 
     /** probe 포트가 비어 있으면 플랫폼은 컨테이너 포트를 쓴다(`KubernetesManifestGenerator`). probe가 없으면 -1 (v1.1) */
-    private static int effectiveProbePort(JsonNode config) {
+    static int effectiveProbePort(JsonNode config) {
         JsonNode probe = config.path("health_probe");
         if (probe.isNull() || probe.isMissingNode()) return -1;
         JsonNode port = probe.path("port");

@@ -96,6 +96,7 @@
 | 13-11 | #164 | 진단 평가 정정 결과와 채택 판단 기록 | 완료 (S), 근거 유효는 서버 보정 후 값, 규칙 0/10 비교와 RAG 악화 해석 철회, 규칙 우선 제품 반영 보류 | [정정 기록](eval/diagnosis-eval-corrections.md) |
 | 13-12 | #166 | 진단 평가 명세·판정 가이드와 데이터셋 manifest | 완료 (M), 평가 명세·라벨별 판정 가이드, dev 51·robustness 24 분할과 최소 충분 근거 묶음, manifest 해시 검사. 원시 근거 충분율 `luna` 67~83%·`gemma4` 74~77%(판별 증거 누락이 대부분) | [0166](specs/0166-eval-spec-dataset-manifest/spec.md) |
 | 13-13 | #168 | 신규 장애 주입과 동결 진단 평가 세트 | 완료 (M), test 14건 동결 후 한 번 측정. 규칙 단독 확신 오답 0, `luna` 3·`gemma4` 2(모두 느린 기동을 probe 포트 닫힘으로 단정). 규칙 우선 채택 조건 충족, 제품 반영은 별도 L | [0168](specs/0168-frozen-diagnosis-test-set/spec.md) |
+| 13-14 | #170 | 시그니처 규칙 우선 진단 제품 반영 | 완료 (L), 규칙이 원인을 정하면 모델·지식 검색 없이 규칙 결과(`model=rule`, `signature-v1.2`). `diagnosis.rule-first.enabled` 기본 켬. 로컬 실제 클러스터 확인, 운영 확인은 머지 후 | [0170](specs/0170-rule-first-diagnosis/spec.md) |
 | - | #138 | CRLF로 커밋된 파일의 줄바꿈을 LF로 정규화 | 완료 (S), 225개 | - |
 | 14 | #99 | 배포 실패 진단 평가 사례와 판정 기준 | 완료 (PR #114) (M) | [0099](specs/0099-diagnosis-eval-cases/spec.md) |
 | 15 | #100 | 배포 요청 상세의 근거 기반 읽기 전용 진단 | 완료 (PR #116) (L), 공급사 교체·비용 비교 포함 | [0100](specs/0100-evidence-based-diagnosis/spec.md) |

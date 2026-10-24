@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만든다) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 관측 시그니처 규칙 `SignatureRules`·규칙 결과 `RuleDiagnosis`(#170), 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만든다) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
@@ -151,10 +151,13 @@ POST /api/v1/deployments/{targetId}/recover          {plan_fingerprint}. 한 트
 
 ```
 POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소유권 확인, FAILED·UNKNOWN만)
-  → refresh가 아니면 그 배포의 최근 저장 결과를 돌려줌 (호출 생략 결과, 또는 현재 프롬프트·설정 모델 결과). 로그 조회·모델 호출 없음 (#117)
+  → refresh가 아니면 그 배포의 최근 저장 결과를 돌려줌 (호출 생략 결과, 규칙 우선이 켜져 있을 때 현재 규칙 버전 결과, 또는 현재 프롬프트·설정 모델 결과). 로그 조회·모델 호출 없음 (#117)
   → 입력 = {"detail": 배포 상세 응답, "logs": 로그 응답(40줄)}  (API와 같은 JSON)
   → Pod·이벤트·설정 변경이 없고 실패 종류가 원인을 가리키지 않으면 모델 없이 판단 보류 (model=rule, no-evidence-v1)
   → 비밀값 패턴 가림 (JSON 구조·위치 유지)
+  → 관측 시그니처 규칙 (#170, `SignatureRules` v1.2, `diagnosis.rule-first.enabled` 기본 켬): 6개 구체 원인 중 하나로 MATCH하면
+    지식 검색·모델 없이 규칙 결과를 저장·반환 (model=rule, signature-v1.2, 근거 원문은 입력에서 잘라 넣음). NO_MATCH·CONFLICT·INSUFFICIENT·규칙 실패는 아래 모델 경로.
+    판정 기준과 평가는 docs/eval/diagnosis-eval-spec.md, 스펙 0161·0168
   → 지식 검색 (#104, `diagnosis.rag.enabled`가 켜졌을 때만. 기본 꺼짐 #129): 그 앱의 문서·확정 사건(진단 중인 배포 제외)과 플랫폼 runbook 조각만 읽어 질의 임베딩과 코사인 유사도 상위 4개(기준값 이상)를
     입력의 knowledge로 더함. 없으면 입력·프롬프트가 지식 없는 경우와 같음(diagnosis-v1), 있으면 diagnosis-v2-rag. 검색 실패는 warning만 남김
   → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
@@ -302,6 +305,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `nlp.llm.base-url` / `diagnosis.llm.base-url` | `${NLP_LLM_BASE_URL:}` / `${DIAGNOSIS_LLM_BASE_URL:}` | `openai-compatible`일 때 필수인 OpenAI 호환 서버 주소(`/v1` 포함, 예: 로컬 Ollama). 비어 있으면 기동 실패. 키는 보내지 않는다 (스펙 0150) |
 | `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI·OpenAI 호환 서버 reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115·0150) |
 | `diagnosis.rag.enabled` | `${DIAGNOSIS_RAG_ENABLED:false}` | 진단에 지식을 넣을지. #123 독립 평가에서 개선이 없어 기본 꺼짐. 꺼져도 문서·사건 저장과 API는 동작 (#129) |
+| `diagnosis.rule-first.enabled` | `${DIAGNOSIS_RULE_FIRST_ENABLED:true}` | 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않을지. #168 동결 평가 세트에서 채택 조건 충족. 끄면 모든 진단이 모델 경로 (#170) |
 | `diagnosis.rag.embedding-model` / `top-k` / `min-similarity` | `text-embedding-3-small` / `4` / `0.45` | 지식 검색 임베딩 모델, 상위 개수, 유사도 기준 (스펙 0104) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |
 | `github.actions.oidc.audience` | `${GITHUB_ACTIONS_OIDC_AUDIENCE:k-le-paas}` | GitHub Actions OIDC 토큰의 `aud` |

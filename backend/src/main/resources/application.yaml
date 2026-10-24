@@ -114,6 +114,10 @@ diagnosis:
     # 진단에 지식을 넣을지 (#129). #123 독립 평가에서 개선이 없고 비용만 14~24% 늘어 기본으로 끈다.
     # 로그만으로 원인을 알 수 없는 실제 사례가 쌓이면 다시 측정하고 켠다. 꺼져도 문서·사건 저장과 API는 동작한다
     enabled: ${DIAGNOSIS_RAG_ENABLED:false}
+  # 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않는다 (#170). #168 동결 평가 세트에서 규칙 우선의 채택 조건을 충족했다.
+  # 끄면 모든 진단이 모델 경로다. 규칙 판정이 의심되면 끄고 재기동한다
+  rule-first:
+    enabled: ${DIAGNOSIS_RULE_FIRST_ENABLED:true}
     embedding-model: ${DIAGNOSIS_RAG_EMBEDDING_MODEL:text-embedding-3-small}
     top-k: ${DIAGNOSIS_RAG_TOP_K:4}
     # RAG 평가에서 관련 지식은 0.5 이상, 관계없는 문서는 0.39였다
