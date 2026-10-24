@@ -10,8 +10,8 @@ import klepaas.backend.deployment.service.DeploymentDetailService;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.global.exception.InvalidRequestException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -31,10 +31,10 @@ import java.util.Set;
  * 실패한 배포 요청의 근거 기반 읽기 전용 진단 (#100). 배포 상세·로그 API와 같은 JSON을 모델에 보내고,
  * 응답의 라벨·근거 위치를 검증한다. Kubernetes·배포 상태를 바꾸지 않는다.
  * 결과는 이력으로 저장하고 같은 배포를 다시 진단하면 최근 결과를 돌려준다. 근거 없는 입력은 모델을 부르지 않는다 (#117).
+ * 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않는다 (#170, `diagnosis.rule-first.enabled`).
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DeploymentDiagnosisService {
 
     static final String RULE_MODEL = "rule";
@@ -50,7 +50,22 @@ public class DeploymentDiagnosisService {
     private final JsonMapper jsonMapper;
     private final DeploymentDiagnosisRepository diagnosisRepository;
     private final KnowledgeService knowledgeService;
+    // #168 동결 평가 세트에서 규칙 우선의 채택 조건을 충족했다. 끄면 모든 진단이 모델 경로다
+    private final boolean ruleFirst;
     private static final java.util.regex.Pattern KNOWLEDGE_POINTER = java.util.regex.Pattern.compile("^/knowledge/(\\d+)(/|$)");
+
+    public DeploymentDiagnosisService(DeploymentDetailService deploymentDetailService, DeploymentService deploymentService,
+                                      LlmClient diagnosisLlm, JsonMapper jsonMapper, DeploymentDiagnosisRepository diagnosisRepository,
+                                      KnowledgeService knowledgeService,
+                                      @Value("${diagnosis.rule-first.enabled:true}") boolean ruleFirst) {
+        this.deploymentDetailService = deploymentDetailService;
+        this.deploymentService = deploymentService;
+        this.diagnosisLlm = diagnosisLlm;
+        this.jsonMapper = jsonMapper;
+        this.diagnosisRepository = diagnosisRepository;
+        this.knowledgeService = knowledgeService;
+        this.ruleFirst = ruleFirst;
+    }
 
     public DeploymentDiagnosisResponse diagnose(Long deploymentId, Long userId, boolean refresh) {
         // 소유권 검사는 상세·로그 조회가 한다. 권한 밖이면 여기서 404로 끝나고 저장 결과도 모델도 쓰지 않는다
@@ -78,6 +93,18 @@ public class DeploymentDiagnosisService {
         input.put("logs", logs);
         String redacted = DiagnosisPrompt.redact(jsonMapper.writeValueAsString(input));
         List<String> warnings = new ArrayList<>();
+        if (ruleFirst) {
+            try {
+                var rule = RuleDiagnosis.diagnose(deploymentId, redacted);
+                log.info("Diagnosis rule: deploymentId={}, version={}, state={}, rule={}, matched={}", deploymentId,
+                        SignatureRules.RULE_VERSION, rule.rule().state(), rule.rule().rule(), rule.rule().matched());
+                if (rule.response() != null) return save(rule.response(), RULE_MODEL, null);
+            } catch (RuntimeException e) {
+                // 규칙 판정 실패는 진단을 막지 않는다. 모델 경로로 간다
+                log.warn("Diagnosis rule failed: deploymentId={}, error={}", deploymentId, e.getClass().getSimpleName());
+                warnings.add("시그니처 규칙 판정에 실패해 모델로 진단했습니다");
+            }
+        }
         List<KnowledgeItem> knowledge = searchKnowledge(detail, deploymentId, redacted, warnings);
         String modelInput = knowledge.isEmpty() ? redacted : DiagnosisPrompt.withKnowledge(redacted, knowledge);
         String version = knowledge.isEmpty() ? DiagnosisPrompt.VERSION : DiagnosisPrompt.RAG_VERSION;
@@ -133,9 +160,10 @@ public class DeploymentDiagnosisService {
         }
     }
 
-    /** 호출 생략 결과는 모델과 무관하다. 모델 결과는 지금 설정 모델·프롬프트로 만든 것만 쓴다 */
+    /** 호출 생략·규칙 결과는 모델과 무관하다(규칙 결과는 지금 규칙 버전이고 규칙 우선이 켜져 있을 때만). 모델 결과는 지금 설정 모델·프롬프트로 만든 것만 쓴다 */
     private boolean reusable(DeploymentDiagnosis saved) {
         return NO_EVIDENCE_VERSION.equals(saved.getPromptVersion())
+                || (ruleFirst && SignatureRules.RULE_VERSION.equals(saved.getPromptVersion()))
                 || ((DiagnosisPrompt.VERSION.equals(saved.getPromptVersion()) || DiagnosisPrompt.RAG_VERSION.equals(saved.getPromptVersion()))
                 && diagnosisLlm.model().equals(saved.getRequestedModel()));
     }

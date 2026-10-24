@@ -2,7 +2,7 @@
 
 작성: 2026-10-24 (#166). 대상: 배포 실패 AI 진단(#100)의 오프라인 평가. 데이터셋은 `backend/src/test/resources/diagnosis-eval/`([manifest](../../backend/src/test/resources/diagnosis-eval/manifest.json), [변경 이력](../../backend/src/test/resources/diagnosis-eval/CHANGELOG.md), [데이터셋 설명서](../../backend/src/test/resources/diagnosis-eval/DATASET_CARD.md)).
 
-이 문서는 **무엇을 정답으로 인정하는가**를 정한다. 정답을 붙이는 사람, 시그니처 규칙 진단기(`SignatureRuleBaseline`), 채점기가 같은 문서를 따른다. 지난 평가의 정정 내용은 [정정 기록](diagnosis-eval-corrections.md)에 있다.
+이 문서는 **무엇을 정답으로 인정하는가**를 정한다. 정답을 붙이는 사람, 시그니처 규칙(`SignatureRules`, 제품 코드, #170부터 진단 서비스가 MATCH면 모델 없이 쓴다), 채점기가 같은 문서를 따른다. 지난 평가의 정정 내용은 [정정 기록](diagnosis-eval-corrections.md)에 있다.
 
 ## 1. 평가 단위
 

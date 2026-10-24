@@ -155,8 +155,7 @@ public final class DiagnosisPrompt {
             if (node == null || node.isMissingNode()) {
                 warnings.add("입력에 없는 근거 위치를 버림: " + pointer);
             } else {
-                String value = node.isValueNode() ? node.asText() : node.toString();
-                cited.add(new Citation(pointer, value.length() > EXCERPT_LENGTH ? value.substring(0, EXCERPT_LENGTH) + "…" : value));
+                cited.add(cite(input, pointer));
             }
         }
         if (!abstain && (category == null || rootCause == null || cited.isEmpty())) {
@@ -172,7 +171,14 @@ public final class DiagnosisPrompt {
                 cited, warnings);
     }
 
-    private static JsonNode read(String json) {
+    /** 근거 위치의 원문을 입력에서 잘라 붙인다. 규칙 결과(#170)도 같은 방식으로 발췌한다 */
+    static Citation cite(JsonNode input, String pointer) {
+        JsonNode node = input.at(pointer);
+        String value = node.isValueNode() ? node.asText() : node.toString();
+        return new Citation(pointer, value.length() > EXCERPT_LENGTH ? value.substring(0, EXCERPT_LENGTH) + "…" : value);
+    }
+
+    static JsonNode read(String json) {
         try {
             return JSON.readTree(json);
         } catch (Exception e) {
