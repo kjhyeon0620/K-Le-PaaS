@@ -344,3 +344,6 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |
+| 자연어 명령 처리(`NlpCommandService.processCommand`, `NOT_SUPPORTED`) 안의 저장소 조회가 얻은 DB 연결이 메서드 끝까지 남고, 이어지는 `save`가 두 번째 연결을 요구한다 (#182에서 발견) | 동시 요청이 연결 풀 크기(기본 10)에 이르면 서로 기다리다 모두 30초 뒤 500으로 끝난다(로컬 측정: 동시 8 성공, 10에서 0~1/10). 그동안 LLM과 무관한 API도 멈춘다 | 이슈 후보 (스펙 [0182](specs/0182-llm-load-test/spec.md)) |
+| `spring.jpa.open-in-view`가 기본값(켜짐)이다 (#182에서 확인) | LLM 응답을 기다리는 동안 요청마다 DB 연결을 쥔다. 동시 LLM 요청이 연결 풀 크기에 묶인다 | 이슈 후보 (끄면 컨트롤러 지연 로딩 영향 확인 필요) |
+| LLM 호출 제한 시간이 SDK 기본값(요청 10분, 재시도 2회)이다 (`OpenAiLlmClient`, #182에서 확인) | 공급사가 응답하지 않으면 요청이 오래 묶인다. 로컬 측정에서 무응답 12건이 쌓이자 DB만 읽는 조회가 0/52 성공 | 이슈 후보 (새 설정 키) |
