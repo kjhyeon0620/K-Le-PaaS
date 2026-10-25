@@ -36,11 +36,19 @@ class ManagementEndpointHttpTest {
         assertThat(metrics.body()).contains("# HELP");
 
         var onAppPort = get(port, "/actuator/prometheus");
-        // 앱 포트에는 이 경로가 매핑되지 않는다. 없는 경로는 지금 GlobalExceptionHandler가 500으로 돌려준다(architecture §9 격차)
-        assertThat(onAppPort.statusCode()).isNotEqualTo(200);
-        assertThat(onAppPort.body()).doesNotContain("# HELP");
+        // 앱 포트에는 이 경로가 매핑되지 않는다. 없는 경로는 404 COMMON_001 (#178)
+        assertThat(onAppPort.statusCode()).isEqualTo(404);
+        assertThat(onAppPort.body()).contains("COMMON_001").doesNotContain("# HELP");
         // prometheus 외 엔드포인트는 관리 포트에도 열지 않는다
         assertThat(get(managementPort, "/actuator/env").statusCode()).isNotEqualTo(200);
         assertThat(get(managementPort, "/actuator/health").statusCode()).isNotEqualTo(200);
+    }
+
+    @Test
+    void unknownPathIsNotFound() throws Exception {
+        // 인증 없이 허용된 경로 아래의 없는 경로 (#178)
+        var res = get(port, "/api/v1/system/does-not-exist");
+        assertThat(res.statusCode()).isEqualTo(404);
+        assertThat(res.body()).contains("\"code\":\"COMMON_001\"").contains("/api/v1/system/does-not-exist");
     }
 }

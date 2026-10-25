@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
@@ -60,6 +61,19 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.badRequest().body(response);
+    }
+
+    /** 매핑되지 않은 경로 (#178). 서버 오류가 아니므로 404 COMMON_001, 오류 로그 없음 */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e, HttpServletRequest request) {
+        ErrorCode errorCode = ErrorCode.ENTITY_NOT_FOUND;
+        ErrorResponse response = new ErrorResponse(
+                errorCode.name(),
+                errorCode.getCode(),
+                errorCode.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(response);
     }
 
     @ExceptionHandler(Exception.class)
