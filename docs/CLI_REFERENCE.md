@@ -203,6 +203,19 @@ npm run cli -- doctor
 
 ---
 
+## LLM 사용량 명령 (#176)
+
+```bash
+klepaas usage [--days <n>]
+klepaas --json usage --days 7
+```
+
+본인 LLM 사용량을 일별(한국 시간)·기능별(diagnosis·nlp)로 보여 준다: 호출·실패 수, 입력·출력 토큰, 계산 비용(가격표 기준, USD), 가격 없는 호출 수, 오늘 사용액과 남은 예산. `--days`는 1~31(기본 7). 다른 사용자 사용량은 볼 수 없다. READ_ONLY 토큰으로 된다.
+
+사용자별 하루 LLM 예산(서버 `LLM_BUDGET_DAILY_USD_PER_USER`, 기본 $1)을 넘으면 `ask`는 모델을 부르지 않고 `AI_007`로 거절된다(종료 코드 `1`). 진단은 규칙이 원인을 정하지 못한 경우 모델 없이 판단 보류로 답한다. 한국 시간 자정에 다시 센다.
+
+---
+
 ## 비용 명령
 
 ```bash

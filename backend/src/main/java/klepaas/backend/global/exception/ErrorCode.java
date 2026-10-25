@@ -44,6 +44,7 @@ public enum ErrorCode {
     COMMAND_CONFIRMATION_CONFLICT(HttpStatus.CONFLICT, "AI_005", "명령을 확인할 수 없습니다"),
     APPROVAL_TARGET_CHANGED(HttpStatus.CONFLICT, "AI_006",
             "승인 후 배포 설정이 바뀌었거나 승인 대상을 확인할 수 없습니다. 명령을 다시 보내 승인하세요"),
+    LLM_BUDGET_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AI_007", "오늘 LLM 사용 예산을 넘었습니다. 한국 시간 자정 이후 다시 시도하세요"),
 
     // CLI Token
     CLI_TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, "CLI_001", "CLI 토큰을 찾을 수 없습니다"),

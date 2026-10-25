@@ -12,6 +12,7 @@ import klepaas.backend.global.exception.ErrorCode;
 import klepaas.backend.global.exception.InvalidRequestException;
 import lombok.extern.slf4j.Slf4j;
 import io.micrometer.core.instrument.MeterRegistry;
+import klepaas.backend.ai.usage.LlmUsageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
@@ -33,6 +34,7 @@ import java.util.Set;
  * 응답의 라벨·근거 위치를 검증한다. Kubernetes·배포 상태를 바꾸지 않는다.
  * 결과는 이력으로 저장하고 같은 배포를 다시 진단하면 최근 결과를 돌려준다. 근거 없는 입력은 모델을 부르지 않는다 (#117).
  * 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않는다 (#170, `diagnosis.rule-first.enabled`).
+ * 모델 호출은 사용자 일일 예산 안에서만 하고 사용량을 남긴다 (#176).
  */
 @Slf4j
 @Service
@@ -40,7 +42,11 @@ public class DeploymentDiagnosisService {
 
     static final String RULE_MODEL = "rule";
     static final String NO_EVIDENCE_VERSION = "no-evidence-v1";
+    /** 사용자 일일 LLM 예산을 넘어 모델을 부르지 않은 결과 (#176). 저장·재사용하지 않는다 */
+    static final String BUDGET_MODEL = "none";
+    static final String BUDGET_VERSION = "budget-exceeded-v1";
     private static final int LOG_LINES = 40;
+    private static final String FEATURE = "diagnosis";
     // 실패 사유가 원인을 가리키지 않는 종류. 이 경우 Pod·이벤트·설정 변경이 없으면 판단할 근거가 없다
     private static final Set<FailureKind> GENERIC_FAILURES =
             EnumSet.of(FailureKind.ROLLOUT_TIMEOUT, FailureKind.PROGRESS_DEADLINE, FailureKind.DEPLOYMENT_MISSING);
@@ -54,12 +60,14 @@ public class DeploymentDiagnosisService {
     // #168 동결 평가 세트에서 규칙 우선의 채택 조건을 충족했다. 끄면 모든 진단이 모델 경로다
     private final boolean ruleFirst;
     private final MeterRegistry meterRegistry;
+    private final LlmUsageService usageService;
     private static final java.util.regex.Pattern KNOWLEDGE_POINTER = java.util.regex.Pattern.compile("^/knowledge/(\\d+)(/|$)");
 
     public DeploymentDiagnosisService(DeploymentDetailService deploymentDetailService, DeploymentService deploymentService,
                                       LlmClient diagnosisLlm, JsonMapper jsonMapper, DeploymentDiagnosisRepository diagnosisRepository,
                                       KnowledgeService knowledgeService,
-                                      @Value("${diagnosis.rule-first.enabled:true}") boolean ruleFirst, MeterRegistry meterRegistry) {
+                                      @Value("${diagnosis.rule-first.enabled:true}") boolean ruleFirst, MeterRegistry meterRegistry,
+                                      LlmUsageService usageService) {
         this.deploymentDetailService = deploymentDetailService;
         this.deploymentService = deploymentService;
         this.diagnosisLlm = diagnosisLlm;
@@ -68,6 +76,7 @@ public class DeploymentDiagnosisService {
         this.knowledgeService = knowledgeService;
         this.ruleFirst = ruleFirst;
         this.meterRegistry = meterRegistry;
+        this.usageService = usageService;
     }
 
     /** 진단 요청 경로 수 (#174): reused·no_evidence·rule·model·model_error. 규칙 우선(#170)이 줄인 모델 호출을 운영에서 본다 */
@@ -118,6 +127,16 @@ public class DeploymentDiagnosisService {
                 warnings.add("시그니처 규칙 판정에 실패해 모델로 진단했습니다");
             }
         }
+        if (!usageService.withinBudget(userId, FEATURE)) {
+            // 예산 초과 (#176): 규칙이 원인을 정하지 못했으므로 모델 없이 판단 보류. 내일 다시 진단할 수 있게 저장하지 않는다
+            route("budget_exceeded");
+            List<String> budgetWarnings = new ArrayList<>(warnings);
+            budgetWarnings.add("오늘 LLM 예산(사용자당 하루 $" + usageService.dailyLimitUsd().toPlainString() + ")을 넘어 모델을 부르지 않았습니다");
+            return new DeploymentDiagnosisResponse(deploymentId, BUDGET_MODEL, BUDGET_VERSION, null, null, true,
+                    "오늘 LLM 사용 예산을 넘어 모델을 부르지 않았습니다. 관측 시그니처 규칙으로는 원인을 정하지 못했습니다.",
+                    List.of(), List.of(), List.of("배포 상세와 로그를 직접 확인하거나 한국 시간 자정 이후 다시 진단합니다."), List.of(),
+                    List.copyOf(budgetWarnings), List.of(), List.of(), false, java.time.LocalDateTime.now());
+        }
         List<KnowledgeItem> knowledge = searchKnowledge(detail, deploymentId, redacted, warnings);
         String modelInput = knowledge.isEmpty() ? redacted : DiagnosisPrompt.withKnowledge(redacted, knowledge);
         String version = knowledge.isEmpty() ? DiagnosisPrompt.VERSION : DiagnosisPrompt.RAG_VERSION;
@@ -127,8 +146,10 @@ public class DeploymentDiagnosisService {
             response = diagnosisLlm.completeJson(DiagnosisPrompt.build(modelInput, false, !knowledge.isEmpty()));
         } catch (RuntimeException e) {
             route("model_error");
+            usageService.recordFailure(userId, FEATURE, diagnosisLlm, deploymentId);
             throw e;
         }
+        usageService.record(userId, FEATURE, diagnosisLlm, response, deploymentId);
         String text = response.text();
         DiagnosisPrompt.Diagnosis d;
         try {

@@ -164,6 +164,11 @@ export class ApiClient {
     return this.request(`/api/v1/repositories/${repositoryId}/config`);
   }
 
+  // 본인 LLM 사용량과 오늘 남은 예산 (#176)
+  async llmUsage(days) {
+    return this.request(`/api/v1/llm/usage?days=${encodeURIComponent(days)}`);
+  }
+
   async costPlan(payload) {
     return this.request("/api/v1/cost/plan", { method: "POST", body: payload });
   }

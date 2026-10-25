@@ -343,6 +343,110 @@
           "instant": false
         }
       ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "계산 비용 (재기동 이후, USD)",
+      "description": "재기동 이후 누적. 영구 기록은 llm_usages 테이블(GET /api/v1/llm/usage). 가격표 llm/pricing.json 기준",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (feature, model) (klepaas_llm_cost_usd_total)",
+          "legendFormat": "{{feature}} {{model}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "예산 초과·가격 없는 호출 (재기동 이후)",
+      "description": "재기동 이후 누적. 영구 기록은 llm_usages 테이블(GET /api/v1/llm/usage)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "klepaas-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (feature) (klepaas_llm_budget_exceeded_total)",
+          "legendFormat": "예산 초과 {{feature}}",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "klepaas-prometheus"
+          },
+          "expr": "sum by (model) (klepaas_llm_unpriced_calls_total)",
+          "legendFormat": "가격 없음 {{model}}",
+          "instant": true
+        }
+      ]
     }
   ]
 }

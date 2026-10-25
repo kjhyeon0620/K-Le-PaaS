@@ -62,7 +62,7 @@ class NlpModelEvalTest {
         int repeat = Integer.parseInt(System.getenv().getOrDefault("NLP_EVAL_REPEAT", "5"));
         String replayPath = System.getenv("NLP_EVAL_REPLAY");
         JsonNode replay = replayPath == null || replayPath.isBlank() ? null : NlpEval.JSON.readTree(Path.of(replayPath).toFile());
-        JsonNode pricing = NlpEval.JSON.readTree(Path.of("src/test/resources/diagnosis-eval/pricing.json").toFile()).path("models");
+        JsonNode pricing = NlpEval.JSON.readTree(Path.of("src/main/resources/llm/pricing.json").toFile()).path("models");
 
         Map<String, Object> report = new LinkedHashMap<>();
         StringBuilder table = new StringBuilder("| 모델 | 호출 | 오류 | 파싱 | intent | 인자 | 날조 | 변경 intent 날조 | 과소 | 과대 "

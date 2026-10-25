@@ -36,7 +36,7 @@
 | 패키지 | 책임 |
 |---|---|
 | `auth` | GitHub OAuth, JWT, CLI 토큰(`auth/token`, scope), CLI 웹 로그인 세션(`auth/weblogin`), `SecurityConfig` |
-| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 관측 시그니처 규칙 `SignatureRules`·규칙 결과 `RuleDiagnosis`(#170), 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만들고 호출·지연·토큰 지표 래퍼 `MeteredLlmClient`로 감싼다(#174)) |
+| `ai` | `GeminiClient`, `IntentParser`, `ActionDispatcher`(intent → 위험도 → 실행), `NlpCommandService`, `CommandConfirmationService`, `KubectlService`(Fabric8 조회, 셸 실행 없음), `diagnosis`(근거 기반 진단: `DeploymentDiagnosisService`, `DiagnosisPrompt`, `DiagnosisLabels`, 관측 시그니처 규칙 `SignatureRules`·규칙 결과 `RuleDiagnosis`(#170), 진단 이력 `DeploymentDiagnosis`), `knowledge`(운영문서·확정 사건·플랫폼 runbook 색인·검색: `KnowledgeService`, `Embeddings`, `KnowledgeText`), `llm`(모델 교체: `LlmClient`와 Gemini·Claude·OpenAI 구현(OpenAI 구현은 OpenAI 호환 서버도 부른다, #150), `LlmConfig`가 진단용 `diagnosisLlm`·자연어 명령용 `nlpLlm`을 따로 만들고 호출·지연·토큰 지표 래퍼 `MeteredLlmClient`로 감싼다(#174), 가격표 `LlmPricing`(`llm/pricing.json`, #176)), `usage`(LLM 호출별 사용량·비용 기록과 사용자별 일일 예산: `LlmUsageService`, `llm_usages`, 본인 조회 `GET /api/v1/llm/usage`, #176) |
 | `deployment` | `RepositoryService`(저장소·배포 설정), `DeploymentService`(배포·스케일·재시작), `DeploymentPipelineService`/`StepService`(비동기 파이프라인), `ExternalImageResolver`, `ResourceAccessService`·`RuntimeResourcePolicy`(소유권·허용 참조) |
 | `infra` | `CloudInfraProvider`(NCP 구현: `NcpInfraService`), `KubernetesManifestGenerator`(Deployment/Service/Ingress 적용, rollout 대기), `ImageTagGenerator` |
 | `mcp` | 원격 MCP 서버(#103): 공식 MCP Java SDK의 세션 없는 Streamable HTTP 서블릿(`/api/v1/mcp`), 조회·제안 도구(`McpTools`) |
@@ -160,7 +160,8 @@ POST /api/v1/deployments/{id}/diagnosis[?refresh=true]   (READ_ONLY 이상, 소�
     판정 기준과 평가는 docs/eval/diagnosis-eval-spec.md, 스펙 0161·0168
   → 지식 검색 (#104, `diagnosis.rag.enabled`가 켜졌을 때만. 기본 꺼짐 #129): 그 앱의 문서·확정 사건(진단 중인 배포 제외)과 플랫폼 runbook 조각만 읽어 질의 임베딩과 코사인 유사도 상위 4개(기준값 이상)를
     입력의 knowledge로 더함. 없으면 입력·프롬프트가 지식 없는 경우와 같음(diagnosis-v1), 있으면 diagnosis-v2-rag. 검색 실패는 warning만 남김
-  → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답
+  → 사용자 일일 LLM 예산 (#176): 오늘(한국 시간) 계산 비용 합이 상한 이상이면 모델 없이 판단 보류(model=none, budget-exceeded-v1, 저장·재사용 안 함)
+  → diagnosis.llm 공급사(LlmClient)에 프롬프트 1회 호출, JSON 응답. 호출마다 llm_usages에 사용자·토큰·계산 비용 기록(실패는 outcome=error)
   → 서버 검증: 라벨 목록(DiagnosisLabels) 밖이면 버림, 입력에 없는 근거 위치 버림, 근거 없는 단정은 판단 보류로, 근거 원문은 입력에서 잘라 넣음
   → 인용 분리: /knowledge/i 인용은 knowledge(종류·출처·제목·앱·버전·시점·발췌)로, 관측 근거는 cited로.
     검색된 지식 전체는 retrieved_knowledge(유사도·인용 여부)로 응답과 이력에 남김 (#125)
@@ -271,7 +272,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | 공통 | `COMMON_001` 404, `COMMON_002` 409, `COMMON_003` 400, `COMMON_004` 500 |
 | 저장소·배포 | `REPO_001/002`, `DEPLOY_001`~`DEPLOY_005` (`DEPLOY_003` 409: 같은 저장소 배포 진행 중, `DEPLOY_004` 409: 복구 계획 변경, `DEPLOY_005` 409: 복구 불가) |
 | 인프라 | `INFRA_001`~`INFRA_006` (업로드, 빌드, 배포, NCP 실패) |
-| AI·명령 | `AI_001`~`AI_006` (`AI_005` 409: 명령을 승인할 수 없음, `AI_006` 409: 승인 후 배포 설정 변경·승인 대상 확인 불가) |
+| AI·명령 | `AI_001`~`AI_007` (`AI_005` 409: 명령을 승인할 수 없음, `AI_006` 409: 승인 후 배포 설정 변경·승인 대상 확인 불가, `AI_007` 429: 사용자 일일 LLM 예산 초과 #176) |
 | CLI | `CLI_001`~`CLI_006` (`CLI_005` 403: scope 밖 요청) |
 | GitHub | `GH_001`~`GH_003` |
 
@@ -306,6 +307,7 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | `diagnosis.llm.reasoning-effort` | `${DIAGNOSIS_LLM_REASONING_EFFORT:}` | OpenAI·OpenAI 호환 서버 reasoning_effort. 비우면 모델 기본값. 다른 공급사는 무시 (스펙 0115·0150) |
 | `diagnosis.rag.enabled` | `${DIAGNOSIS_RAG_ENABLED:false}` | 진단에 지식을 넣을지. #123 독립 평가에서 개선이 없어 기본 꺼짐. 꺼져도 문서·사건 저장과 API는 동작 (#129) |
 | `management.server.port`·`address` | `${MANAGEMENT_PORT:8081}`·`${MANAGEMENT_ADDRESS:127.0.0.1}` | 지표(`/actuator/prometheus`)를 여는 관리 포트. 127.0.0.1에만 열고 앱 포트에는 `/actuator`가 없다 (#174, [observability](observability.md)) |
+| `llm.budget.daily-usd-per-user` | `${LLM_BUDGET_DAILY_USD_PER_USER:1.0}` | 사용자별 하루(한국 시간 자정 기준) LLM 계산 비용 상한(USD). 0이면 상한 없음. 넘으면 자연어 명령은 429 `AI_007`, 진단은 규칙이 정하지 못한 경우 모델 없이 판단 보류. 느슨한 상한(동시 요청만큼 넘을 수 있음) (#176) |
 | `diagnosis.rule-first.enabled` | `${DIAGNOSIS_RULE_FIRST_ENABLED:true}` | 관측 시그니처 규칙이 원인을 정하면 모델을 부르지 않을지. #168 동결 평가 세트에서 채택 조건 충족. 끄면 모든 진단이 모델 경로 (#170) |
 | `diagnosis.rag.embedding-model` / `top-k` / `min-similarity` | `text-embedding-3-small` / `4` / `0.45` | 지식 검색 임베딩 모델, 상위 개수, 유사도 기준 (스펙 0104) |
 | `jwt.access-token-expiry` / `refresh-token-expiry` | 1h / 7d | Web 토큰 |

@@ -48,6 +48,7 @@ class NlpCommandServiceTest {
     @Mock private ConversationSessionRepository sessionRepository;
     @Mock private UserRepository userRepository;
     @Mock private klepaas.backend.deployment.service.ResourceAccessService resourceAccessService;
+    @Mock private klepaas.backend.ai.usage.LlmUsageService usage;
 
     private NlpCommandService nlpCommandService;
     private User testUser;
@@ -58,9 +59,12 @@ class NlpCommandServiceTest {
         var systemPromptResource = new ByteArrayResource("테스트 시스템 프롬프트".getBytes());
         // 기본은 인자를 그대로 둔다. 이름 해석 자체는 NameTargetsTest가 본다 (#144)
         lenient().when(nameTargets.resolve(any(), any(), any())).thenAnswer(inv -> NameTargets.Result.keep(inv.getArgument(1)));
+        // 예산 안 (#176). 초과 동작은 budgetExceededRejectsWithoutCallingModel
+        lenient().when(usage.withinBudget(any(), any())).thenReturn(true);
+        lenient().when(usage.dailyLimitUsd()).thenReturn(java.math.BigDecimal.ONE);
         nlpCommandService = new NlpCommandService(
                 nlpLlm, intentParser, actionDispatcher, approvalTargets, nameTargets,
-                commandLogRepository, confirmations, sessionRepository, userRepository, resourceAccessService,
+                commandLogRepository, confirmations, sessionRepository, userRepository, resourceAccessService, usage,
                 systemPromptResource
         );
 
@@ -437,5 +441,18 @@ class NlpCommandServiceTest {
 
     private LlmClient.Response llmResponse(String text) {
         return new LlmClient.Response(text, "test-model", new LlmClient.Usage(0, 0, null, null), 1);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("오늘 LLM 예산을 넘으면 모델을 부르지 않고 429 AI_007로 거절한다 (#176)")
+    void budgetExceededRejectsWithoutCallingModel() {
+        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(testUser));
+        when(usage.withinBudget(1L, "nlp")).thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> nlpCommandService.processCommand(1L, new NlpCommandRequest("저장소 목록 보여줘", null)))
+                .isInstanceOfSatisfying(klepaas.backend.ai.exception.AiProcessingException.class,
+                        e -> org.assertj.core.api.Assertions.assertThat(e.getErrorCode()).isEqualTo(klepaas.backend.global.exception.ErrorCode.LLM_BUDGET_EXCEEDED));
+        org.mockito.Mockito.verify(nlpLlm, org.mockito.Mockito.never()).completeJson(any());
+        org.mockito.Mockito.verify(sessionRepository, org.mockito.Mockito.never()).save(any());
     }
 }

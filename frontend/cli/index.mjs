@@ -69,6 +69,9 @@ async function main() {
     case "cost":
       await handleCost(rest, globalOptions, client);
       return;
+    case "usage":
+      await handleUsage(rest, globalOptions, client);
+      return;
     case "doctor":
       await handleDoctor(globalOptions, client);
       return;
@@ -784,6 +787,43 @@ function printDeploymentLogs(response) {
   }
 }
 
+// 본인 LLM 사용량 (#176): 일별·기능별 호출·토큰·계산 비용과 오늘 남은 예산
+async function handleUsage(args, globalOptions, client) {
+  const days = takeOption(args, "--days") ?? "7";
+  assertNoUnknownOptions(args);
+  const n = Number(days);
+  if (!Number.isInteger(n) || n < 1 || n > 31) {
+    throw new CliError("`--days`는 1~31 사이 정수여야 합니다.", EXIT_CODES.INPUT);
+  }
+  const usage = await client.llmUsage(n);
+  if (globalOptions.json) {
+    printJson(usage);
+    return;
+  }
+  const usd = (v) => (v === null || v === undefined ? "-" : `$${Number(v).toFixed(4)}`);
+  printKeyValues([
+    ["Daily Limit", usage.daily_limit_usd === null ? "없음" : usd(usage.daily_limit_usd)],
+    ["Spent Today", usd(usage.spent_today_usd)],
+    ["Remaining", usage.remaining_today_usd === null ? "-" : usd(usage.remaining_today_usd)],
+    ["Timezone", usage.timezone],
+  ]);
+  if (usage.days?.length) {
+    console.log("");
+    printRows(usage.days, [
+      { key: "date", label: "Date" },
+      { key: "feature", label: "Feature" },
+      { key: "calls", label: "Calls" },
+      { key: "errors", label: "Errors" },
+      { key: "input_tokens", label: "Input" },
+      { key: "output_tokens", label: "Output" },
+      { key: (row) => usd(row.cost_usd), label: "Cost" },
+      { key: "unpriced_calls", label: "Unpriced" },
+    ]);
+  } else {
+    console.log("\n최근 사용 기록이 없습니다.");
+  }
+}
+
 async function handleCost(args, globalOptions, client) {
   const subcommand = args.shift();
   const filePath = takeOption(args, "--file");
@@ -1151,6 +1191,7 @@ Commands:
   deployments recovery-plan <target-deployment-id>
   deployments recover <target-deployment-id> [--yes]
 
+  usage [--days <n>]
   cost plan --file <spec.json>
   cost diff --file <spec.json>
   cost explain --file <spec.json>

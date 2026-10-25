@@ -99,6 +99,7 @@
 | 13-14 | #170 | 시그니처 규칙 우선 진단 제품 반영 | 완료 (L), 규칙이 원인을 정하면 모델·지식 검색 없이 규칙 결과(`model=rule`, `signature-v1.2`). `diagnosis.rule-first.enabled` 기본 켬. 로컬 실제 클러스터 확인, 운영 확인은 머지 후 | [0170](specs/0170-rule-first-diagnosis/spec.md) |
 | 13-15 | #172 | 저장된 진단 응답 재채점으로 평가 회귀 게이트 | 완료 (M), `luna` 4·`gemma4` 3 기준 실행 원문을 모델 호출 없이 매 PR 재채점, 기대 요약과 다르면 실패, CI 작업 요약에 표 | [0172](specs/0172-eval-regression-gate/spec.md) |
 | 13-16 | #174 | LLM 호출·토큰·진단 경로 지표 (Micrometer·Prometheus) | 완료 (M), 모든 LLM 클라이언트 계측 래퍼, 진단 경로 카운터, 관리 포트 127.0.0.1 노출, 로컬 Prometheus·Grafana 대시보드. 비용 지표·예산 상한은 다음 | [0174](specs/0174-llm-usage-metrics/spec.md) |
+| 13-17 | #176 | LLM 사용량 기록·비용 계산과 사용자별 일일 예산 상한 | 완료 (L), `llm_usages`(V11), 가격표 제품 리소스로 통합, 사용자별 하루 $1 상한(초과 시 자연어 429 `AI_007`, 진단 판단 보류), 본인 조회 API·CLI `usage` | [0176](specs/0176-llm-budget/spec.md) |
 | - | #138 | CRLF로 커밋된 파일의 줄바꿈을 LF로 정규화 | 완료 (S), 225개 | - |
 | 14 | #99 | 배포 실패 진단 평가 사례와 판정 기준 | 완료 (PR #114) (M) | [0099](specs/0099-diagnosis-eval-cases/spec.md) |
 | 15 | #100 | 배포 요청 상세의 근거 기반 읽기 전용 진단 | 완료 (PR #116) (L), 공급사 교체·비용 비교 포함 | [0100](specs/0100-evidence-based-diagnosis/spec.md) |
