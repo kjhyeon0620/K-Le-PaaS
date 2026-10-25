@@ -33,12 +33,13 @@ jobs:
       - name: Test and package backend
         working-directory: backend
         run: ./gradlew test bootJar -Prevision="$GITHUB_SHA" --no-daemon
-      # 저장된 진단 응답을 지금 코드로 다시 채점한 표 (#172). 회귀로 테스트가 실패해도 차이 표를 남긴다
-      - name: Diagnosis evaluation regression summary
+      # 저장된 진단(#172)·자연어 명령(#180) 응답을 지금 코드로 다시 채점한 표. 회귀로 테스트가 실패해도 차이 표를 남긴다
+      - name: Evaluation regression summary
         if: always()
         run: |
-          f=backend/build/diagnosis-eval/regression.md
-          if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; fi
+          for f in backend/build/diagnosis-eval/regression.md backend/build/nlp-eval/regression.md; do
+            if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; fi
+          done
       - name: Build frontend
         working-directory: frontend
         env:
