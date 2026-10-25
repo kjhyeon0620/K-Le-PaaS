@@ -25,15 +25,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Propagation;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * 명령 처리·승인·복구 제안은 트랜잭션 범위 없이 실행하고 저장소 호출마다 짧은 트랜잭션을 쓴다. 요청 하나는 DB 연결을 한 번에 하나만 쥔다
+ * (open-in-view가 켜져 있으면 웹 요청 동안 그 연결 하나를 계속 쥔다, architecture §9).
+ * 메서드에 NOT_SUPPORTED 같은 비트랜잭션 범위를 두면 그 안의 트랜잭션 없는 조회가 얻은 연결이 범위 끝까지 남고, 이어지는 저장이
+ * 두 번째 연결을 요구해 동시 요청이 연결 풀 크기에 이르면 서로 기다리다 함께 실패한다 (#182 F1, #184).
+ */
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 public class NlpCommandService {
 
     private final LlmClient nlpLlm;
@@ -82,7 +86,6 @@ public class NlpCommandService {
         }
     }
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public NlpCommandResponse processCommand(Long userId, NlpCommandRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
@@ -218,7 +221,6 @@ public class NlpCommandService {
      * 에이전트의 복구 제안 (#102). 자연어 해석 없이 지정한 배포로 복구하는 승인 대기 명령(ROLLBACK)만 만든다.
      * 계획 지문을 고정하고 아무것도 실행하지 않는다. 실행은 사람이 confirm으로 승인할 때 지문을 다시 비교한 뒤에 한다.
      */
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public NlpCommandResponse proposeRecovery(Long userId, Long targetDeploymentId, String reason) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
@@ -254,7 +256,6 @@ public class NlpCommandService {
                 commandLog.getRiskLevel(), true, null, resolved.target());
     }
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public NlpCommandResponse confirmCommand(Long userId, NlpConfirmRequest request) {
         CommandLog commandLog = request.confirmed()
                 ? confirmations.claim(request.commandLogId(), userId)
@@ -322,6 +323,7 @@ public class NlpCommandService {
         );
     }
 
+    @Transactional(readOnly = true)
     public Page<CommandLogResponse> getHistory(Long userId, Pageable pageable) {
         confirmations.expireStale(userId);
         return commandLogRepository.findByUserId(userId, pageable)
