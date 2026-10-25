@@ -3,6 +3,7 @@ package klepaas.backend.ai.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import klepaas.backend.ai.llm.LlmClient;
+import klepaas.backend.ai.usage.LlmUsageService;
 import klepaas.backend.ai.dto.*;
 import klepaas.backend.ai.entity.*;
 import klepaas.backend.ai.exception.AiProcessingException;
@@ -45,6 +46,7 @@ public class NlpCommandService {
     private final ConversationSessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final ResourceAccessService resourceAccessService;
+    private final LlmUsageService usageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String systemPrompt;
 
@@ -59,6 +61,7 @@ public class NlpCommandService {
             ConversationSessionRepository sessionRepository,
             UserRepository userRepository,
             ResourceAccessService resourceAccessService,
+            LlmUsageService usageService,
             @Value("classpath:prompts/system-prompt.txt") Resource systemPromptResource
     ) {
         this.nlpLlm = nlpLlm;
@@ -71,6 +74,7 @@ public class NlpCommandService {
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.resourceAccessService = resourceAccessService;
+        this.usageService = usageService;
         try {
             this.systemPrompt = systemPromptResource.getContentAsString(StandardCharsets.UTF_8);
         } catch (IOException e) {
@@ -83,11 +87,24 @@ public class NlpCommandService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
+        // 사용자 일일 LLM 예산 (#176). 넘었으면 세션·모델 호출 없이 429 AI_007
+        if (!usageService.withinBudget(userId, "nlp")) {
+            throw new AiProcessingException(ErrorCode.LLM_BUDGET_EXCEEDED,
+                    "오늘 LLM 사용 예산(사용자당 하루 $" + usageService.dailyLimitUsd().toPlainString() + ")을 넘었습니다. 한국 시간 자정 이후 다시 시도하세요");
+        }
+
         // 세션 관리
         ConversationSession session = getOrCreateSession(user, request.sessionId());
 
         // 모델 호출 (#136). 실패하면 AI_001로 끝나고 명령 기록·실행은 없다
-        LlmClient.Response llmResponse = nlpLlm.completeJson(NlpPrompt.build(systemPrompt, request.command()));
+        LlmClient.Response llmResponse;
+        try {
+            llmResponse = nlpLlm.completeJson(NlpPrompt.build(systemPrompt, request.command()));
+        } catch (RuntimeException e) {
+            usageService.recordFailure(userId, "nlp", nlpLlm, null);
+            throw e;
+        }
+        usageService.record(userId, "nlp", nlpLlm, llmResponse, null);
         String responseText = llmResponse.text();
         log.info("자연어 명령 해석: provider={}, model={}, latencyMs={}", nlpLlm.provider(), llmResponse.model(), llmResponse.latencyMs());
 

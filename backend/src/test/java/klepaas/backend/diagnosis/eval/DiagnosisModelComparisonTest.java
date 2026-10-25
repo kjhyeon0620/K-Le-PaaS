@@ -50,7 +50,7 @@ class DiagnosisModelComparisonTest {
 
     @Test
     void compareModelsOnCases() throws Exception {
-        JsonNode pricing = DiagnosisEval.JSON.readTree(Path.of("src/test/resources/diagnosis-eval/pricing.json").toFile()).path("models");
+        JsonNode pricing = DiagnosisEval.JSON.readTree(Path.of("src/main/resources/llm/pricing.json").toFile()).path("models");
         String caseSet = System.getenv().getOrDefault("DIAGNOSIS_EVAL_CASES", "base");
         boolean ragCases = !caseSet.equals("base");
         List<Case> cases = DiagnosisEval.loadCaseSet(caseSet);

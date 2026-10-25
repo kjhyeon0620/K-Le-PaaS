@@ -52,6 +52,7 @@ class ApprovalPinningTest {
     @Autowired private DeploymentConfigRepository configs;
     @Autowired private JdbcTemplate jdbc;
     @MockitoBean(name = "nlpLlm") private klepaas.backend.ai.llm.LlmClient nlpLlm;
+    @MockitoBean private klepaas.backend.ai.usage.LlmUsageService usage; // #176 사용량·예산(이 테스트는 명령 해석을 부르지 않는다)
     @MockitoBean private IntentParser intentParser;
     @MockitoBean private ActionDispatcher dispatcher;
     @MockitoBean private klepaas.backend.deployment.service.RecoveryService recoveryService;

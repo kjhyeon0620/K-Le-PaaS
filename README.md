@@ -102,6 +102,7 @@ flowchart LR
 | 자연어 명령 | 구현 | OpenAI `gpt-6-luna` 해석(설정으로 공급사 변경, #136), 위험도·승인, 명령 이력. 고정 입력 30개 × 5회 평가: 교체 후보 `gemini-3.8-flash` intent 92%, `gpt-6-luna` 95%, 두 모델 모두 변경 명령을 승인 불필요(LOW)로 분류한 해석 0 (#58) |
 | AI 진단 | 실험, 운영 사용 | 근거 기반, 결과 재사용, 규칙이 원인을 정하면 모델 호출 없음(#170). RAG는 기본 꺼짐 |
 | LLM 지표 | 구현 | 호출·지연·토큰·진단 경로 지표를 관리 포트(127.0.0.1)에서 Prometheus 형식으로 노출, 로컬 Prometheus·Grafana 구성(#174, [observability](docs/observability.md)) |
+| LLM 사용량·예산 | 구현 | 호출별 사용량·계산 비용 기록, 사용자별 하루 비용 상한(기본 $1), 본인 사용량 조회 API·CLI `usage` (#176) |
 | 에이전트·MCP | 구현, 실서버 확인 | 제안 전용 토큰, 복구 제안, `/api/v1/mcp` |
 | CLI | 구현 | `auth`, `ask`, `confirm`, `history`, `repositories`, `deployments`, `knowledge`, `incidents`, `cost`, `doctor` |
 | 비용 추정 | 구현 | spec 기반 plan·diff·explain·check (실제 청구 아님) |
@@ -251,6 +252,8 @@ DIAGNOSIS_LLM_MODEL=gpt-6-luna
 DIAGNOSIS_LLM_BASE_URL=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+# 사용자별 하루 LLM 계산 비용 상한(USD, #176). 0이면 상한 없음
+LLM_BUDGET_DAILY_USD_PER_USER=1.0
 # 지표 관리 포트 (#174). 127.0.0.1에만 열린다. docs/observability.md
 MANAGEMENT_PORT=8081
 MANAGEMENT_ADDRESS=127.0.0.1

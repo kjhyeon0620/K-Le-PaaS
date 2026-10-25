@@ -35,11 +35,14 @@ class DeploymentDiagnosisServiceTest {
     private final JsonMapper json =
             JsonMapper.builder().propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE).build();
     private final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    private final klepaas.backend.ai.usage.LlmUsageService usage = mock(klepaas.backend.ai.usage.LlmUsageService.class);
     private final DeploymentDiagnosisService service =
-            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, true, meters);
+            new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, true, meters, usage);
 
     {
         when(gemini.model()).thenReturn("luna");
+        when(usage.withinBudget(any(), any())).thenReturn(true);
+        when(usage.dailyLimitUsd()).thenReturn(java.math.BigDecimal.ONE);
         when(repository.findFirstByDeploymentIdOrderByIdDesc(any())).thenReturn(Optional.empty());
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -251,7 +254,7 @@ class DeploymentDiagnosisServiceTest {
 
     @Test
     void ruleFirstDisabledAlwaysUsesModel() throws Exception {
-        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false, meters);
+        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false, meters, usage);
         observed("t-ls-probe-port");
         when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
 
@@ -271,7 +274,7 @@ class DeploymentDiagnosisServiceTest {
 
         // 규칙 우선을 끄면 저장된 규칙 결과를 쓰지 않고 모델로 진단한다
         when(gemini.completeJson(any())).thenReturn(text("{\"abstain\":true}"));
-        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false, meters);
+        var off = new DeploymentDiagnosisService(details, deployments, gemini, json, repository, knowledge, false, meters, usage);
         assertThat(off.diagnose(7L, 1L, false).reused()).isFalse();
         verify(gemini).completeJson(any());
     }
@@ -292,6 +295,45 @@ class DeploymentDiagnosisServiceTest {
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.AI_PARSE_ERROR));
         verify(repository, never()).save(any());
         assertThat(route("model_error")).isEqualTo(1);
+    }
+
+    @Test
+    void budgetExceededAbstainsWithoutModelAndIsNotSaved() throws Exception {
+        observed("t-ls-slow-start"); // 규칙이 원인을 정하지 못하는 사례
+        when(usage.withinBudget(1L, "diagnosis")).thenReturn(false);
+
+        var result = service.diagnose(7L, 1L, false);
+
+        assertThat(result.abstain()).isTrue();
+        assertThat(result.model()).isEqualTo("none");
+        assertThat(result.promptVersion()).isEqualTo("budget-exceeded-v1");
+        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("예산").contains("$1"));
+        verify(gemini, never()).completeJson(any());
+        verify(repository, never()).save(any());
+        verifyNoInteractions(knowledge);
+        assertThat(route("budget_exceeded")).isEqualTo(1);
+    }
+
+    @Test
+    void budgetIsNotCheckedWhenRuleDecides() throws Exception {
+        observed("t-ls-probe-port");
+        when(usage.withinBudget(any(), any())).thenReturn(false);
+
+        assertThat(service.diagnose(7L, 1L, false).model()).isEqualTo("rule");
+        verify(usage, never()).withinBudget(any(), any());
+    }
+
+    @Test
+    void modelCallIsRecordedAsUsageAndFailureAsError() throws Exception {
+        observed("t-ls-slow-start");
+        var response = text("{\"abstain\":true}");
+        when(gemini.completeJson(any())).thenReturn(response);
+        service.diagnose(7L, 1L, false);
+        verify(usage).record(1L, "diagnosis", gemini, response, 7L);
+
+        when(gemini.completeJson(any())).thenThrow(new AiProcessingException(ErrorCode.AI_API_ERROR, "down"));
+        assertThatThrownBy(() -> service.diagnose(7L, 1L, true)).isInstanceOf(AiProcessingException.class);
+        verify(usage).recordFailure(1L, "diagnosis", gemini, 7L);
     }
 
     /** 진단 경로 지표 (#174) */

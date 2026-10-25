@@ -87,6 +87,7 @@ branch: feat/#174-llm-usage-metrics
 - 머지 전 확인 필요: 운영 서버에서 관리 포트(기본 8081)를 다른 프로세스가 쓰지 않는지. 쓰고 있으면 백엔드가 뜨지 못하고 배포 수신기가 이전 릴리스로 되돌린다. 그 경우 `MANAGEMENT_PORT`를 비어 있는 포트로 설정한다.
 - 2026-10-25 사용자가 운영 서버에서 8081이 비어 있음을 확인했다(머지 전). 기본값 그대로 배포한다.
 - 머지 후 배포 workflow 결과, Q3 운영 확인(사용자가 서버 안에서 `curl`)을 다음 PR에서 기록한다.
+- 2026-10-25 머지(#175) 후 `main` 배포 workflow 성공. 운영 확인(사용자 실행): 관리 포트가 `127.0.0.1:8081`에서만 LISTEN, `/actuator/prometheus` 응답(`jvm_` 57줄). 재기동 직후 `klepaas_` 지표 없음 → 자연어 명령 1건(`LIST_REPOSITORIES`) 뒤 `klepaas_llm_calls_total{feature=nlp,outcome=success}` 1, 지연 3.2초, 토큰 입력 1,290·출력 46. 원자료 `.local/evidence/0174-llm-usage-metrics/ops/`.
 
 ## 회고
 - 어긋난 점: 관리 포트에도 앱 보안 필터가 걸린다는 것을 예상하지 못했다(테스트로 발견). 대시보드를 처음에 `rate` 기준으로 만들어 적은 트래픽에서 비어 보였다.

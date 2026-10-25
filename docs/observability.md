@@ -21,7 +21,11 @@ curl -s 127.0.0.1:8081/actuator/prometheus | grep '^klepaas_'
 | `klepaas_llm_calls_total` | `feature`(diagnosis·nlp), `provider`, `model`, `outcome`(success·error) | LLM 호출 수. 응답을 받으면 success(응답 파싱 실패도 과금되므로 success), 공급사 호출 실패·키 없음은 error |
 | `klepaas_llm_latency_seconds` | `feature`, `provider`, `model` | 성공 호출 지연(히스토그램). 실패 지연은 타임아웃이 섞여 기록하지 않는다 |
 | `klepaas_llm_tokens_total` | `feature`, `provider`, `model`, `kind`(input·cached_input·output·reasoning) | 공급사가 응답에 보고한 토큰. 입력은 캐시 입력을, 출력은 추론 토큰을 포함한다. 보고하지 않는 항목은 세지 않는다 |
-| `klepaas_diagnosis_requests_total` | `route`(reused·no_evidence·rule·model·model_error) | 진단 요청이 어느 경로로 끝났는지. reused·no_evidence·rule은 모델을 부르지 않은 경로(#117·#170) |
+| `klepaas_diagnosis_requests_total` | `route`(reused·no_evidence·rule·model·model_error·budget_exceeded) | 진단 요청이 어느 경로로 끝났는지. reused·no_evidence·rule·budget_exceeded는 모델을 부르지 않은 경로(#117·#170·#176) |
+| `klepaas_llm_cost_usd_total` | `feature`, `provider`, `model` | 가격표로 계산한 비용(USD) (#176) |
+| `klepaas_llm_unpriced_calls_total` | `model` | 가격표에 없는 모델의 호출 수(로컬 모델 등). 비용에 들어가지 않는다 (#176) |
+| `klepaas_llm_budget_exceeded_total` | `feature` | 사용자 일일 예산을 넘어 모델을 부르지 않은 요청 수 (#176) |
+| `klepaas_llm_usage_record_failures_total` | - | 사용량 DB 기록 실패 수. 그 호출은 예산 계산에서 빠질 수 있다 (#176) |
 
 - 사용자 ID 같은 높은 카디널리티 값과 프롬프트·응답·비밀값은 태그에 넣지 않는다.
 - 래퍼(`MeteredLlmClient`)는 `LlmConfig`가 만드는 모든 LLM 클라이언트를 감싼다. 새 기능이 LLM을 쓰면 `feature` 이름만 정하면 된다.
@@ -41,15 +45,15 @@ sum by (feature, kind) (increase(klepaas_llm_tokens_total[1h]))
 
 트래픽이 적은 서버에서는 `rate`·`increase`가 비어 보일 수 있다(수집 사이에 값이 변하지 않으면 계산되지 않는다). 대시보드는 재기동 이후 누적값을 기본으로 보인다.
 
-## 비용
+## 비용과 예산 (#176)
 
-이번에는 토큰만 지표로 낸다(#174 결정). 비용은 토큰 × 가격으로 계산한다:
+LLM 호출마다 사용자·기능·토큰·계산 비용을 `llm_usages`에 남기고(재기동해도 남는다), 본인 사용량은 `GET /api/v1/llm/usage`·`klepaas usage`로 본다. 사용자별 하루 비용 상한은 `LLM_BUDGET_DAILY_USD_PER_USER`(기본 $1, 한국 시간 자정 기준, 0이면 없음)다. 비용은 토큰 × 가격으로 계산한다:
 
 ```
 비용 = (input − cached_input) × 입력 가격 + cached_input × 캐시 입력 가격 + output × 출력 가격
 ```
 
-가격은 평가 하네스의 가격표(`backend/src/test/resources/diagnosis-eval/pricing.json`, 확인 날짜 포함)를 쓴다. 제품의 비용 지표와 공급사 청구액 대조는 예산 상한 이슈에서 다룬다. 외부 가격 API·중개 가격표는 실제 청구가와 다를 수 있어 쓰지 않는다.
+가격은 `backend/src/main/resources/llm/pricing.json`(확인 날짜·출처 포함, 평가 하네스와 같은 파일)을 쓴다. 계산 비용과 공급사 청구액 대조 결과는 스펙 0176에 있다. 외부 가격 API·중개 가격표는 실제 청구가와 다를 수 있어 쓰지 않는다. 가격이 바뀌면 `pricing.json`을 확인 날짜와 함께 고친다.
 
 ## 로컬에서 보기
 

@@ -1,6 +1,6 @@
 {
   "unit": "USD per 1M tokens, standard tier",
-  "note": "입력은 캐시 입력을 뺀 나머지에 input, 캐시 입력에 cached_input, 출력(생각 토큰 포함)에 output을 곱한다. 가격이 바뀌면 이 파일만 고친다.",
+  "note": "입력은 캐시 입력을 뺀 나머지에 input, 캐시 입력에 cached_input, 출력(생각 토큰 포함)에 output을 곱한다. 가격이 바뀌면 이 파일만 고친다. 제품 비용 계산(LlmPricing, #176)과 평가 하네스가 같은 파일을 쓴다. 로컬 모델(openai-compatible)은 넣지 않는다(가격 없음).",
   "models": {
     "gemini-2.5-flash":      {"input": 0.30, "cached_input": 0.03,  "output": 2.50, "as_of": "2026-10-09", "source": "ai.google.dev/gemini-api/docs/pricing"},
     "gemini-2.5-flash-lite": {"input": 0.10, "cached_input": 0.01,  "output": 0.40, "as_of": "2026-10-09", "source": "ai.google.dev/gemini-api/docs/pricing"},
