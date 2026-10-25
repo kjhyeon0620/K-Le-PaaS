@@ -344,4 +344,3 @@ ApplicationReadyEvent에서 한 번, 행마다: 짧은 읽기 → 소유권 확�
 | KANIKO 빌드 provider는 NCP(`ncpInfraService`)만 있다. `AWS`(`awsInfraService`), `ON_PREMISE`(`k8sInfraService`) bean은 없다 | AWS나 ON_PREMISE 저장소가 KANIKO 경로를 타면 provider 조회에서 실패한다. 외부 이미지 경로는 provider를 쓰지 않아 영향이 없다 | 후순위 |
 | 비용은 spec 기반 추정이다 | 실제 청구액과 다를 수 있다 | 범위 밖 |
 | 배포 job에 DB 백업·스키마 롤백이 없다 | 앱 롤백이 DB 롤백이 아니다 | 운영 절차 ([CICD.md](CICD.md)) |
-| 인증 없이 허용된 경로(`/api/v1/system/**`, `/actuator/prometheus` 등) 중 없는 경로는 404가 아니라 500 `INTERNAL_ERROR`를 돌려준다. `GlobalExceptionHandler`의 `Exception` 처리가 `NoResourceFoundException`도 잡는다 (#174에서 발견) | 없는 경로를 서버 오류로 보이게 한다. 내용은 노출되지 않는다 | 이슈 후보 (에러 응답 계약 변경) |
