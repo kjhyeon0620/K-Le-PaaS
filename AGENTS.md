@@ -11,6 +11,7 @@
 | 제품 목표, 실행 순서, 이슈 상태 | [`docs/product.md`](docs/product.md) |
 | 구조, 권한, 상태 모델, 에러 코드, 설정, **알려진 격차** | [`docs/architecture.md`](docs/architecture.md) |
 | 결정 근거 | [`docs/adr/`](docs/adr/README.md) |
+| 콘솔 동작 검증 (로컬 기동, 로그인, 증거) | [`docs/verification/`](docs/verification/README.md) |
 | 플랫폼 배포, 스키마 마이그레이션 | [`docs/CICD.md`](docs/CICD.md) |
 | 사용자 앱 배포 | [`docs/ORACLE_K3S_GHCR_DEPLOYMENT.md`](docs/ORACLE_K3S_GHCR_DEPLOYMENT.md), [`docs/STAGE2_RESOURCE_ACCESS.md`](docs/STAGE2_RESOURCE_ACCESS.md) |
 | CLI 계약 | [`docs/CLI_REFERENCE.md`](docs/CLI_REFERENCE.md) |
