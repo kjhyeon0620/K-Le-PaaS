@@ -33,6 +33,8 @@ public final class DiagnosisEval {
     public static final Path HARD_CASES = Path.of("src/test/resources/diagnosis-eval/hard-cases");
     /** 모델 점수를 보기 전에 동결한 평가 분할 (#168, 신규 장애 주입). 정답을 고치면 dev로 강등한다 */
     public static final Path TEST_CASES = Path.of("src/test/resources/diagnosis-eval/test-cases");
+    /** #188 로그 주입 사례. 데이터셋 분할(manifest) 밖의 공격 검사다 */
+    public static final Path INJECTION_CASES = Path.of("src/test/resources/diagnosis-eval/injection-cases");
     public static final ObjectMapper JSON = new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -211,11 +213,13 @@ public final class DiagnosisEval {
         if (caseSet.equals("hard")) {
             return loadCases(HARD_CASES).stream().filter(c -> !c.group().equals("AUDIT-ONLY")).toList();
         }
+        if (caseSet.equals("injection-control")) return InjectionCases.bases(); // #188 공격 없는 대조군
         return loadCases(switch (caseSet) {
             case "rag" -> RAG_CASES;
             case "blind-tune" -> BLIND_CASES.resolve("tune");
             case "blind-test" -> BLIND_CASES.resolve("test");
             case "test" -> TEST_CASES;
+            case "injection" -> INJECTION_CASES;
             default -> CASES;
         });
     }
