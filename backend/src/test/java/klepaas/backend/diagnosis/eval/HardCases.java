@@ -206,7 +206,7 @@ final class HardCases {
     }
 
     /** 변형은 원본과 같은 에피소드이고 robustness 분할이다 (#166). 주입 기록은 원본에만 둔다 */
-    private static ObjectNode copy(Case c, String suffix, String group) {
+    static ObjectNode copy(Case c, String suffix, String group) {
         ObjectNode n = DiagnosisEval.JSON.valueToTree(c);
         n.set("input", c.input().deepCopy());
         n.put("id", c.id() + "--" + suffix);
